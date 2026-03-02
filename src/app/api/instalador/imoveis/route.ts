@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
             }
         });
 
+        console.log(`[API-GET-IMOVEIS] Encontrados ${imoveis.length} imóveis.`);
         return NextResponse.json({ imoveis });
     } catch (error) {
         console.error("Erro ao listar imóveis:", error);
