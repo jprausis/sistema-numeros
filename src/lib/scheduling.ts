@@ -13,8 +13,12 @@ export async function getAvailableSlots(date: Date) {
     if (!daysAllowed.includes(dayOfWeek)) return [];
 
     const leadTimeDays = parseInt(configMap.lead_time_days || "1");
+    const maxDaysAhead = 10; // Limite solicitado
     const today = startOfDay(new Date());
-    if (!isAfter(startOfDay(date), addDays(today, leadTimeDays - 1))) return [];
+
+    // Validar intervalo permitido (1 a 10 dias)
+    if (isBefore(startOfDay(date), addDays(today, leadTimeDays - 1))) return [];
+    if (isAfter(startOfDay(date), addDays(today, maxDaysAhead))) return [];
 
     const startStr = configMap.hours_start || "08:00";
     const endStr = configMap.hours_end || "19:00";
@@ -23,6 +27,9 @@ export async function getAvailableSlots(date: Date) {
     const [startH, startM] = startStr.split(':').map(Number);
     const [endH, endM] = endStr.split(':').map(Number);
 
+    // Ajuste de Fuso Horário: Vercel usa UTC. Brasília é UTC-3.
+    // Para que o slot das 08:00 no servidor seja 08:00 no Brasil,
+    // precisamos considerar que o sistema gera em UTC.
     let currentSlot = setMinutes(setHours(startOfDay(date), startH), startM);
     const lastSlot = setMinutes(setHours(startOfDay(date), endH), endM);
 

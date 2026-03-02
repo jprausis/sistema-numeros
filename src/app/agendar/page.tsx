@@ -130,13 +130,13 @@ export default function AgendarPage() {
                         />
                     </div>
                 </div>
-
                 <div className={styles.formGroup}>
                     <label className={styles.label}>Data da Instalação</label>
                     <input
                         type="date"
                         required
                         min={format(addDays(new Date(), 1), 'yyyy-MM-dd')}
+                        max={format(addDays(new Date(), 10), 'yyyy-MM-dd')}
                         className={styles.input}
                         value={selectedDate}
                         onChange={e => setSelectedDate(e.target.value)}
@@ -149,16 +149,24 @@ export default function AgendarPage() {
                         {loading ? (
                             <p className="text-center py-4">Carregando horários...</p>
                         ) : slots.length > 0 ? (
-                            slots.map(slot => (
-                                <button
-                                    key={slot.toISOString()}
-                                    type="button"
-                                    className={`${styles.slotButton} ${selectedSlot === slot.toISOString() ? styles.slotActive : ''}`}
-                                    onClick={() => setSelectedSlot(slot.toISOString())}
-                                >
-                                    {format(slot, 'HH:mm')}
-                                </button>
-                            ))
+                            slots.map(slot => {
+                                // Ajustar exibição: se o servidor enviou em UTC, o browser interpretará localmente.
+                                // Para forçar a exibição correta independente do fuso do browser/servidor:
+                                const hours = slot.getUTCHours();
+                                const mins = slot.getUTCMinutes();
+                                const displayTime = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+
+                                return (
+                                    <button
+                                        key={slot.toISOString()}
+                                        type="button"
+                                        className={`${styles.slotButton} ${selectedSlot === slot.toISOString() ? styles.slotActive : ''}`}
+                                        onClick={() => setSelectedSlot(slot.toISOString())}
+                                    >
+                                        {displayTime}
+                                    </button>
+                                );
+                            })
                         ) : (
                             <p className="text-center py-4" style={{ gridColumn: '1 / -1' }}>
                                 Nenhum horário disponível para este dia.
@@ -174,7 +182,7 @@ export default function AgendarPage() {
                 >
                     {loading ? "Processando..." : "Confirmar Agendamento"}
                 </button>
-            </form>
-        </div>
+            </form >
+        </div >
     );
 }
