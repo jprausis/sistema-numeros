@@ -103,6 +103,31 @@
 }
 
 /* Nova Tela de Processo */
+.NAO_INICIADO {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.PENDENTE {
+    background: #fef9c3;
+    color: #eab308;
+}
+
+.AUSENTE {
+    background: #ffedd5;
+    color: #f97316;
+}
+
+.LIBERADO {
+    background: #dbeafe;
+    color: #3b82f6;
+}
+
+.CONCLUIDO {
+    background: #dcfce7;
+    color: #22c55e;
+}
+
 .processContainer {
     display: flex;
     flex-direction: column;

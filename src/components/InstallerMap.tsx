@@ -11,13 +11,15 @@ import { utmToLatLng } from '@/utils/geo';
 
 // Corrigir ícones do Leaflet
 const getIcon = (status: string) => {
-    let color = '#ef4444'; // Vermelho (NÃO INICIADO)
-    if (status === 'CONCLUIDO') color = '#10b981'; // Verde
-    if (status === 'PENDENTE') color = '#f59e0b'; // Amarelo
+    let color = '#ef4444'; // NAO_INICIADO (Vermelho)
+    if (status === 'LIBERADO') color = '#3b82f6'; // Azul
+    if (status === 'AUSENTE') color = '#f97316'; // Laranja
+    if (status === 'PENDENTE') color = '#eab308'; // Amarelo
+    if (status === 'CONCLUIDO') color = '#22c55e'; // Verde
 
     return L.divIcon({
         className: styles.markerIcon || '',
-        html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.4);"></div>`,
+        html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></div>`,
         iconSize: [14, 14],
         iconAnchor: [7, 7]
     });
@@ -101,7 +103,9 @@ export default function InstallerMap({
                     }}
                     title="Alternar Camada"
                 >
-                    {layerType === 'street' ? '🛰️' : '🛣️'}
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                    </svg>
                 </div>
 
                 {userLocation && (
@@ -116,7 +120,10 @@ export default function InstallerMap({
                         }}
                         title="Minha Localização"
                     >
-                        🎯
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="3" />
+                            <path d="M12 2v3m0 14v3m-7-10H2m17 0h3" />
+                        </svg>
                     </div>
                 )}
             </div>

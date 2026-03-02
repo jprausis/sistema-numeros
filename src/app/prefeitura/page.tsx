@@ -63,7 +63,7 @@ export default function PrefeituraPage() {
         }, () => setLoadingGps(false));
     };
 
-    const handleStatusUpdate = async (status: 'LIBERADO' | 'AUSENTE') => {
+    const handleStatusUpdate = async (status: 'LIBERADO' | 'AUSENTE' | 'NAO_INICIADO') => {
         if (!selectedForProcess) return;
         setUploading(true);
         try {
@@ -74,12 +74,15 @@ export default function PrefeituraPage() {
                     inscimob: selectedForProcess.inscimob,
                     status: status,
                     fotoUrl: null, // Prefeitura não precisa de foto
-                    obs: `Atualizado por Operador Prefeitura: ${user?.user_metadata?.name || user?.email}`
+                    obs: status === 'NAO_INICIADO'
+                        ? `Resetado por Operador Prefeitura: ${user?.user_metadata?.name || user?.email}`
+                        : `Atualizado por Operador Prefeitura: ${user?.user_metadata?.name || user?.email}`
                 })
             });
 
             if (res.ok) {
-                alert(`Imóvel marcado como ${status === 'LIBERADO' ? 'Liberado' : 'Ausente'}!`);
+                const msg = status === 'LIBERADO' ? 'Liberado' : (status === 'AUSENTE' ? 'Ausente' : 'Não Iniciado');
+                alert(`Imóvel marcado como ${msg}!`);
                 setSelectedForProcess(null);
                 fetchImoveis();
                 handleGpsSearch();
@@ -103,7 +106,11 @@ export default function PrefeituraPage() {
                     <h1>Operador Prefeitura</h1>
                     <p>{user?.email}</p>
                 </div>
-                <button onClick={handleLogout} className={styles.logoutBtn}>🚪</button>
+                <button onClick={handleLogout} className={styles.logoutBtn}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
+                    </svg>
+                </button>
             </header>
 
             <nav className={styles.nav}>
@@ -111,13 +118,21 @@ export default function PrefeituraPage() {
                     className={`${styles.navBtn} ${view === 'map' ? styles.activeNav : ''}`}
                     onClick={() => setView('map')}
                 >
-                    📍 Mapa Geral
+                    <svg width="18" height="18" style={{ marginRight: '6px', verticalAlign: 'middle' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                        <circle cx="12" cy="10" r="3" />
+                    </svg>
+                    Mapa Geral
                 </button>
                 <button
                     className={`${styles.navBtn} ${view === 'gps' ? styles.activeNav : ''}`}
                     onClick={() => { setView('gps'); handleGpsSearch(); }}
                 >
-                    📡 Estou no Local
+                    <svg width="18" height="18" style={{ marginRight: '6px', verticalAlign: 'middle' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M12 2v3m0 14v3m-7-10H2m17 0h3" />
+                    </svg>
+                    Estou no Local
                 </button>
             </nav>
 
@@ -161,7 +176,10 @@ export default function PrefeituraPage() {
                                             <p>{candidate.bairro?.nome} - ID: {candidate.inscimob}</p>
                                             <span className={styles.distance}>a {Math.round(candidate.distance)}m</span>
                                             <span className={`${styles.statusPill} ${styles[candidate.status]}`}>
-                                                {candidate.status}
+                                                {candidate.status === 'NAO_INICIADO' ? 'Não Iniciado' :
+                                                    candidate.status === 'LIBERADO' ? 'Liberado' :
+                                                        candidate.status === 'AUSENTE' ? 'Ausente' :
+                                                            candidate.status === 'PENDENTE' ? 'Pendente' : candidate.status}
                                             </span>
                                         </div>
                                         <button
@@ -198,14 +216,21 @@ export default function PrefeituraPage() {
                                 onClick={() => handleStatusUpdate('LIBERADO')}
                                 disabled={uploading}
                             >
-                                ✅ Liberar p/ Instalação
+                                Liberar p/ Instalação
                             </button>
                             <button
                                 className={styles.ausenteBtn}
                                 onClick={() => handleStatusUpdate('AUSENTE')}
                                 disabled={uploading}
                             >
-                                👤 Morador Ausente
+                                Morador Ausente
+                            </button>
+                            <button
+                                className={styles.resetBtn}
+                                onClick={() => handleStatusUpdate('NAO_INICIADO')}
+                                disabled={uploading}
+                            >
+                                Reiniciar p/ Não Iniciado
                             </button>
                         </div>
 

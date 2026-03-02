@@ -128,18 +128,28 @@
 }
 
 .NAO_INICIADO {
-    background: #f1f5f9;
-    color: #64748b;
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.LIBERADO {
+    background: #dbeafe;
+    color: #3b82f6;
+}
+
+.AUSENTE {
+    background: #ffedd5;
+    color: #f97316;
+}
+
+.PENDENTE {
+    background: #fef9c3;
+    color: #eab308;
 }
 
 .CONCLUIDO {
     background: #dcfce7;
-    color: #16a34a;
-}
-
-.PENDENTE {
-    background: #fef3c7;
-    color: #d97706;
+    color: #22c55e;
 }
 
 .actions {
