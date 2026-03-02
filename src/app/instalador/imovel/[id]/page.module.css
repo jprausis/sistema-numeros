@@ -1,0 +1,119 @@
+.container {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.backButton {
+    padding: 0.5rem;
+    color: var(--secondary);
+}
+
+.title {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.propertyCard {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow);
+}
+
+.infoRow {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.infoRow span {
+    color: var(--secondary);
+    font-size: 0.9rem;
+}
+
+.highlight {
+    font-size: 1.25rem;
+    color: var(--primary);
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.statusButtons {
+    display: flex;
+    gap: 1rem;
+}
+
+.statusBtn {
+    flex: 1;
+    padding: 1rem;
+    border: 1px solid var(--input);
+    border-radius: var(--radius-sm);
+    background: var(--background);
+    font-weight: 600;
+}
+
+.statusActiveSuccess {
+    background: var(--success);
+    color: white;
+    border-color: var(--success);
+}
+
+.statusActiveWarning {
+    background: var(--warning);
+    color: white;
+    border-color: var(--warning);
+}
+
+.fileInput {
+    padding: 1rem;
+    border: 2px dashed var(--input);
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+}
+
+.textarea {
+    padding: 0.75rem;
+    border: 1px solid var(--input);
+    border-radius: var(--radius-sm);
+    min-height: 100px;
+    resize: vertical;
+}
+
+.submitButton {
+    background: var(--primary);
+    color: white;
+    padding: 1.25rem;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-top: 1rem;
+}
+
+.submitButton:disabled {
+    opacity: 0.7;
+}

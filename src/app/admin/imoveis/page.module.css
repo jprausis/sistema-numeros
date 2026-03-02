@@ -1,0 +1,260 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.header h1 {
+    font-size: 1.8rem;
+    font-weight: 800;
+}
+
+.headerActions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.exportBtn {
+    background: #22c55e;
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    box-shadow: 0 4px 10px rgba(34, 197, 94, 0.2);
+}
+
+.filterSelect {
+    padding: 0.7rem;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: white;
+    font-weight: 600;
+}
+
+.viewToggle {
+    display: flex;
+    background: var(--accent);
+    padding: 0.25rem;
+    border-radius: 8px;
+}
+
+.viewToggle button {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+.activeToggle {
+    background: var(--primary);
+    color: white;
+}
+
+.searchWrapper {
+    width: 100%;
+}
+
+.searchBar {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    font-size: 1rem;
+    box-shadow: var(--shadow);
+}
+
+.listCard {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th {
+    text-align: left;
+    padding: 1rem;
+    border-bottom: 2px solid var(--accent);
+    color: var(--secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--accent);
+}
+
+.tableThumb {
+    width: 60px;
+    height: 40px;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+    background: #f1f5f9;
+}
+
+.tableThumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.noPhoto {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.badge {
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 800;
+}
+
+.NAO_INICIADO {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.CONCLUIDO {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.PENDENTE {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.locateBtn {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 0.4rem;
+    border-radius: 6px;
+    font-size: 1.2rem;
+}
+
+.editBtn {
+    background: var(--accent);
+    color: var(--primary);
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.mapContainer {
+    height: 70vh;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--card-border);
+}
+
+/* Modal */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 1rem;
+}
+
+.modal {
+    background: white;
+    width: 100%;
+    max-width: 500px;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modalImg {
+    width: 100%;
+    max-height: 250px;
+    object-fit: cover;
+    border-radius: 12px;
+    margin-top: 0.5rem;
+    cursor: pointer;
+}
+
+.modalPhotoArea {
+    margin-bottom: 1.5rem;
+}
+
+.modalPhotoArea label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+    color: var(--secondary);
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+.formGroup label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+}
+
+.formGroup select,
+.formGroup textarea {
+    width: 100%;
+    padding: 0.8rem;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.modalActions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.saveBtn {
+    flex: 2;
+    background: var(--primary);
+    color: white;
+    padding: 0.8rem;
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+.cancelBtn {
+    flex: 1;
+    background: #f1f5f9;
+    padding: 0.8rem;
+    border-radius: 10px;
+    font-weight: 600;
+}

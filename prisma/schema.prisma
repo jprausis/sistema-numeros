@@ -1,0 +1,60 @@
+datasource db {
+  provider = "postgresql"
+}
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  password      String?
+  role          String    @default("INSTALLER") // ADMIN, OPERATOR, INSTALLER
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Bairro {
+  id                String   @id @default(cuid())
+  nome              String
+  dataImportacao    DateTime @default(now())
+  totalImoveis      Int      @default(0)
+  status            String   @default("ATIVO") // ATIVO, ARQUIVADO
+  observacoes       String?
+  imoveis           Imovel[]
+}
+
+model Imovel {
+  inscimob          String   @id
+  x                 Float
+  y                 Float
+  numeroAInstalar   String
+  endereco          String?
+  status            String   @default("NAO_INICIADO") // NAO_INICIADO, CONCLUIDO, PENDENTE
+  dataExecucao      DateTime?
+  instaladorResp    String?
+  fotos             String?  // JSON ou caminhos separados por vírgula
+  obsPendente       String?
+  bairroId          String
+  bairro            Bairro   @relation(fields: [bairroId], references: [id])
+}
+
+model Agendamento {
+  protocolo         String   @id // AG-XXXXXX
+  nome              String
+  telefone          String
+  enderecoCompleto  String
+  dataHora          DateTime
+  status            String   @default("AGENDADO") // AGENDADO, EM_ROTA, CONCLUIDO, REAGENDAR, CANCELADO, PENDENTE
+  inscimobVinculo   String?  // Vínculo manual ao Imovel.inscimob
+  createdAt         DateTime @default(now())
+}
+
+model Config {
+  key       String   @id
+  value     String   // Armazenado como JSON stringified
+  updatedAt DateTime @updatedAt
+}

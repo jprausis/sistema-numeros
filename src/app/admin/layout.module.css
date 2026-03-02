@@ -1,0 +1,110 @@
+.adminContainer {
+    display: flex;
+    min-height: 100vh;
+    background: #f8fafc;
+}
+
+.sidebar {
+    width: 260px;
+    background: var(--card);
+    border-right: 1px solid var(--card-border);
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+}
+
+.logo {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 2.5rem;
+}
+
+.logo strong {
+    font-size: 1.25rem;
+    color: var(--primary);
+}
+
+.logo span {
+    font-size: 0.8rem;
+    color: var(--secondary);
+}
+
+.nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+}
+
+.navItem {
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    color: var(--secondary);
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.navItem:hover {
+    background: var(--accent);
+    color: var(--primary);
+}
+
+.active {
+    background: var(--accent);
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.mainContent {
+    flex: 1;
+    padding: 2.5rem;
+    overflow-y: auto;
+}
+
+.sidebarFooter {
+    margin-top: auto;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--card-border);
+}
+
+.logoutButton {
+    width: 100%;
+    padding: 0.75rem;
+    background: #fef2f2;
+    color: #ef4444;
+    border: 1px solid #fee2e2;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.logoutButton:hover {
+    background: #fee2e2;
+}
+
+@media (max-width: 768px) {
+    .adminContainer {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        padding: 1rem;
+    }
+
+    .nav {
+        flex-direction: row;
+        overflow-x: auto;
+        padding-bottom: 0.5rem;
+    }
+
+    .navItem {
+        white-space: nowrap;
+    }
+}

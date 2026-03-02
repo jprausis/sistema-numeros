@@ -1,0 +1,146 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.header h1 {
+    font-size: 1.8rem;
+    font-weight: 800;
+}
+
+.header p {
+    color: var(--secondary);
+}
+
+.addButton {
+    background: var(--primary);
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+}
+
+.formCard,
+.listCard {
+    background: var(--card);
+    padding: 2rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow);
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.formGroup label {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.formGroup input,
+.formGroup select {
+    padding: 0.75rem;
+    border: 1px solid var(--input);
+    border-radius: var(--radius-sm);
+    background: var(--background);
+}
+
+.submitButton {
+    background: var(--primary);
+    color: white;
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th {
+    text-align: left;
+    padding: 1rem;
+    border-bottom: 2px solid var(--accent);
+    color: var(--secondary);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+
+.table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--accent);
+}
+
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.ADMIN {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.OPERATOR {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.INSTALLER {
+    background: #f0f9ff;
+    color: #0ea5e9;
+}
+
+.actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.editBtn,
+.deleteBtn {
+    padding: 0.4rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    background: var(--accent);
+    border: 1px solid var(--card-border);
+}
+
+.deleteBtn:hover {
+    background: #fee2e2;
+}
+
+.editBtn:hover {
+    background: #f0f9ff;
+}
+
+@media (max-width: 600px) {
+    .row {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,0 +1,165 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+}
+
+.header h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--foreground);
+}
+
+.exportButton {
+    background: var(--accent);
+    color: var(--primary);
+    padding: 0.75rem 1.25rem;
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+}
+
+.exportButton:hover {
+    background: var(--primary);
+    color: white;
+}
+
+
+.header p {
+    color: var(--secondary);
+}
+
+.statsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+
+.card {
+    background: var(--card);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.cardLabel {
+    font-size: 0.85rem;
+    color: var(--secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.cardValue {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--foreground);
+}
+
+.cardSub {
+    font-size: 0.9rem;
+    color: var(--secondary);
+}
+
+.success {
+    color: var(--primary);
+}
+
+.warning {
+    color: var(--warning);
+}
+
+.info {
+    color: var(--info);
+}
+
+.mainGrid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+}
+
+.total {
+    border-left: 5px solid #64748b;
+}
+
+.success {
+    border-left: 5px solid var(--primary);
+}
+
+.warning {
+    border-left: 5px solid #f59e0b;
+}
+
+.info {
+    border-left: 5px solid #0ea5e9;
+}
+
+.activityCard {
+    background: var(--card);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow);
+}
+
+.quickActions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.quickActions button {
+    padding: 0.75rem;
+    background: var(--accent);
+    color: var(--primary);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    text-align: left;
+    transition: all 0.2s;
+}
+
+.quickActions button:hover {
+    background: var(--primary);
+    color: white;
+}
+
+@media (max-width: 900px) {
+    .mainGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.progressSection {
+    background: var(--card);
+    padding: 2rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow);
+}
+
+.progressSection h3 {
+    margin-bottom: 1.5rem;
+}
+
+.progressBarWrapper {
+    width: 100%;
+    height: 20px;
+    background: var(--accent);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+.progressBar {
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.5s ease-in-out;
+}

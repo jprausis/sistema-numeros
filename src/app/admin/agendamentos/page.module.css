@@ -1,0 +1,101 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.header h1 {
+    font-size: 1.8rem;
+    font-weight: 800;
+}
+
+.header p {
+    color: var(--secondary);
+}
+
+.listCard {
+    background: var(--card);
+    padding: 2rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th {
+    text-align: left;
+    padding: 1rem;
+    border-bottom: 2px solid var(--accent);
+    color: var(--secondary);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+
+.table td {
+    padding: 1.25rem 1rem;
+    border-bottom: 1px solid var(--accent);
+}
+
+.protoBadge {
+    background: var(--accent);
+    color: var(--primary);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+.linkedBadge {
+    background: #dcfce7;
+    color: #16a34a;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.unlinkedBadge {
+    color: var(--secondary);
+    font-size: 0.8rem;
+    opacity: 0.6;
+}
+
+.actionBtn {
+    background: var(--primary);
+    color: white;
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.vincularForm {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.miniInput {
+    width: 100px;
+    padding: 0.4rem;
+    border: 1px solid var(--input);
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.vincBtn {
+    background: var(--primary);
+    color: white;
+    padding: 0.4rem;
+    border-radius: 4px;
+}
+
+.cancelBtn {
+    color: var(--danger);
+    padding: 0.4rem;
+}
