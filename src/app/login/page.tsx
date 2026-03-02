@@ -35,6 +35,8 @@ export default function LoginPage() {
 
         if (profile?.role === 'ADMIN' || profile?.role === 'OPERATOR') {
             router.push('/admin');
+        } else if (profile?.role === 'PREFEITURA') {
+            router.push('/prefeitura');
         } else {
             router.push('/instalador');
         }

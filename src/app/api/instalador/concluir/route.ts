@@ -5,7 +5,7 @@ export async function PATCH(req: NextRequest) {
     try {
         const { inscimob, status, fotoUrl, obs, protocolo } = await req.json();
 
-        if (!inscimob || !status || !fotoUrl) {
+        if (!inscimob || !status) {
             return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
         }
 
