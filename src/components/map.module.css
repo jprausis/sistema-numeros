@@ -77,25 +77,37 @@
     width: 100%;
 }
 
-.layerToggle {
+.mapControls {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 15px;
+    right: 15px;
     z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.controlBtn {
     background: white;
-    padding: 0.6rem 1rem;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
     cursor: pointer;
-    font-weight: 800;
-    font-size: 0.85rem;
+    font-size: 1.4rem;
     color: var(--primary);
-    border: 2px solid var(--primary);
+    border: 2px solid white;
     transition: all 0.2s;
 }
 
-.layerToggle:hover {
-    background: var(--primary);
-    color: white;
-    transform: scale(1.05);
+.controlBtn:hover {
+    transform: scale(1.1);
+    border-color: var(--primary);
+}
+
+.controlBtn:active {
+    transform: scale(0.95);
 }

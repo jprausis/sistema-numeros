@@ -22,6 +22,7 @@ export default function InstallerDashboard() {
     const [view, setView] = useState<'map' | 'list' | 'gps'>('map');
     const [properties, setProperties] = useState<any[]>([]);
     const [agendamentosList, setAgendamentosList] = useState<any[]>([]);
+    const [searchRadius, setSearchRadius] = useState<number>(80);
 
     // Estados para o Processo de Conclusão (Nova Tela)
     const [selectedForProcess, setSelectedForProcess] = useState<any | null>(null);
@@ -71,7 +72,7 @@ export default function InstallerDashboard() {
             setLocation({ lat: latitude, lon: longitude });
 
             try {
-                const res = await fetch(`/api/instalador/proximos?lat=${latitude}&lon=${longitude}&radius=80`);
+                const res = await fetch(`/api/instalador/proximos?lat=${latitude}&lon=${longitude}&radius=${searchRadius}`);
                 const data = await res.json();
                 setCandidates(data.candidates || []);
             } catch (e) {
@@ -147,7 +148,7 @@ export default function InstallerDashboard() {
                 const resProps = await fetch('/api/instalador/imoveis');
                 const dataProps = await resProps.json();
                 setProperties(dataProps.imoveis || []);
-                if (view === 'gps') handleGpsSearch();
+                if (view === 'gps' || linkingAgendamento) handleGpsSearch();
                 if (view === 'list') fetchAgendamentos();
                 setView('map');
             }
@@ -257,18 +258,37 @@ export default function InstallerDashboard() {
                 {view === 'map' && (
                     <InstallerMap
                         properties={properties}
+                        userLocation={location}
                         onEdit={(p) => setSelectedForProcess(p)}
                     />
                 )}
 
                 {view === 'gps' && (
                     <div className={styles.gpsView}>
-                        <h2> {linkingAgendamento ? 'Escolha o imóvel para vincular' : 'Imóveis Próximos (Raio 80m)'} </h2>
+                        <div className={styles.gpsHeader}>
+                            <h2> {linkingAgendamento ? 'Escolha o imóvel para vincular' : 'Imóveis Próximos'} </h2>
+                            <div className={styles.radiusSelector}>
+                                <span>Raio:</span>
+                                {[80, 200, 500, 1000].map(r => (
+                                    <button
+                                        key={r}
+                                        className={searchRadius === r ? styles.activeRadius : styles.radiusBtn}
+                                        onClick={() => {
+                                            setSearchRadius(r);
+                                            // Disparar nova busca com o raio atualizado
+                                            setTimeout(() => handleGpsSearch(), 50);
+                                        }}
+                                    >
+                                        {r >= 1000 ? (r / 1000) + 'km' : r + 'm'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                         {linkingAgendamento && (
                             <p className={styles.subtext}>Abaixo estão os imóveis perto de você agora.</p>
                         )}
                         {loadingGps ? (
-                            <p>Buscando sua localização...</p>
+                            <p className={styles.loadingText}>📡 Buscando sua localização e imóveis...</p>
                         ) : candidates.length > 0 ? (
                             <div className={styles.candidateList}>
                                 {candidates.map(candidate => (
