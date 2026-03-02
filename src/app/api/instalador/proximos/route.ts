@@ -25,12 +25,12 @@ export async function GET(req: NextRequest) {
         });
 
         const candidates = imoveis
-            .map(imovel => ({
+            .map((imovel: any) => ({
                 ...imovel,
                 distance: calculateDistance(lat, lon, imovel.x, imovel.y)
             }))
-            .filter(imovel => imovel.distance <= radius)
-            .sort((a, b) => a.distance - b.distance)
+            .filter((imovel: any) => imovel.distance <= radius)
+            .sort((a: any, b: any) => a.distance - b.distance)
             .slice(0, 3);
 
         return NextResponse.json({ candidates });

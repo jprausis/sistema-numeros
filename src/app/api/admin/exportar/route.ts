@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
         });
 
         const header = "Inscimob;Bairro;Numero;Status;DataExecucao;Instalador;Fotos\n";
-        const rows = imoveis.map(i => {
+        const rows = imoveis.map((i: any) => {
             const dataStr = i.dataExecucao ? new Date(i.dataExecucao).toLocaleDateString() : "";
             return `${i.inscimob};${i.bairro.nome};${i.numeroAInstalar};${i.status};${dataStr};${i.instaladorResp || ""};${i.fotos || ""}`;
         }).join("\n");

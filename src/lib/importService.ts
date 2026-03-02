@@ -14,7 +14,7 @@ export async function processExcelImport(buffer: Buffer, bairroNome: string) {
     const worksheet = workbook.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json(worksheet) as any[];
 
-    const validatedData: PropertyImportData[] = data.map(row => ({
+    const validatedData: PropertyImportData[] = data.map((row: any) => ({
         inscimob: String(row.inscimob || row.INSCIMOB || ''),
         x: parseFloat(row.x || row.X || '0'),
         y: parseFloat(row.y || row.Y || '0'),

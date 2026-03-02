@@ -72,7 +72,7 @@ export default function AdminImoveisPage() {
     };
 
     const handleExport = () => {
-        const dataToExport = filtered.map(i => ({
+        const dataToExport = filtered.map((i: any) => ({
             'Inscimob': i.inscimob,
             'Bairro': i.bairro?.nome,
             'Número': i.numeroAInstalar,
