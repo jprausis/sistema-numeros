@@ -198,10 +198,31 @@
 .modalImg {
     width: 100%;
     max-height: 250px;
-    object-fit: cover;
-    border-radius: 12px;
-    margin-top: 0.5rem;
+    object-fit: contain;
+    border-radius: 8px;
     cursor: pointer;
+}
+
+.photoHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.deletePhotoBtn {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.deletePhotoBtn:hover {
+    background: #fecaca;
 }
 
 .modalPhotoArea {

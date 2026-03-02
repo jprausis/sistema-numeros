@@ -53,13 +53,18 @@ export default function InstallerDashboard() {
 
     // Buscar todos os imóveis para o mapa
     useEffect(() => {
-        async function fetchProperties() {
-            const res = await fetch('/api/instalador/imoveis');
-            const data = await res.json();
-            setProperties(data.imoveis || []);
-        }
-        fetchProperties();
+        const fetchInitialData = async () => {
+            await fetchImoveis();
+            handleGpsSearch(); // Ativar GPS automaticamente no início
+        };
+        fetchInitialData();
     }, []);
+
+    async function fetchImoveis() {
+        const res = await fetch('/api/instalador/imoveis');
+        const data = await res.json();
+        setProperties(data.imoveis || []);
+    }
 
     const handleGpsSearch = () => {
         if (!navigator.geolocation) return alert("GPS não suportado pelo navegador.");
@@ -297,6 +302,12 @@ export default function InstallerDashboard() {
                                             <h3>Nº {candidate.numeroAInstalar}</h3>
                                             <p>{candidate.bairro.nome} - ID: {candidate.inscimob}</p>
                                             <span className={styles.distance}>a {Math.round(candidate.distance)}m de você</span>
+                                            <span className={`${styles.statusPill} ${styles[candidate.status]}`}>
+                                                {candidate.status === 'NAO_INICIADO' ? '🟡 Não Iniciado' :
+                                                    candidate.status === 'PENDENTE' ? '🟠 Pendente' :
+                                                        candidate.status === 'AUSENTE' ? '🔴 Ausente' :
+                                                            candidate.status === 'LIBERADO' ? '🟢 Liberado' : candidate.status}
+                                            </span>
                                         </div>
                                         <button
                                             className={styles.openButton}

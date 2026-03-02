@@ -147,6 +147,7 @@ export default function UsuariosPage() {
                                     onChange={e => setFormData({ ...formData, role: e.target.value })}
                                 >
                                     <option value="INSTALLER">Instalador</option>
+                                    <option value="PREFEITURA">Operador Prefeitura</option>
                                     <option value="OPERATOR">Operador (Admin Parcial)</option>
                                     <option value="ADMIN">Administrador Geral</option>
                                 </select>

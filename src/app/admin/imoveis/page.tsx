@@ -46,6 +46,27 @@ export default function AdminImoveisPage() {
         fetchImoveis();
     }, []);
 
+    const handleDeletePhoto = async () => {
+        if (!selectedImovel || !window.confirm("Tem certeza que deseja excluir esta foto?")) return;
+
+        try {
+            const res = await fetch(`/api/admin/imoveis/${selectedImovel.inscimob}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fotos: null
+                })
+            });
+
+            if (res.ok) {
+                setSelectedImovel({ ...selectedImovel, fotos: null });
+                fetchImoveis();
+            }
+        } catch (e) {
+            alert("Erro ao excluir foto.");
+        }
+    };
+
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedImovel) return;
@@ -243,7 +264,16 @@ export default function AdminImoveisPage() {
                         <form onSubmit={handleUpdate} className={styles.form}>
                             {selectedImovel.fotos && (
                                 <div className={styles.modalPhotoArea}>
-                                    <label>Foto da Instalação:</label>
+                                    <div className={styles.photoHeader}>
+                                        <label>Foto da Instalação:</label>
+                                        <button
+                                            type="button"
+                                            className={styles.deletePhotoBtn}
+                                            onClick={handleDeletePhoto}
+                                        >
+                                            🗑️ Excluir Foto
+                                        </button>
+                                    </div>
                                     <img src={selectedImovel.fotos} alt="Foto" className={styles.modalImg} onClick={() => window.open(selectedImovel.fotos, '_blank')} />
                                 </div>
                             )}
