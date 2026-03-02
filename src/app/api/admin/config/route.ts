@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
     try {
         const configs = await prisma.config.findMany();
-        const configMap = configs.reduce((acc: Record<string, string>, curr) => {
+        const configMap = configs.reduce((acc: Record<string, string>, curr: any) => {
             acc[curr.key] = curr.value;
             return acc;
         }, {} as Record<string, string>);

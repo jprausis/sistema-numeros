@@ -3,10 +3,10 @@ import { addMinutes, format, isAfter, isBefore, setHours, setMinutes, startOfDay
 
 export async function getAvailableSlots(date: Date) {
     const configs = await prisma.config.findMany();
-    const configMap = configs.reduce((acc: any, curr) => {
+    const configMap = configs.reduce((acc: Record<string, string>, curr: any) => {
         acc[curr.key] = curr.value;
         return acc;
-    }, {});
+    }, {} as Record<string, string>);
 
     const daysAllowed = JSON.parse(configMap.days_allowed || "[1,2,3,4,5,6]");
     const dayOfWeek = getDay(date);
