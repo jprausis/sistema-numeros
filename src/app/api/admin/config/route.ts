@@ -6,10 +6,10 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
     try {
         const configs = await prisma.config.findMany();
-        const configMap = configs.reduce((acc: Record<string, string>, curr: any) => {
-            acc[curr.key] = curr.value;
-            return acc;
-        }, {} as Record<string, string>);
+        const configMap: Record<string, string> = {};
+        for (const curr of configs) {
+            configMap[curr.key] = curr.value;
+        }
         return NextResponse.json({ config: configMap });
     } catch (error) {
         return NextResponse.json({ error: "Erro ao buscar configurações" }, { status: 500 });
