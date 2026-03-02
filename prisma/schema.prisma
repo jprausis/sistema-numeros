@@ -38,6 +38,7 @@ model Imovel {
   instaladorResp    String?
   fotos             String?  // JSON ou caminhos separados por vírgula
   obsPendente       String?
+  usuarioAlt        String?  // Nome/Email do usuário que fez a última alteração
   bairroId          String
   bairro            Bairro   @relation(fields: [bairroId], references: [id])
 }

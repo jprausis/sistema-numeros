@@ -76,7 +76,8 @@ export default function PrefeituraPage() {
                     fotoUrl: null, // Prefeitura não precisa de foto
                     obs: status === 'NAO_INICIADO'
                         ? `Resetado por Operador Prefeitura: ${user?.user_metadata?.name || user?.email}`
-                        : `Atualizado por Operador Prefeitura: ${user?.user_metadata?.name || user?.email}`
+                        : `Atualizado por Operador Prefeitura: ${user?.user_metadata?.name || user?.email}`,
+                    usuarioAlt: `Prefeitura: ${user?.user_metadata?.name || user?.email}`
                 })
             });
 

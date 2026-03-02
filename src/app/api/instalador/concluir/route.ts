@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 
 export async function PATCH(req: NextRequest) {
     try {
-        const { inscimob, status, fotoUrl, obs, protocolo } = await req.json();
+        const { inscimob, status, fotoUrl, obs, protocolo, usuarioAlt } = await req.json();
 
         if (!inscimob || !status) {
             return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
@@ -16,6 +16,7 @@ export async function PATCH(req: NextRequest) {
                 status: status, // Geralmente CONCLUIDO ou PENDENTE
                 fotos: fotoUrl,
                 obsPendente: obs,
+                usuarioAlt: usuarioAlt,
                 dataExecucao: new Date(),
             }
         });

@@ -31,6 +31,7 @@ export default function InstallerDashboard() {
     const [capturedPhoto, setCapturedPhoto] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [obs, setObs] = useState('');
+    const [user, setUser] = useState<any>(null);
 
     useEffect(() => {
         if (view === 'list') {
@@ -54,6 +55,8 @@ export default function InstallerDashboard() {
     // Buscar todos os imóveis para o mapa
     useEffect(() => {
         const fetchInitialData = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            setUser(user);
             await fetchImoveis();
             handleGpsSearch(); // Ativar GPS automaticamente no início
         };
@@ -138,7 +141,8 @@ export default function InstallerDashboard() {
                     status: 'CONCLUIDO',
                     fotoUrl: publicUrl,
                     obs: obs,
-                    protocolo: linkingAgendamento?.protocolo
+                    protocolo: linkingAgendamento?.protocolo,
+                    usuarioAlt: `Instalador: ${user?.user_metadata?.name || user?.email}`
                 })
             });
 

@@ -6,13 +6,14 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id } = await params;
-    const { status, fotos, obsPendente, instaladorResp } = await req.json();
+    const { status, fotos, obsPendente, instaladorResp, usuarioAlt } = await req.json();
 
     try {
         const updateData: any = {
             status,
             fotos,
-            obsPendente
+            obsPendente,
+            usuarioAlt
         };
 
         if (status === 'CONCLUIDO' || status === 'PENDENTE') {
