@@ -71,3 +71,40 @@ export async function processExcelImport(buffer: Buffer, bairroNome: string) {
         skipped: skippedCount
     };
 }
+
+export async function processGeoJSONImport(buffer: Buffer) {
+    const content = buffer.toString('utf-8');
+    const geojson = JSON.parse(content);
+
+    if (geojson.type !== 'FeatureCollection') {
+        throw new Error("O arquivo não é uma FeatureCollection GeoJSON válida.");
+    }
+
+    let updatedCount = 0;
+    let notFoundCount = 0;
+
+    for (const feature of geojson.features) {
+        const inscimob = feature.properties?.inscimob;
+        if (!inscimob) continue;
+
+        const imovel = await prisma.imovel.findUnique({
+            where: { inscimob: String(inscimob) }
+        });
+
+        if (imovel) {
+            await prisma.imovel.update({
+                where: { inscimob: String(inscimob) },
+                data: { malha: feature.geometry }
+            });
+            updatedCount++;
+        } else {
+            notFoundCount++;
+        }
+    }
+
+    return {
+        total: geojson.features.length,
+        updated: updatedCount,
+        notFound: notFoundCount
+    };
+}

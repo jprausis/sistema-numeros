@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, GeoJSON } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
@@ -10,18 +10,21 @@ import styles from './map.module.css';
 import { utmToLatLng } from '@/utils/geo';
 
 // Corrigir ícones do Leaflet
-const getIcon = (status: string) => {
+const getIcon = (status: string, isSelected: boolean = false) => {
     let color = '#ef4444'; // NAO_INICIADO (Vermelho)
     if (status === 'LIBERADO') color = '#3b82f6'; // Azul
     if (status === 'AUSENTE') color = '#f97316'; // Laranja
     if (status === 'PENDENTE') color = '#eab308'; // Amarelo
     if (status === 'CONCLUIDO') color = '#22c55e'; // Verde
 
+    const size = isSelected ? 18 : 14;
+    const border = isSelected ? '3px solid #000' : '2px solid #fff';
+
     return L.divIcon({
         className: styles.markerIcon || '',
-        html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></div>`,
-        iconSize: [14, 14],
-        iconAnchor: [7, 7]
+        html: `<div style="background-color: ${color}; width: ${size}px; height: ${size}px; border-radius: 50%; border: ${border}; box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2]
     });
 };
 
@@ -63,6 +66,7 @@ interface Property {
     status: string;
     bairro: { nome: string };
     fotos?: string;
+    malha?: any; // Geometria GeoJSON
 }
 
 export default function InstallerMap({
@@ -79,6 +83,7 @@ export default function InstallerMap({
     const [isMounted, setIsMounted] = useState(false);
     const [layerType, setLayerType] = useState<'street' | 'satellite'>('street');
     const [mapRef, setMapRef] = useState<L.Map | null>(null);
+    const [selectedInsc, setSelectedInsc] = useState<string | null>(null);
 
     useEffect(() => {
         setIsMounted(true);
@@ -89,6 +94,8 @@ export default function InstallerMap({
     const mapCenter: [number, number] = focusOn
         ? utmToLatLng(focusOn[0], focusOn[1])
         : [-25.187883706053842, -49.314766448822134];
+
+    const selectedProperty = properties.find(p => p.inscimob === selectedInsc);
 
     return (
         <div className={styles.mapWrapper} style={{ flex: 1, minHeight: '500px', height: '100%', position: 'relative' }}>
@@ -163,6 +170,21 @@ export default function InstallerMap({
                     </Marker>
                 )}
 
+                {/* Renderizar Vetor (Polygon) se o imóvel estiver selecionado e tiver malha */}
+                {selectedProperty?.malha && (
+                    <GeoJSON
+                        key={`vector-${selectedProperty.inscimob}`}
+                        data={selectedProperty.malha}
+                        style={{
+                            color: '#2563eb',
+                            weight: 3,
+                            opacity: 0.8,
+                            fillColor: '#3b82f6',
+                            fillOpacity: 0.3
+                        }}
+                    />
+                )}
+
                 {properties.map((prop) => {
                     if (typeof prop.x !== 'number' || typeof prop.y !== 'number' || isNaN(prop.x) || isNaN(prop.y)) {
                         return null;
@@ -174,11 +196,17 @@ export default function InstallerMap({
                         <Marker
                             key={`${prop.inscimob}-${prop.status}`}
                             position={[lat, lng]}
-                            icon={getIcon(prop.status)}
+                            icon={getIcon(prop.status, selectedInsc === prop.inscimob)}
+                            eventHandlers={{
+                                click: () => {
+                                    setSelectedInsc(prop.inscimob);
+                                }
+                            }}
                         >
-                            <Popup>
+                            <Popup eventHandlers={{ remove: () => setSelectedInsc(null) }}>
                                 <div className={styles.popup}>
                                     <h3>Nº {prop.numeroAInstalar}</h3>
+                                    <p><strong>Insc:</strong> {prop.inscimob}</p>
                                     <p><strong>Bairro:</strong> {prop.bairro?.nome}</p>
                                     <p><strong>Status:</strong> {prop.status}</p>
 

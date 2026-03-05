@@ -102,6 +102,91 @@ export default function AdminImportPage() {
                     </div>
                 </section>
             )}
+
+            <GeoJSONImportSection />
         </div>
+    );
+}
+
+function GeoJSONImportSection() {
+    const [file, setFile] = useState<File | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState<any>(null);
+
+    const handleUpload = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!file) return alert("Selecione um arquivo GeoJSON.");
+
+        setLoading(true);
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("bairro", "N/A"); // Não necessário para GeoJSON mas a rota atual espera
+
+        try {
+            const res = await fetch("/api/admin/importar", {
+                method: "POST",
+                body: formData,
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                setResult(data);
+                alert("Vetores importados com sucesso!");
+                setFile(null);
+            } else {
+                alert(data.error || "Erro na importação de vetores.");
+            }
+        } catch (error) {
+            alert("Erro na conexão.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <section className={styles.uploadCard} style={{ marginTop: '2rem' }}>
+            <h2 className={styles.title} style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Importar Vetores (GeoJSON)</h2>
+            <p className={styles.subtitle} style={{ marginBottom: '1.5rem' }}>Vincule os desenhos dos lotes aos imóveis existentes pelo campo <strong>inscimob</strong>.</p>
+
+            <form onSubmit={handleUpload} className={styles.form}>
+                <div className={styles.formGroup}>
+                    <label className={styles.label}>Arquivo GeoJSON (.geojson)</label>
+                    <input
+                        type="file"
+                        accept=".geojson,application/geo+json"
+                        className={styles.fileInput}
+                        onChange={e => setFile(e.target.files?.[0] || null)}
+                        required
+                    />
+                    <p className={styles.help}>O arquivo será processado em segundo plano.</p>
+                </div>
+
+                <button
+                    type="submit"
+                    className={styles.submitButton}
+                    disabled={loading}
+                    style={{ background: 'var(--secondary)', color: 'white' }}
+                >
+                    {loading ? "Processando Vetores..." : "Importar Vetores"}
+                </button>
+            </form>
+
+            {result && (
+                <div className={styles.stats} style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
+                    <div className={styles.statItem}>
+                        <span>Total de Feições</span>
+                        <strong>{result.total}</strong>
+                    </div>
+                    <div className={styles.statItem}>
+                        <span>Vinculados</span>
+                        <strong>{result.updated}</strong>
+                    </div>
+                    <div className={styles.statItem}>
+                        <span>Não Encontrados</span>
+                        <strong>{result.notFound}</strong>
+                    </div>
+                </div>
+            )}
+        </section>
     );
 }

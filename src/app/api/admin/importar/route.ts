@@ -12,7 +12,14 @@ export async function POST(req: NextRequest) {
         }
 
         const buffer = Buffer.from(await file.arrayBuffer());
-        const result = await processExcelImport(buffer, bairroNome);
+
+        let result;
+        if (file.name.endsWith('.geojson')) {
+            const { processGeoJSONImport } = await import("@/lib/importService");
+            result = await processGeoJSONImport(buffer);
+        } else {
+            result = await processExcelImport(buffer, bairroNome);
+        }
 
         return NextResponse.json(result);
     } catch (error: any) {

@@ -41,6 +41,7 @@ model Imovel {
   usuarioAlt        String?  // Nome/Email do usuário que fez a última alteração
   bairroId          String
   bairro            Bairro   @relation(fields: [bairroId], references: [id])
+  malha             Json?
 }
 
 model Agendamento {
