@@ -26,12 +26,44 @@ export async function GET(req: NextRequest) {
             }
         });
 
+        const imoveisData = await prisma.imovel.findMany({
+            select: { numeroAInstalar: true, status: true }
+        });
+
+        let totalDigitos = 0;
+        let digitosInstalados = 0;
+        const faltantesPorDigito: Record<string, number> = {
+            "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0
+        };
+
+        imoveisData.forEach(im => {
+            const numStr = im.numeroAInstalar || "";
+            const len = numStr.length;
+            totalDigitos += len;
+
+            if (im.status === "CONCLUIDO") {
+                digitosInstalados += len;
+            } else {
+                // Se não está concluído, contamos os caracteres para a produção
+                for (const char of numStr) {
+                    if (faltantesPorDigito[char] !== undefined) {
+                        faltantesPorDigito[char]++;
+                    }
+                }
+            }
+        });
+
         return NextResponse.json({
             totalImoveis,
             concluidos,
             pendentes,
             agendamentosHoje,
-            agendamentosSemana
+            agendamentosSemana,
+            digitos: {
+                totalNecessario: totalDigitos,
+                totalInstalado: digitosInstalados,
+                faltantesPorDigito
+            }
         });
     } catch (error) {
         return NextResponse.json({ error: "Erro ao carregar estatísticas" }, { status: 500 });
