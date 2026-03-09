@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { restrictToAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
+    const restriction = await restrictToAdmin();
+    if (restriction) return restriction;
+
     try {
         const configs = await prisma.config.findMany();
         const configMap: Record<string, string> = {};

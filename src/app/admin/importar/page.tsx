@@ -33,8 +33,9 @@ export default function AdminImportPage() {
             } else {
                 alert(data.error || "Erro na importação.");
             }
-        } catch (error) {
-            alert("Erro na conexão.");
+        } catch (error: any) {
+            console.error("Erro na requisição de importação:", error);
+            alert("Erro na conexão ou o arquivo é muito grande para o servidor processar a tempo.");
         } finally {
             setLoading(false);
         }
@@ -136,8 +137,9 @@ function GeoJSONImportSection() {
             } else {
                 alert(data.error || "Erro na importação de vetores.");
             }
-        } catch (error) {
-            alert("Erro na conexão.");
+        } catch (error: any) {
+            console.error("Erro na requisição de vetores:", error);
+            alert("Erro na conexão. Se o arquivo for muito grande (milhares de lotes), o processamento continuará no servidor, mas a conexão do navegador expirou.");
         } finally {
             setLoading(false);
         }

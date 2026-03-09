@@ -45,15 +45,20 @@ export default function UsuariosPage() {
                 body: JSON.stringify(formData)
             });
 
+            const data = await res.json();
+
             if (res.ok) {
                 alert(editingId ? "Usuário atualizado!" : "Usuário criado!");
                 setIsAdding(false);
                 setEditingId(null);
                 setFormData({ name: '', email: '', password: '', role: 'INSTALLER' });
                 fetchUsuarios();
+            } else {
+                alert(data.error || "Erro ao salvar usuário.");
             }
-        } catch (e) {
-            alert("Erro ao salvar usuário.");
+        } catch (e: any) {
+            console.error("Erro no handleCreate:", e);
+            alert("Erro de conexão ou erro interno ao salvar usuário.");
         }
     };
 

@@ -60,3 +60,17 @@ model Config {
   value     String   // Armazenado como JSON stringified
   updatedAt DateTime @updatedAt
 }
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  userEmail  String
+  action     String   // ex: "UPDATE_IMOVEL"
+  resource   String   // ex: "imovel"
+  resourceId String?  // inscimob ou id do recurso
+  details    Json     // Alterações realizadas (antes/depois)
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+}
+

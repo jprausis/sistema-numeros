@@ -82,8 +82,17 @@ export async function processGeoJSONImport(buffer: Buffer) {
 
     let updatedCount = 0;
     let notFoundCount = 0;
+    let processed = 0;
+    const total = geojson.features.length;
+
+    console.log(`Iniciando processamento de ${total} feições GeoJSON...`);
 
     for (const feature of geojson.features) {
+        processed++;
+        if (processed % 100 === 0) {
+            console.log(`Progresso GeoJSON: ${processed}/${total} processados...`);
+        }
+
         const inscimob = feature.properties?.inscimob;
         if (!inscimob) continue;
 
@@ -101,6 +110,8 @@ export async function processGeoJSONImport(buffer: Buffer) {
             notFoundCount++;
         }
     }
+
+    console.log(`Processamento GeoJSON finalizado. Sucesso: ${updatedCount}, Não encontrados: ${notFoundCount}`);
 
     return {
         total: geojson.features.length,

@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { restrictToAdmin } from "@/lib/auth";
 
 export async function DELETE(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const restriction = await restrictToAdmin();
+    if (restriction) return restriction;
+
     const { id } = await params;
 
     try {

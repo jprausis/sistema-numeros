@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { restrictToAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +17,20 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+    const restriction = await restrictToAdmin();
+    if (restriction) return restriction;
+
     try {
         const { name, email, password, role } = await req.json();
 
         if (!email || !role || !password) {
             return NextResponse.json({ error: "Email, Senha e Papel são obrigatórios" }, { status: 400 });
+        }
+
+        // 0. Verificar se já existe no banco local para dar erro amigável
+        const existingUser = await prisma.user.findUnique({ where: { email } });
+        if (existingUser) {
+            return NextResponse.json({ error: "Este e-mail já está cadastrado no sistema." }, { status: 400 });
         }
 
         // 1. Criar usuário no Supabase Auth (Sistema de Login real)

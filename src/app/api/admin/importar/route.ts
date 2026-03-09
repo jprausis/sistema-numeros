@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processExcelImport } from "@/lib/importService";
+import { restrictToAdmin } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
+    const restriction = await restrictToAdmin();
+    if (restriction) return restriction;
+
     try {
         const formData = await req.formData();
         const file = formData.get("file") as File;
