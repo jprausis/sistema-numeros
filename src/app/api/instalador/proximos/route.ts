@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
                 }
             },
             include: {
-                bairro: { select: { nome: true } }
+                bairro: { select: { nome: true } },
+                complementos: true
             }
         });
 

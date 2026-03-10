@@ -14,6 +14,9 @@
 .backButton {
     padding: 0.5rem;
     color: var(--secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
 }
 
 .title {
@@ -59,8 +62,9 @@
 }
 
 .label {
-    font-weight: 600;
-    font-size: 0.9rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--foreground);
 }
 
 .statusButtons {
@@ -91,9 +95,10 @@
 
 .fileInput {
     padding: 1rem;
-    border: 2px dashed var(--input);
-    border-radius: var(--radius-sm);
-    background: var(--accent);
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    background: #f8fafc;
+    cursor: pointer;
 }
 
 .textarea {
@@ -108,12 +113,139 @@
     background: var(--primary);
     color: white;
     padding: 1.25rem;
-    border-radius: var(--radius-sm);
+    border-radius: 12px;
     font-weight: 700;
     font-size: 1.1rem;
     margin-top: 1rem;
+    border: none;
+    cursor: pointer;
 }
 
 .submitButton:disabled {
-    opacity: 0.7;
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.complementList {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.complementCard {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem;
+    background: white;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    text-align: left;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.complementCard:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #f1f5f9;
+}
+
+.complementInfo h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.complementInfo p {
+    font-size: 0.85rem;
+    color: var(--secondary);
+}
+
+.statusPill {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 100px;
+    text-transform: uppercase;
+}
+
+.statusPill.CONCLUIDO {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.statusPill.PENDENTE {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.statusPill.NAO_INICIADO {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.statusPill.BLOQUEADO {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.sectionTitle {
+    font-size: 1rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--foreground);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.selectedComplementAlert {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    padding: 1rem;
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    color: #0369a1;
+    font-weight: 700;
+}
+
+.mainWorkAlert {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    padding: 1rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    color: #15803d;
+    font-weight: 700;
+}
+
+.changeBtn {
+    background: #0284c7;
+    color: white;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    border: none;
+    cursor: pointer;
+}
+
+.warningBanner {
+    background: #fff7ed;
+    color: #9a3412;
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid #ffedd5;
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+}
+
+.divider {
+    height: 1px;
+    background: #e2e8f0;
+    margin: 2.5rem 0;
 }

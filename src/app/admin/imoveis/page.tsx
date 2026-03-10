@@ -226,15 +226,16 @@ export default function AdminImoveisPage() {
                                 <th>Inscimob</th>
                                 <th>Bairro</th>
                                 <th>Número</th>
+                                <th>Comp.</th>
                                 <th>Status</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan={6}>Carregando...</td></tr>
+                                <tr><td colSpan={7}>Carregando...</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={6}>Nenhum imóvel encontrado.</td></tr>
+                                <tr><td colSpan={7}>Nenhum imóvel encontrado.</td></tr>
                             ) : filtered.map(i => (
                                 <tr key={i.inscimob}>
                                     <td>
@@ -249,6 +250,11 @@ export default function AdminImoveisPage() {
                                     <td><strong>{i.inscimob}</strong></td>
                                     <td>{i.bairro?.nome}</td>
                                     <td>{i.numeroAInstalar}</td>
+                                    <td>
+                                        {i.complementos?.length > 0 ? (
+                                            <span className={styles.compBadge}>{i.complementos.length} unidades</span>
+                                        ) : '-'}
+                                    </td>
                                     <td>
                                         <span className={`${styles.badge} ${styles[i.status]}`}>
                                             {i.status}
@@ -328,6 +334,25 @@ export default function AdminImoveisPage() {
                                     <option value="CONCLUIDO">Concluído</option>
                                 </select>
                             </div>
+
+                            {selectedImovel.complementos?.length > 0 && (
+                                <div className={styles.modalComplementSection}>
+                                    <label>Complementos ({selectedImovel.complementos.length})</label>
+                                    <div className={styles.compactCompList}>
+                                        {selectedImovel.complementos.map((c: any) => {
+                                            let statusClass = styles.compBlocked;
+                                            if (c.status === 'CONCLUIDO') statusClass = styles.compDone;
+                                            else if (c.liberadoInstalacao) statusClass = styles.compReleased;
+
+                                            return (
+                                                <div key={c.id} className={`${styles.compIndicator} ${statusClass}`} title={`${c.numeroPredial} - ${c.status}`}>
+                                                    {c.numeroPredial}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className={styles.formGroup}>
                                 <label>Observações</label>

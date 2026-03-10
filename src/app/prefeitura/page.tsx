@@ -77,7 +77,9 @@ export default function PrefeituraPage() {
                     obs: status === 'NAO_INICIADO'
                         ? `Resetado por Operador Prefeitura: ${user?.user_metadata?.name || user?.email}`
                         : `Atualizado por Operador Prefeitura: ${user?.user_metadata?.name || user?.email}`,
-                    usuarioAlt: `Prefeitura: ${user?.user_metadata?.name || user?.email}`
+                    usuarioAlt: `Prefeitura: ${user?.user_metadata?.name || user?.email}`,
+                    userId: user?.id,
+                    userEmail: user?.email
                 })
             });
 
@@ -90,6 +92,39 @@ export default function PrefeituraPage() {
             }
         } catch (e) {
             alert("Erro ao atualizar status.");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleLiberarComplemento = async (complementoId: string, liberado: boolean) => {
+        setUploading(true);
+        try {
+            const res = await fetch('/api/prefeitura/complemento/liberar', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: complementoId,
+                    liberado,
+                    userId: user?.id,
+                    userEmail: user?.email
+                })
+            });
+
+            if (res.ok) {
+                // Atualizar state local do selectedForProcess
+                setSelectedForProcess((prev: any) => ({
+                    ...prev,
+                    complementos: prev.complementos.map((c: any) =>
+                        c.id === complementoId ? { ...c, liberadoInstalacao: liberado } : c
+                    )
+                }));
+                // Recarregar listas globais para manter sincronismo
+                fetchImoveis();
+                handleGpsSearch();
+            }
+        } catch (e) {
+            alert("Erro ao liberar complemento.");
         } finally {
             setUploading(false);
         }
@@ -208,40 +243,65 @@ export default function PrefeituraPage() {
                                 <p className={styles.loadingText}>Atualizando...</p>
                             </div>
                         )}
-                        <h3>Ação: {selectedForProcess.numeroAInstalar}</h3>
-                        <p>Defina o status deste imóvel para o instalador.</p>
-
-                        <div className={styles.prefeituraActions}>
-                            <button
-                                className={styles.liberarBtn}
-                                onClick={() => handleStatusUpdate('LIBERADO')}
-                                disabled={uploading}
-                            >
-                                Liberar p/ Instalação
-                            </button>
-                            <button
-                                className={styles.ausenteBtn}
-                                onClick={() => handleStatusUpdate('AUSENTE')}
-                                disabled={uploading}
-                            >
-                                Morador Ausente
-                            </button>
-                            <button
-                                className={styles.resetBtn}
-                                onClick={() => handleStatusUpdate('NAO_INICIADO')}
-                                disabled={uploading}
-                            >
-                                Reiniciar p/ Não Iniciado
-                            </button>
+                        <div className={styles.modalHeader}>
+                            <h3>Imóvel {selectedForProcess.numeroAInstalar}</h3>
+                            <button className={styles.closeBtn} onClick={() => setSelectedForProcess(null)}>×</button>
                         </div>
 
-                        <button
-                            className={styles.closeBtn}
-                            onClick={() => setSelectedForProcess(null)}
-                            disabled={uploading}
-                        >
-                            Fechar
-                        </button>
+                        <div className={styles.prefeituraActions}>
+                            <p className={styles.sectionLabel}>Número Principal ({selectedForProcess.numeroAInstalar}):</p>
+                            <div className={styles.actionButtonsRow}>
+                                <button
+                                    className={styles.liberarBtn}
+                                    onClick={() => handleStatusUpdate('LIBERADO')}
+                                    disabled={uploading}
+                                >
+                                    Liberar Número
+                                </button>
+                                <button
+                                    className={styles.ausenteBtn}
+                                    onClick={() => handleStatusUpdate('AUSENTE')}
+                                    disabled={uploading}
+                                >
+                                    Morador Ausente
+                                </button>
+                                <button
+                                    className={styles.resetBtn}
+                                    onClick={() => handleStatusUpdate('NAO_INICIADO')}
+                                    disabled={uploading}
+                                >
+                                    Resetar
+                                </button>
+                            </div>
+                        </div>
+
+                        {selectedForProcess.complementos && selectedForProcess.complementos.length > 0 && (
+                            <div className={styles.complementSection}>
+                                <div className={styles.divider}></div>
+                                <p className={styles.sectionLabel}>Casas / Unidades Internas:</p>
+                                <div className={styles.complementTable}>
+                                    {selectedForProcess.complementos.map((c: any) => (
+                                        <div key={c.id} className={styles.complementRow}>
+                                            <div className={styles.complementMeta}>
+                                                <strong>{c.numeroPredial}</strong>
+                                                <span>Unidade: {c.unidade}</span>
+                                            </div>
+                                            <div className={styles.complementStatusPill}>
+                                                {c.status === 'CONCLUIDO' ? '✅ Concluído' :
+                                                    c.status === 'PENDENTE' ? '⚠️ Pendente' : '⏳ Aguardando'}
+                                            </div>
+                                            <button
+                                                className={c.liberadoInstalacao ? styles.liberadoBtn : styles.bloqueadoBtn}
+                                                onClick={() => handleLiberarComplemento(c.id, !c.liberadoInstalacao)}
+                                                disabled={uploading}
+                                            >
+                                                {c.liberadoInstalacao ? 'Liberado' : 'Bloqueado'}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

@@ -6,7 +6,8 @@ export async function GET(req: NextRequest) {
     try {
         const imoveis = await prisma.imovel.findMany({
             include: {
-                bairro: { select: { nome: true } }
+                bairro: { select: { nome: true } },
+                complementos: true
             }
         });
 

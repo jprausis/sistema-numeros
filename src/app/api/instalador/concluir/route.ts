@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { createAuditLog } from "@/lib/audit";
 
 export async function PATCH(req: NextRequest) {
     try {
-        const { inscimob, status, fotoUrl, obs, protocolo, usuarioAlt } = await req.json();
+        const { inscimob, status, fotoUrl, obs, protocolo, usuarioAlt, userId, userEmail } = await req.json();
 
         if (!inscimob || !status) {
             return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
@@ -31,6 +32,22 @@ export async function PATCH(req: NextRequest) {
                 }
             });
         }
+
+        // Registrar Log de Auditoria
+        await createAuditLog({
+            userId: userId || "sistema",
+            userEmail: userEmail || "sistema@projemix.com.br",
+            action: `CONCLUIR_IMOVEL_${status}`,
+            resource: "imovel",
+            resourceId: inscimob,
+            details: {
+                status,
+                fotoUrl,
+                obs,
+                protocolo,
+                usuarioAlt
+            }
+        });
 
         return NextResponse.json({ success: true, imovel });
     } catch (error: any) {

@@ -33,7 +33,7 @@ model Imovel {
   y                 Float
   numeroAInstalar   String
   endereco          String?
-  status            String   @default("NAO_INICIADO") // NAO_INICIADO, CONCLUIDO, PENDENTE
+  status            String   @default("NAO_INICIADO") // NAO_INICIADO, CONCLUIDO, PENDENTE, LIBERADO, AUSENTE
   dataExecucao      DateTime?
   instaladorResp    String?
   fotos             String?  // JSON ou caminhos separados por vírgula
@@ -42,6 +42,23 @@ model Imovel {
   bairroId          String
   bairro            Bairro   @relation(fields: [bairroId], references: [id])
   malha             Json?
+  complementos      Complemento[]
+}
+
+model Complemento {
+  id                String   @id @default(cuid())
+  unidade           String   // ID do complemento da planilha
+  numeroPredial     String   // ex: CS1, CS2
+  status            String   @default("NAO_INICIADO")
+  liberadoInstalacao Boolean  @default(false)
+  dataExecucao      DateTime?
+  fotos             String?  // JSON
+  x                 Float?
+  y                 Float?
+  imovel            Imovel   @relation(fields: [inscimob], references: [inscimob])
+  inscimob          String
+
+  @@unique([inscimob, unidade])
 }
 
 model Agendamento {

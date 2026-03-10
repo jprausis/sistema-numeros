@@ -67,6 +67,7 @@ interface Property {
     bairro: { nome: string };
     fotos?: string;
     malha?: any; // Geometria GeoJSON
+    complementos?: any[];
 }
 
 export default function InstallerMap({
@@ -192,11 +193,16 @@ export default function InstallerMap({
 
                     const [lat, lng] = utmToLatLng(prop.x, prop.y);
 
+                    let pinStatus = prop.status;
+                    // Como complementos são opcionais (só instala se quiser), o status do imóvel principal 
+                    // NÃO deve ser "puxado" para pendente se já estiver concluído.
+                    // O mapa refletirá a exata realidade do imóvel principal.
+
                     return (
                         <Marker
                             key={`${prop.inscimob}-${prop.status}`}
                             position={[lat, lng]}
-                            icon={getIcon(prop.status, selectedInsc === prop.inscimob)}
+                            icon={getIcon(pinStatus, selectedInsc === prop.inscimob)}
                             eventHandlers={{
                                 click: () => {
                                     setSelectedInsc(prop.inscimob);
@@ -209,6 +215,11 @@ export default function InstallerMap({
                                     <p><strong>Insc:</strong> {prop.inscimob}</p>
                                     <p><strong>Bairro:</strong> {prop.bairro?.nome}</p>
                                     <p><strong>Status:</strong> {prop.status}</p>
+                                    {prop.complementos && prop.complementos.length > 0 && (
+                                        <p style={{ color: 'var(--primary)', fontWeight: 'bold' }}>
+                                            ⚠️ Possui {prop.complementos.length} complementos
+                                        </p>
+                                    )}
 
                                     {prop.fotos && (
                                         <div className={styles.photoThumb}>

@@ -105,6 +105,8 @@ export default function AdminImportPage() {
             )}
 
             <GeoJSONImportSection />
+            <ComplementoImportSection />
+            <ComplementoGeoJSONImportSection />
         </div>
     );
 }
@@ -121,7 +123,7 @@ function GeoJSONImportSection() {
         setLoading(true);
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("bairro", "N/A"); // Não necessário para GeoJSON mas a rota atual espera
+        formData.append("tipo", "MALHA");
 
         try {
             const res = await fetch("/api/admin/importar", {
@@ -138,8 +140,7 @@ function GeoJSONImportSection() {
                 alert(data.error || "Erro na importação de vetores.");
             }
         } catch (error: any) {
-            console.error("Erro na requisição de vetores:", error);
-            alert("Erro na conexão. Se o arquivo for muito grande (milhares de lotes), o processamento continuará no servidor, mas a conexão do navegador expirou.");
+            alert("Erro na conexão.");
         } finally {
             setLoading(false);
         }
@@ -147,7 +148,7 @@ function GeoJSONImportSection() {
 
     return (
         <section className={styles.uploadCard} style={{ marginTop: '2rem' }}>
-            <h2 className={styles.title} style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Importar Vetores (GeoJSON)</h2>
+            <h2 className={styles.title} style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Importar Malha de Imóveis (GeoJSON)</h2>
             <p className={styles.subtitle} style={{ marginBottom: '1.5rem' }}>Vincule os desenhos dos lotes aos imóveis existentes pelo campo <strong>inscimob</strong>.</p>
 
             <form onSubmit={handleUpload} className={styles.form}>
@@ -160,35 +161,159 @@ function GeoJSONImportSection() {
                         onChange={e => setFile(e.target.files?.[0] || null)}
                         required
                     />
-                    <p className={styles.help}>O arquivo será processado em segundo plano.</p>
                 </div>
 
-                <button
-                    type="submit"
-                    className={styles.submitButton}
-                    disabled={loading}
-                    style={{ background: 'var(--secondary)', color: 'white' }}
-                >
-                    {loading ? "Processando Vetores..." : "Importar Vetores"}
+                <button type="submit" className={styles.submitButton} disabled={loading} style={{ background: 'var(--secondary)', color: 'white' }}>
+                    {loading ? "Processando..." : "Importar Malha"}
                 </button>
             </form>
 
-            {result && (
-                <div className={styles.stats} style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
-                    <div className={styles.statItem}>
-                        <span>Total de Feições</span>
-                        <strong>{result.total}</strong>
-                    </div>
-                    <div className={styles.statItem}>
-                        <span>Vinculados</span>
-                        <strong>{result.updated}</strong>
-                    </div>
-                    <div className={styles.statItem}>
-                        <span>Não Encontrados</span>
-                        <strong>{result.notFound}</strong>
-                    </div>
-                </div>
-            )}
+            {result && <ImportStats result={result} type="GEOJSON" />}
         </section>
+    );
+}
+
+function ComplementoImportSection() {
+    const [file, setFile] = useState<File | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState<any>(null);
+
+    const handleUpload = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!file) return alert("Selecione um arquivo Excel.");
+
+        setLoading(true);
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("tipo", "COMPLEMENTOS");
+
+        try {
+            const res = await fetch("/api/admin/importar", {
+                method: "POST",
+                body: formData,
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                setResult(data);
+                alert("Complementos importados com sucesso!");
+                setFile(null);
+            } else {
+                alert(data.error || "Erro na importação.");
+            }
+        } catch (error: any) {
+            alert("Erro na conexão.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <section className={styles.uploadCard} style={{ marginTop: '2rem' }}>
+            <h2 className={styles.title} style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Importar Lista de Complementos (Excel)</h2>
+            <p className={styles.subtitle} style={{ marginBottom: '1.5rem' }}>Adicione múltiplas unidades (CS1, CS2...) aos imóveis existentes.</p>
+
+            <form onSubmit={handleUpload} className={styles.form}>
+                <div className={styles.formGroup}>
+                    <label className={styles.label}>Planilha de Complementos (.xlsx, .xls)</label>
+                    <input
+                        type="file"
+                        accept=".xlsx,.xls"
+                        className={styles.fileInput}
+                        onChange={e => setFile(e.target.files?.[0] || null)}
+                        required
+                    />
+                    <p className={styles.help}>Colunas: unidade, indicacaof, número predial</p>
+                </div>
+
+                <button type="submit" className={styles.submitButton} disabled={loading} style={{ background: '#7c3aed', color: 'white' }}>
+                    {loading ? "Processando..." : "Importar Complementos"}
+                </button>
+            </form>
+
+            {result && <ImportStats result={result} type="EXCEL" />}
+        </section>
+    );
+}
+
+function ComplementoGeoJSONImportSection() {
+    const [file, setFile] = useState<File | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState<any>(null);
+
+    const handleUpload = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!file) return alert("Selecione um arquivo GeoJSON.");
+
+        setLoading(true);
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("tipo", "COMPLEMENTOS_GEOJSON");
+
+        try {
+            const res = await fetch("/api/admin/importar", {
+                method: "POST",
+                body: formData,
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                setResult(data);
+                alert("Localizações de complementos importadas!");
+                setFile(null);
+            } else {
+                alert(data.error || "Erro na importação.");
+            }
+        } catch (error: any) {
+            alert("Erro na conexão.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <section className={styles.uploadCard} style={{ marginTop: '2rem' }}>
+            <h2 className={styles.title} style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Geolocalizar Complementos (GeoJSON)</h2>
+            <p className={styles.subtitle} style={{ marginBottom: '1.5rem' }}>Defina a posição exata de cada unidade/casa no mapa.</p>
+
+            <form onSubmit={handleUpload} className={styles.form}>
+                <div className={styles.formGroup}>
+                    <label className={styles.label}>GeoJSON de Complementos (.geojson)</label>
+                    <input
+                        type="file"
+                        accept=".geojson"
+                        className={styles.fileInput}
+                        onChange={e => setFile(e.target.files?.[0] || null)}
+                        required
+                    />
+                    <p className={styles.help}>Propriedades: indicacaof, unidade</p>
+                </div>
+
+                <button type="submit" className={styles.submitButton} disabled={loading} style={{ background: '#db2777', color: 'white' }}>
+                    {loading ? "Processando..." : "Importar Pontos GPS"}
+                </button>
+            </form>
+
+            {result && <ImportStats result={result} type="GEOJSON" />}
+        </section>
+    );
+}
+
+function ImportStats({ result, type }: { result: any, type: 'EXCEL' | 'GEOJSON' }) {
+    return (
+        <div className={styles.stats} style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
+            <div className={styles.statItem}>
+                <span>Total Processado</span>
+                <strong>{result.total}</strong>
+            </div>
+            <div className={styles.statItem}>
+                <span>{type === 'EXCEL' ? 'Sucesso' : 'Vinculados'}</span>
+                <strong>{type === 'EXCEL' ? result.imported : result.updated}</strong>
+            </div>
+            <div className={styles.statItem}>
+                <span>{type === 'EXCEL' ? 'Erro' : 'Não Encontrados'}</span>
+                <strong>{type === 'EXCEL' ? result.skipped : result.notFound}</strong>
+            </div>
+        </div>
     );
 }

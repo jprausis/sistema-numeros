@@ -7,7 +7,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const imovel = await prisma.imovel.findUnique({
             where: { inscimob: id },
             include: {
-                bairro: { select: { nome: true } }
+                bairro: { select: { nome: true } },
+                complementos: {
+                    orderBy: { unidade: 'asc' }
+                }
             }
         });
 

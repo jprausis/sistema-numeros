@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { processExcelImport } from "@/lib/importService";
+import {
+    processExcelImport,
+    processGeoJSONImport,
+    processComplementoImport,
+    processComplementoGeoJSONImport
+} from "@/lib/importService";
 import { restrictToAdmin } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
@@ -10,19 +15,36 @@ export async function POST(req: NextRequest) {
         const formData = await req.formData();
         const file = formData.get("file") as File;
         const bairroNome = formData.get("bairro") as string;
+        const tipo = formData.get("tipo") as string || "IMOVEIS"; // IMOVEIS, MALHA, COMPLEMENTOS, COMPLEMENTOS_GEOJSON
 
-        if (!file || !bairroNome) {
-            return NextResponse.json({ error: "Arquivo e nome do bairro são obrigatórios" }, { status: 400 });
+        if (!file) {
+            return NextResponse.json({ error: "Arquivo é obrigatório" }, { status: 400 });
         }
 
         const buffer = Buffer.from(await file.arrayBuffer());
-
         let result;
-        if (file.name.endsWith('.geojson')) {
-            const { processGeoJSONImport } = await import("@/lib/importService");
-            result = await processGeoJSONImport(buffer);
-        } else {
-            result = await processExcelImport(buffer, bairroNome);
+
+        switch (tipo) {
+            case "COMPLEMENTOS":
+                result = await processComplementoImport(buffer);
+                break;
+            case "COMPLEMENTOS_GEOJSON":
+                result = await processComplementoGeoJSONImport(buffer);
+                break;
+            case "MALHA":
+                result = await processGeoJSONImport(buffer);
+                break;
+            case "IMOVEIS":
+            default:
+                if (!bairroNome && tipo === "IMOVEIS") {
+                    return NextResponse.json({ error: "Nome do bairro é obrigatório para importação de imóveis" }, { status: 400 });
+                }
+                if (file.name.endsWith('.geojson')) {
+                    result = await processGeoJSONImport(buffer);
+                } else {
+                    result = await processExcelImport(buffer, bairroNome);
+                }
+                break;
         }
 
         return NextResponse.json(result);
