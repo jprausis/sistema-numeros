@@ -37,8 +37,11 @@ model Imovel {
   dataExecucao      DateTime?
   instaladorResp    String?
   fotos             String?  // JSON ou caminhos separados por vírgula
+  fotoLocalInstalacao String? // Foto tirada pelo operador da prefeitura com a indicação de onde instalar
   obsPendente       String?
   usuarioAlt        String?  // Nome/Email do usuário que fez a última alteração
+  latExecucao       Float?   // Coordenadas reais da instalação (GPS)
+  lonExecucao       Float?
   bairroId          String
   bairro            Bairro   @relation(fields: [bairroId], references: [id])
   malha             Json?
@@ -53,8 +56,11 @@ model Complemento {
   liberadoInstalacao Boolean  @default(false)
   dataExecucao      DateTime?
   fotos             String?  // JSON
+  fotoLocalInstalacao String? // Foto tirada pelo operador da prefeitura com a indicação de onde instalar
   x                 Float?
   y                 Float?
+  latExecucao       Float?   // Coordenadas reais da instalação (GPS)
+  lonExecucao       Float?
   imovel            Imovel   @relation(fields: [inscimob], references: [inscimob])
   inscimob          String
 

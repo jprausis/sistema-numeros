@@ -5,7 +5,7 @@ import { createAuditLog } from "@/lib/audit";
 export async function PATCH(req: NextRequest) {
     try {
         const body = await req.json();
-        const { id, liberado, userId, userEmail } = body;
+        const { id, liberado, fotoLocalInstalacao, userId, userEmail } = body;
 
         if (!id) {
             return NextResponse.json({ error: "ID é obrigatório" }, { status: 400 });
@@ -14,7 +14,8 @@ export async function PATCH(req: NextRequest) {
         const complemento = await prisma.complemento.update({
             where: { id },
             data: {
-                liberadoInstalacao: liberado
+                liberadoInstalacao: liberado,
+                ...(fotoLocalInstalacao !== undefined && { fotoLocalInstalacao })
             }
         });
 
@@ -27,6 +28,7 @@ export async function PATCH(req: NextRequest) {
             resourceId: id,
             details: {
                 liberado,
+                fotoLocalInstalacao,
                 inscimob: complemento.inscimob
             }
         });

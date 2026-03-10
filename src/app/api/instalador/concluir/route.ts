@@ -4,7 +4,7 @@ import { createAuditLog } from "@/lib/audit";
 
 export async function PATCH(req: NextRequest) {
     try {
-        const { inscimob, status, fotoUrl, obs, protocolo, usuarioAlt, userId, userEmail } = await req.json();
+        const { inscimob, status, fotoUrl, fotoLocalInstalacao, obs, protocolo, usuarioAlt, userId, userEmail } = await req.json();
 
         if (!inscimob || !status) {
             return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
@@ -16,6 +16,7 @@ export async function PATCH(req: NextRequest) {
             data: {
                 status: status, // Geralmente CONCLUIDO ou PENDENTE
                 fotos: fotoUrl,
+                ...(fotoLocalInstalacao !== undefined && { fotoLocalInstalacao }),
                 obsPendente: obs,
                 usuarioAlt: usuarioAlt,
                 dataExecucao: new Date(),
@@ -43,6 +44,7 @@ export async function PATCH(req: NextRequest) {
             details: {
                 status,
                 fotoUrl,
+                fotoLocalInstalacao,
                 obs,
                 protocolo,
                 usuarioAlt

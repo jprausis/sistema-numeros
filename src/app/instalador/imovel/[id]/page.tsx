@@ -16,6 +16,7 @@ export default function ImovelDetalhesPage() {
     const [photo, setPhoto] = useState<File | null>(null);
     const [selectedComplemento, setSelectedComplemento] = useState<any>(null);
     const [user, setUser] = useState<any>(null);
+    const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
     useEffect(() => {
         async function loadData() {
@@ -168,6 +169,24 @@ export default function ImovelDetalhesPage() {
                 </div>
             )}
 
+            {/* Foto de Orientação da Prefeitura */}
+            {(selectedComplemento ? selectedComplemento.fotoLocalInstalacao : imovel.fotoLocalInstalacao) && (
+                <div className={styles.orientationPhotoSection} style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#eef2ff', borderRadius: '10px', border: '1px solid #c7d2fe' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#3730a3', marginBottom: '10px' }}>
+                        📍 Local Indicado para Instalação
+                    </h3>
+                    <img
+                        src={selectedComplemento ? selectedComplemento.fotoLocalInstalacao : imovel.fotoLocalInstalacao}
+                        alt="Foto indicativa da prefeitura"
+                        style={{ width: '100%', maxHeight: '400px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in' }}
+                        onClick={() => setFullScreenImage(selectedComplemento ? selectedComplemento.fotoLocalInstalacao : imovel.fotoLocalInstalacao)}
+                    />
+                    <p style={{ fontSize: '13px', color: '#4f46e5', marginTop: '8px' }}>
+                        Esta foto foi enviada pelo operador para guiar a instalação.
+                    </p>
+                </div>
+            )}
+
             <form onSubmit={handleUpdate} className={styles.form}>
                 <h2 className={styles.sectionTitle}>
                     {selectedComplemento ? `Instalar Unidade: ${selectedComplemento.numeroPredial}` : `Instalar Número Principal: ${imovel.numeroAInstalar}`}
@@ -256,6 +275,20 @@ export default function ImovelDetalhesPage() {
                             </button>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {fullScreenImage && (
+                <div
+                    style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}
+                    onClick={() => setFullScreenImage(null)}
+                >
+                    <img
+                        src={fullScreenImage}
+                        alt="Fullscreen"
+                        style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', borderRadius: '8px' }}
+                    />
+                    <div style={{ position: 'absolute', top: '20px', right: '20px', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', width: '40px', height: '40px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 'bold' }}>✕</div>
                 </div>
             )}
         </div>

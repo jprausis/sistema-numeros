@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import styles from './page.module.css';
 import { createClient } from '@/utils/supabase/client';
+import { compressImage } from '@/utils/imageCompressor';
 
 const InstallerMap = dynamic(() => import('@/components/InstallerMap'), {
     ssr: false,
@@ -23,6 +24,8 @@ export default function PrefeituraPage() {
     const [uploading, setUploading] = useState(false);
     const [selectedForProcess, setSelectedForProcess] = useState<any | null>(null);
     const [user, setUser] = useState<any>(null);
+    const [photo, setPhoto] = useState<File | null>(null);
+    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
     useEffect(() => {
         const checkUser = async () => {
@@ -66,7 +69,28 @@ export default function PrefeituraPage() {
     const handleStatusUpdate = async (status: 'LIBERADO' | 'AUSENTE' | 'NAO_INICIADO') => {
         if (!selectedForProcess) return;
         setUploading(true);
+        let fotoUrl: string | null = null;
+
         try {
+            if (status === 'LIBERADO' && photo) {
+                const compressedBlob = await compressImage(photo);
+                const fileName = `prefeitura_${selectedForProcess.inscimob}_${Date.now()}.jpg`;
+
+                const { data, error } = await supabase.storage
+                    .from('fotos-imoveis')
+                    .upload(fileName, compressedBlob, {
+                        contentType: 'image/jpeg'
+                    });
+
+                if (error) throw new Error("Falha no upload da foto: " + error.message);
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('fotos-imoveis')
+                    .getPublicUrl(fileName);
+
+                fotoUrl = publicUrl;
+            }
+
             const res = await fetch('/api/instalador/concluir', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -74,6 +98,7 @@ export default function PrefeituraPage() {
                     inscimob: selectedForProcess.inscimob,
                     status: status,
                     fotoUrl: null, // Prefeitura não precisa de foto
+                    fotoLocalInstalacao: fotoUrl, // Envia a foto do local de instalação
                     obs: status === 'NAO_INICIADO'
                         ? `Resetado por Operador Prefeitura: ${user?.user_metadata?.name || user?.email}`
                         : `Atualizado por Operador Prefeitura: ${user?.user_metadata?.name || user?.email}`,
@@ -87,11 +112,15 @@ export default function PrefeituraPage() {
                 const msg = status === 'LIBERADO' ? 'Liberado' : (status === 'AUSENTE' ? 'Ausente' : 'Não Iniciado');
                 alert(`Imóvel marcado como ${msg}!`);
                 setSelectedForProcess(null);
+                setPhoto(null);
+                setPhotoPreview(null);
                 fetchImoveis();
                 handleGpsSearch();
+            } else {
+                alert("Erro ao atualizar status.");
             }
-        } catch (e) {
-            alert("Erro ao atualizar status.");
+        } catch (e: any) {
+            alert("Erro ao processar requisição: " + (e.message || "Erro desconhecido"));
         } finally {
             setUploading(false);
         }
@@ -99,13 +128,36 @@ export default function PrefeituraPage() {
 
     const handleLiberarComplemento = async (complementoId: string, liberado: boolean) => {
         setUploading(true);
+        let fotoUrl: string | null = null;
+
         try {
+            if (liberado && photo) {
+                const complemento = selectedForProcess.complementos?.find((c: any) => c.id === complementoId);
+                const compressedBlob = await compressImage(photo);
+                const fileName = `prefeitura_${selectedForProcess.inscimob}_${complemento?.unidade || 'comp'}_${Date.now()}.jpg`;
+
+                const { data, error } = await supabase.storage
+                    .from('fotos-imoveis')
+                    .upload(fileName, compressedBlob, {
+                        contentType: 'image/jpeg'
+                    });
+
+                if (error) throw new Error("Falha no upload da foto do complemento: " + error.message);
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('fotos-imoveis')
+                    .getPublicUrl(fileName);
+
+                fotoUrl = publicUrl;
+            }
+
             const res = await fetch('/api/prefeitura/complemento/liberar', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id: complementoId,
                     liberado,
+                    fotoLocalInstalacao: fotoUrl,
                     userId: user?.id,
                     userEmail: user?.email
                 })
@@ -116,15 +168,19 @@ export default function PrefeituraPage() {
                 setSelectedForProcess((prev: any) => ({
                     ...prev,
                     complementos: prev.complementos.map((c: any) =>
-                        c.id === complementoId ? { ...c, liberadoInstalacao: liberado } : c
+                        c.id === complementoId ? { ...c, liberadoInstalacao: liberado, fotoLocalInstalacao: fotoUrl } : c
                     )
                 }));
                 // Recarregar listas globais para manter sincronismo
                 fetchImoveis();
                 handleGpsSearch();
+                setPhoto(null);
+                setPhotoPreview(null);
+            } else {
+                alert("Erro ao liberar complemento.");
             }
-        } catch (e) {
-            alert("Erro ao liberar complemento.");
+        } catch (e: any) {
+            alert("Erro ao liberar complemento: " + (e.message || "Erro desconhecido"));
         } finally {
             setUploading(false);
         }
@@ -245,11 +301,47 @@ export default function PrefeituraPage() {
                         )}
                         <div className={styles.modalHeader}>
                             <h3>Imóvel {selectedForProcess.numeroAInstalar}</h3>
-                            <button className={styles.closeBtn} onClick={() => setSelectedForProcess(null)}>×</button>
+                            <button className={styles.closeBtn} onClick={() => { setSelectedForProcess(null); setPhoto(null); setPhotoPreview(null); }}>×</button>
                         </div>
 
                         <div className={styles.prefeituraActions}>
                             <p className={styles.sectionLabel}>Número Principal ({selectedForProcess.numeroAInstalar}):</p>
+
+                            <div className={styles.photoSection} style={{ marginBottom: '15px' }}>
+                                {photoPreview ? (
+                                    <div className={styles.previewContainer} style={{ position: 'relative', textAlign: 'center' }}>
+                                        <img src={photoPreview} alt="Preview" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px' }} />
+                                        <button onClick={() => { setPhotoPreview(null); setPhoto(null); }} style={{ marginTop: '10px', width: '100%', padding: '10px', backgroundColor: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Excluir e tirar outra foto</button>
+                                        <span style={{ fontSize: '12px', color: '#666', marginTop: '5px', display: 'block' }}>ℹ️ A foto será anexada ao item que você liberar.</span>
+                                    </div>
+                                ) : (
+                                    <label className={styles.captureBtnHuge} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', backgroundColor: '#f8fafc', border: '2px dashed #cbd5e1', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s' }}>
+                                        <span className={styles.cameraIcon} style={{ color: '#4f46e5', marginBottom: '10px' }}>
+                                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                                                <circle cx="12" cy="13" r="4" />
+                                            </svg>
+                                        </span>
+                                        <span style={{ fontWeight: 'bold', color: '#1e293b' }}>Tirar Foto de Orientação</span>
+                                        <p style={{ fontSize: '12px', color: '#64748b', margin: '5px 0 0 0' }}>Opcional para instruir o instalador</p>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            capture="environment"
+                                            onChange={e => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    setPhoto(file);
+                                                    setPhotoPreview(URL.createObjectURL(file));
+                                                }
+                                            }}
+                                            disabled={uploading}
+                                            hidden
+                                        />
+                                    </label>
+                                )}
+                            </div>
+
                             <div className={styles.actionButtonsRow}>
                                 <button
                                     className={styles.liberarBtn}

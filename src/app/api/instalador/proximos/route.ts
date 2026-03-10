@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
             })
             .filter((imovel: any) => imovel.distance <= radius)
             .sort((a: any, b: any) => a.distance - b.distance)
-            .slice(0, 5); // Aumentado para 5 candidatos
+            .slice(0, 100); // Aumentado para 100 candidatos para garantir que pegue em todos os bairros no raio
 
         return NextResponse.json({ candidates });
     } catch (error) {
