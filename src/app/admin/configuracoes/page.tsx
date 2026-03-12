@@ -96,13 +96,23 @@ export default function ConfiguracoesPage() {
                         </div>
                     </div>
 
-                    <div className={styles.formGroup}>
-                        <label>Antecedência Mínima (dias)</label>
-                        <input
-                            type="number"
-                            value={config.lead_time_days}
-                            onChange={e => updateConfig('lead_time_days', e.target.value)}
-                        />
+                    <div className={styles.grid}>
+                        <div className={styles.formGroup}>
+                            <label>Antecedência Mínima (dias)</label>
+                            <input
+                                type="number"
+                                value={config.lead_time_days || ''}
+                                onChange={e => updateConfig('lead_time_days', e.target.value)}
+                            />
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label>Dias Máximos (Faixa)</label>
+                            <input
+                                type="number"
+                                value={config.max_scheduling_days || ''}
+                                onChange={e => updateConfig('max_scheduling_days', e.target.value)}
+                            />
+                        </div>
                     </div>
                 </section>
 

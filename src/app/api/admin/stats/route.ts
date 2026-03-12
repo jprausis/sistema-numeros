@@ -8,7 +8,12 @@ export async function GET(req: NextRequest) {
     try {
         const totalImoveis = await prisma.imovel.count();
         const concluidos = await prisma.imovel.count({ where: { status: "CONCLUIDO" } });
+        const liberados = await prisma.imovel.count({ where: { status: "LIBERADO" } });
+        const ausentes = await prisma.imovel.count({ where: { status: "AUSENTE" } });
         const pendentes = await prisma.imovel.count({ where: { status: "PENDENTE" } });
+
+        const totalComplementos = await prisma.complemento.count();
+        const complementosLiberados = await prisma.complemento.count({ where: { liberadoInstalacao: true } });
 
         const now = new Date();
         const todayStart = startOfDay(now);
@@ -56,7 +61,11 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({
             totalImoveis,
             concluidos,
+            liberados,
+            ausentes,
             pendentes,
+            totalComplementos,
+            complementosLiberados,
             agendamentosHoje,
             agendamentosSemana,
             digitos: {

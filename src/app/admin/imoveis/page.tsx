@@ -123,7 +123,8 @@ export default function AdminImoveisPage() {
             'Bairro': i.bairro?.nome,
             'Número': i.numeroAInstalar,
             'Status': i.status,
-            'Foto URL': i.fotos || 'Nenhuma',
+            'Foto Orientação': i.fotoLocalInstalacao || 'Nenhuma',
+            'Foto Instalação': i.fotos || 'Nenhuma',
             'Observações': i.obsPendente || '',
             'Data Execução': i.dataExecucao ? new Date(i.dataExecucao).toLocaleDateString() : 'N/A'
         }));
@@ -146,7 +147,7 @@ export default function AdminImoveisPage() {
             <header className={styles.header}>
                 <div>
                     <h1>Gestão de Imóveis</h1>
-                    <p>Controle total sobre as placas instaladas e pendências.</p>
+                    <p>Controle total sobre os números instalados e pendências.</p>
                 </div>
                 <div className={styles.headerActions}>
                     <button onClick={handleExport} className={styles.exportBtn}>
@@ -239,9 +240,10 @@ export default function AdminImoveisPage() {
                             ) : filtered.map(i => (
                                 <tr key={i.inscimob}>
                                     <td>
-                                        {i.fotos ? (
-                                            <div className={styles.tableThumb} onClick={() => window.open(i.fotos, '_blank')}>
-                                                <img src={i.fotos} alt="Instalação" />
+                                        {(i.status === 'CONCLUIDO' ? i.fotos : (i.fotoLocalInstalacao || i.fotos)) ? (
+                                            <div className={styles.tableThumb} onClick={() => window.open(i.status === 'CONCLUIDO' ? i.fotos : (i.fotoLocalInstalacao || i.fotos), '_blank')}>
+                                                <img src={i.status === 'CONCLUIDO' ? i.fotos : (i.fotoLocalInstalacao || i.fotos)} alt="Foto do Imóvel" />
+                                                <span className={styles.photoBadge}>{i.status === 'CONCLUIDO' || (!i.fotoLocalInstalacao && i.fotos) ? 'Instalação' : 'Orientação'}</span>
                                             </div>
                                         ) : (
                                             <span className={styles.noPhoto}>Sem foto</span>
@@ -344,9 +346,16 @@ export default function AdminImoveisPage() {
                                             if (c.status === 'CONCLUIDO') statusClass = styles.compDone;
                                             else if (c.liberadoInstalacao) statusClass = styles.compReleased;
 
+                                            const foto = c.fotos && c.fotos !== 'null' && c.fotos !== '[]' ? JSON.parse(c.fotos)[0] : null;
+
                                             return (
-                                                <div key={c.id} className={`${styles.compIndicator} ${statusClass}`} title={`${c.numeroPredial} - ${c.status}`}>
-                                                    {c.numeroPredial}
+                                                <div key={c.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                                                    <div className={`${styles.compIndicator} ${statusClass}`} title={`${c.numeroPredial} - ${c.status}`} style={{ margin: 0 }}>
+                                                        {c.numeroPredial}
+                                                    </div>
+                                                    {foto && (
+                                                        <img src={foto} onClick={() => window.open(foto, '_blank')} style={{ width: '30px', height: '30px', objectFit: 'cover', borderRadius: '4px', cursor: 'zoom-in', border: '1px solid #ccc' }} title="Ver Foto" alt="foto comp" />
+                                                    )}
                                                 </div>
                                             );
                                         })}

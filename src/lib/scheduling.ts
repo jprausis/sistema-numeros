@@ -13,12 +13,15 @@ export async function getAvailableSlots(date: Date) {
     if (!daysAllowed.includes(dayOfWeek)) return [];
 
     const leadTimeDays = parseInt(configMap.lead_time_days || "1");
-    const maxDaysAhead = 10; // Limite solicitado
+    const maxSchedulingDays = parseInt(configMap.max_scheduling_days || "7"); // Limite configurável
     const today = startOfDay(new Date());
 
-    // Validar intervalo permitido (1 a 10 dias)
-    if (isBefore(startOfDay(date), addDays(today, leadTimeDays - 1))) return [];
-    if (isAfter(startOfDay(date), addDays(today, maxDaysAhead))) return [];
+    // Validar intervalo permitido (lead_time até lead_time + maxSchedulingDays)
+    const minDate = addDays(today, leadTimeDays);
+    const maxDate = addDays(minDate, maxSchedulingDays);
+
+    if (isBefore(startOfDay(date), minDate)) return [];
+    if (isAfter(startOfDay(date), maxDate)) return [];
 
     const startStr = configMap.hours_start || "08:00";
     const endStr = configMap.hours_end || "19:00";

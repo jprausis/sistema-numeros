@@ -2,17 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, addDays, startOfDay } from 'date-fns';
+import { format, getDay, getDaysInMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import styles from './page.module.css';
 
 export default function AgendarPage() {
     const router = useRouter();
-    const [loading, setLoading] = useState(false);
-    const [slots, setSlots] = useState<Date[]>([]);
-    const [selectedDate, setSelectedDate] = useState<string>(
-        format(addDays(new Date(), 1), 'yyyy-MM-dd')
-    );
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [slotsByDate, setSlotsByDate] = useState<Record<string, string[]>>({});
+    const [availableDates, setAvailableDates] = useState<string[]>([]);
+
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
@@ -23,28 +24,38 @@ export default function AgendarPage() {
         bairro: ''
     });
 
-    // Buscar slots disponíveis quando a data muda
     useEffect(() => {
-        async function fetchSlots() {
+        async function fetchAllSlots() {
             setLoading(true);
             try {
-                const res = await fetch(`/api/agendamentos/disponibilidade?date=${selectedDate}`);
+                const res = await fetch('/api/agendamentos/disponibilidade?all=true');
                 const data = await res.json();
-                setSlots(data.slots.map((s: string) => new Date(s)));
+                if (data.slotsByDate) {
+                    setSlotsByDate(data.slotsByDate);
+                    const dates = Object.keys(data.slotsByDate).sort();
+                    setAvailableDates(dates);
+                    if (dates.length > 0) {
+                        setSelectedDate(dates[0]);
+                    }
+                }
             } catch (error) {
                 console.error("Erro ao buscar slots:", error);
             } finally {
                 setLoading(false);
             }
         }
-        fetchSlots();
-    }, [selectedDate]);
+        fetchAllSlots();
+    }, []);
+
+    const slots = selectedDate && slotsByDate[selectedDate]
+        ? slotsByDate[selectedDate].map(s => new Date(s))
+        : [];
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedSlot) return alert("Selecione um horário.");
 
-        setLoading(true);
+        setSubmitting(true);
         try {
             const res = await fetch('/api/agendamentos/criar', {
                 method: 'POST',
@@ -64,7 +75,7 @@ export default function AgendarPage() {
         } catch (error) {
             alert("Erro na conexão com o servidor.");
         } finally {
-            setLoading(false);
+            setSubmitting(false);
         }
     };
 
@@ -130,17 +141,81 @@ export default function AgendarPage() {
                         />
                     </div>
                 </div>
+
                 <div className={styles.formGroup}>
-                    <label className={styles.label}>Data da Instalação</label>
-                    <input
-                        type="date"
-                        required
-                        min={format(addDays(new Date(), 1), 'yyyy-MM-dd')}
-                        max={format(addDays(new Date(), 10), 'yyyy-MM-dd')}
-                        className={styles.input}
-                        value={selectedDate}
-                        onChange={e => setSelectedDate(e.target.value)}
-                    />
+                    <label className={styles.label}>Dias Disponíveis no Calendário</label>
+                    {loading ? (
+                        <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Buscando dias disponíveis...</p>
+                    ) : availableDates.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '350px', margin: '0 auto' }}>
+                            {Array.from(new Set(availableDates.map(d => d.slice(0, 7)))).sort().map(monthStr => {
+                                const [year, month] = monthStr.split('-').map(Number);
+                                const firstDayDate = new Date(year, month - 1, 1);
+                                const firstDayOfWeek = getDay(firstDayDate); // 0 (Dom) a 6 (Sab)
+                                const daysInMonth = getDaysInMonth(firstDayDate);
+
+                                const blanks = Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`blank-${i}`} style={{ padding: '0.5rem' }}></div>);
+
+                                const days = Array.from({ length: daysInMonth }).map((_, i) => {
+                                    const day = i + 1;
+                                    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                                    const isAvailable = availableDates.includes(dateStr);
+                                    const isSelected = selectedDate === dateStr;
+
+                                    if (isAvailable) {
+                                        return (
+                                            <button
+                                                key={dateStr}
+                                                type="button"
+                                                style={{
+                                                    padding: '0.5rem',
+                                                    borderRadius: '0.375rem',
+                                                    border: isSelected ? '1px solid #2563eb' : '1px solid #d1d5db',
+                                                    textAlign: 'center',
+                                                    fontWeight: 500,
+                                                    backgroundColor: isSelected ? '#2563eb' : '#ffffff',
+                                                    color: isSelected ? '#ffffff' : '#1f2937',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s',
+                                                }}
+                                                onMouseOver={e => { if (!isSelected) e.currentTarget.style.backgroundColor = '#eff6ff' }}
+                                                onMouseOut={e => { if (!isSelected) e.currentTarget.style.backgroundColor = '#ffffff' }}
+                                                onClick={() => {
+                                                    setSelectedDate(dateStr);
+                                                    setSelectedSlot(null);
+                                                }}
+                                            >
+                                                {day}
+                                            </button>
+                                        );
+                                    } else {
+                                        return (
+                                            <div key={dateStr} style={{ padding: '0.5rem', textAlign: 'center', color: '#d1d5db', pointerEvents: 'none' }}>
+                                                {day}
+                                            </div>
+                                        );
+                                    }
+                                });
+
+                                return (
+                                    <div key={monthStr} style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#f9fafb' }}>
+                                        <h3 style={{ fontWeight: 700, fontSize: '1.125rem', marginBottom: '1rem', textAlign: 'center', textTransform: 'capitalize' }}>
+                                            {format(firstDayDate, 'MMMM yyyy', { locale: ptBR })}
+                                        </h3>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.25rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.5rem' }}>
+                                            <div>D</div><div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.25rem' }}>
+                                            {blanks}
+                                            {days}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <p style={{ fontSize: '0.875rem', color: '#ef4444' }}>Nenhum dia disponível para agendamento.</p>
+                    )}
                 </div>
 
                 <div className={styles.formGroup}>
@@ -148,10 +223,12 @@ export default function AgendarPage() {
                     <div className={styles.slotGrid}>
                         {loading ? (
                             <p className="text-center py-4">Carregando horários...</p>
+                        ) : !selectedDate ? (
+                            <p className="text-center py-4" style={{ gridColumn: '1 / -1' }}>
+                                Selecione um dia para ver os horários.
+                            </p>
                         ) : slots.length > 0 ? (
                             slots.map(slot => {
-                                // Ajustar exibição: se o servidor enviou em UTC, o browser interpretará localmente.
-                                // Para forçar a exibição correta independente do fuso do browser/servidor:
                                 const hours = slot.getUTCHours();
                                 const mins = slot.getUTCMinutes();
                                 const displayTime = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
@@ -177,12 +254,12 @@ export default function AgendarPage() {
 
                 <button
                     type="submit"
-                    disabled={loading || !selectedSlot}
+                    disabled={submitting || !selectedSlot}
                     className={styles.submitButton}
                 >
-                    {loading ? "Processando..." : "Confirmar Agendamento"}
+                    {submitting ? "Processando..." : "Confirmar Agendamento"}
                 </button>
-            </form >
-        </div >
+            </form>
+        </div>
     );
 }

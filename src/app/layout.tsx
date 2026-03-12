@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Sistema de Numeração Residencial",
+  title: "Rio Branco do Sul tem endereço",
   description: "Gestão de Instalação de Números Residenciais",
   manifest: "/manifest.json",
 };

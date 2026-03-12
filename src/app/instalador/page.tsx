@@ -25,12 +25,7 @@ export default function InstallerDashboard() {
     const [searchRadius, setSearchRadius] = useState<number>(80);
 
     // Estados para o Processo de Conclusão (Nova Tela)
-    const [selectedForProcess, setSelectedForProcess] = useState<any | null>(null);
     const [linkingAgendamento, setLinkingAgendamento] = useState<any | null>(null);
-    const [uploading, setUploading] = useState(false);
-    const [capturedPhoto, setCapturedPhoto] = useState<File | null>(null);
-    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-    const [obs, setObs] = useState('');
     const [user, setUser] = useState<any>(null);
     const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
@@ -100,163 +95,15 @@ export default function InstallerDashboard() {
         router.push('/login');
     };
 
-    const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setCapturedPhoto(file);
-            setPhotoPreview(URL.createObjectURL(file));
+    const handleProcess = (property: any) => {
+        if (linkingAgendamento) {
+            router.push(`/instalador/imovel/${property.inscimob}?agendamento=${linkingAgendamento.protocolo}&nome=${encodeURIComponent(linkingAgendamento.nome)}`);
+        } else {
+            router.push(`/instalador/imovel/${property.inscimob}`);
         }
     };
 
-    const handleFinish = async () => {
-        if (!selectedForProcess || !capturedPhoto) {
-            return alert("A foto é obrigatória para concluir!");
-        }
 
-        setUploading(true);
-        try {
-            // 1. Comprimir imagem
-            const compressedBlob = await compressImage(capturedPhoto);
-            const fileName = `${selectedForProcess.inscimob}_${Date.now()}.jpg`;
-
-            // 2. Upload para Supabase Storage
-            const { data, error } = await supabase.storage
-                .from('fotos-imoveis')
-                .upload(fileName, compressedBlob, {
-                    contentType: 'image/jpeg'
-                });
-
-            if (error) throw error;
-
-            // Pegar URL pública
-            const { data: { publicUrl } } = supabase.storage
-                .from('fotos-imoveis')
-                .getPublicUrl(fileName);
-
-            // 3. Salvar no Banco via API
-            const res = await fetch('/api/instalador/concluir', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    inscimob: selectedForProcess.inscimob,
-                    status: 'CONCLUIDO',
-                    fotoUrl: publicUrl,
-                    obs: obs,
-                    protocolo: linkingAgendamento?.protocolo,
-                    usuarioAlt: `Instalador: ${user?.user_metadata?.name || user?.email}`
-                })
-            });
-
-            if (res.ok) {
-                alert("Instalação concluída com sucesso!");
-                setSelectedForProcess(null);
-                setLinkingAgendamento(null);
-                setCapturedPhoto(null);
-                setPhotoPreview(null);
-                setObs('');
-                // Recarregar dados
-                const resProps = await fetch('/api/instalador/imoveis');
-                const dataProps = await resProps.json();
-                setProperties(dataProps.imoveis || []);
-                if (view === 'gps' || linkingAgendamento) handleGpsSearch();
-                if (view === 'list') fetchAgendamentos();
-                setView('map');
-            }
-        } catch (e: any) {
-            alert("Erro ao salvar: " + e.message);
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    // TELA DE CONCLUSÃO (NOVA TELA)
-    if (selectedForProcess) {
-        return (
-            <div className={styles.processContainer}>
-                <header className={styles.header}>
-                    <button onClick={() => { setSelectedForProcess(null); setLinkingAgendamento(null); }} className={styles.backLink}>← Voltar</button>
-                    <h1>{linkingAgendamento ? 'Vincular e Concluir' : 'Instalar Número: ' + selectedForProcess.numeroAInstalar}</h1>
-                </header>
-
-                <main className={styles.processContent}>
-                    {linkingAgendamento && (
-                        <div className={styles.linkingAlert}>
-                            Viculando ao agendamento de <strong>{linkingAgendamento.nome}</strong>
-                        </div>
-                    )}
-
-                    <div className={styles.processCard}>
-                        <div className={styles.propertyHeader}>
-                            <h2>{selectedForProcess.bairro.nome}</h2>
-                            <p>Inscimob: {selectedForProcess.inscimob} - Nº: {selectedForProcess.numeroAInstalar}</p>
-                        </div>
-
-                        {selectedForProcess.fotoLocalInstalacao && (
-                            <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#eef2ff', borderRadius: '10px', border: '1px solid #c7d2fe' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#3730a3', marginBottom: '10px' }}>
-                                    📍 Local Indicado pela Prefeitura
-                                </h3>
-                                <img
-                                    src={selectedForProcess.fotoLocalInstalacao}
-                                    alt="Foto indicativa da prefeitura"
-                                    style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in' }}
-                                    onClick={() => setFullScreenImage(selectedForProcess.fotoLocalInstalacao)}
-                                />
-                                <p style={{ fontSize: '13px', color: '#4f46e5', marginTop: '8px', marginBottom: 0 }}>
-                                    Instale a placa onde indicado nesta foto.
-                                </p>
-                            </div>
-                        )}
-
-                        <div className={styles.photoSection}>
-                            {photoPreview ? (
-                                <div className={styles.previewContainer}>
-                                    <img src={photoPreview} alt="Preview" className={styles.preview} />
-                                    <button onClick={() => { setPhotoPreview(null); setCapturedPhoto(null); }} className={styles.changeBtn}>Excluir e tirar outra foto</button>
-                                </div>
-                            ) : (
-                                <label className={styles.captureBtnHuge}>
-                                    <span className={styles.cameraIcon}>
-                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                                            <circle cx="12" cy="13" r="4" />
-                                        </svg>
-                                    </span>
-                                    <span>Tirar Foto da Placa</span>
-                                    <p>Obrigatório para finalizar</p>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        capture="environment"
-                                        onChange={handlePhotoCapture}
-                                        hidden
-                                    />
-                                </label>
-                            )}
-                        </div>
-
-                        <div className={styles.formGroup}>
-                            <label>Observações Adicionais</label>
-                            <textarea
-                                placeholder="Alguma observação importante sobre esta casa?"
-                                value={obs}
-                                onChange={(e) => setObs(e.target.value)}
-                                className={styles.textarea}
-                            />
-                        </div>
-
-                        <button
-                            onClick={handleFinish}
-                            className={styles.finishBtnFull}
-                            disabled={uploading || !capturedPhoto}
-                        >
-                            {uploading ? 'Enviando Dados...' : linkingAgendamento ? 'VINCULAR E FINALIZAR' : 'FINALIZAR INSTALAÇÃO'}
-                        </button>
-                    </div>
-                </main>
-            </div>
-        );
-    }
 
     return (
         <div className={styles.container}>
@@ -313,7 +160,7 @@ export default function InstallerDashboard() {
                     <InstallerMap
                         properties={properties}
                         userLocation={location}
-                        onEdit={(p) => setSelectedForProcess(p)}
+                        onEdit={(p) => handleProcess(p)}
                     />
                 )}
 
@@ -361,7 +208,7 @@ export default function InstallerDashboard() {
                                         </div>
                                         <button
                                             className={styles.openButton}
-                                            onClick={() => setSelectedForProcess(candidate)}
+                                            onClick={() => handleProcess(candidate)}
                                         >
                                             {linkingAgendamento ? 'Vincular Este' : 'Concluir'}
                                         </button>
@@ -411,7 +258,7 @@ export default function InstallerDashboard() {
                                                 onClick={() => {
                                                     if (ag.inscimobVinculo) {
                                                         const target = properties.find(p => p.inscimob === ag.inscimobVinculo);
-                                                        if (target) setSelectedForProcess(target);
+                                                        if (target) handleProcess(target);
                                                         else alert("Imóvel vinculado não encontrado.");
                                                     } else {
                                                         // NOVO FLUXO: Vincular via GPS

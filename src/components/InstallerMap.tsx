@@ -66,6 +66,7 @@ interface Property {
     status: string;
     bairro: { nome: string };
     fotos?: string;
+    fotoLocalInstalacao?: string;
     malha?: any; // Geometria GeoJSON
     complementos?: any[];
 }
@@ -162,9 +163,25 @@ export default function InstallerMap({
                         position={[userLocation.lat, userLocation.lon]}
                         icon={L.divIcon({
                             className: '',
-                            html: `<div style="background-color: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>`,
-                            iconSize: [16, 16],
-                            iconAnchor: [8, 8]
+                            html: `
+                                <div style="
+                                    width: 24px; 
+                                    height: 24px; 
+                                    background-color: #3b82f6; 
+                                    border: 2px solid white; 
+                                    border-radius: 50%;
+                                    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                ">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white" style="transform: rotate(-45deg); margin-top: -2px; margin-right: -2px;">
+                                        <path d="M2 21l21-9L2 3v7l15 2-15 2v7z" />
+                                    </svg>
+                                </div>
+                            `,
+                            iconSize: [24, 24],
+                            iconAnchor: [12, 12]
                         })}
                     >
                         <Popup>Você está aqui</Popup>
@@ -221,9 +238,32 @@ export default function InstallerMap({
                                         </p>
                                     )}
 
-                                    {prop.fotos && (
+                                    {(prop.status === 'CONCLUIDO' ? prop.fotos : (prop.fotoLocalInstalacao || prop.fotos)) && (
                                         <div className={styles.photoThumb}>
-                                            <img src={prop.fotos} alt="Foto imovel" onClick={() => window.open(prop.fotos, '_blank')} />
+                                            <span style={{ fontSize: '10px', fontWeight: 'bold', backgroundColor: '#e5e7eb', padding: '2px 6px', borderRadius: '4px', marginBottom: '4px', display: 'inline-block' }}>
+                                                {prop.status === 'CONCLUIDO' || (!prop.fotoLocalInstalacao && prop.fotos) ? '📸 Foto Instalação' : '📍 Foto Orientação'}
+                                            </span>
+                                            <img src={(prop.status === 'CONCLUIDO' ? prop.fotos : (prop.fotoLocalInstalacao || prop.fotos)) as string} alt="Foto imovel" onClick={() => window.open((prop.status === 'CONCLUIDO' ? prop.fotos : (prop.fotoLocalInstalacao || prop.fotos)) as string, '_blank')} />
+                                        </div>
+                                    )}
+
+                                    {prop.complementos && prop.complementos.length > 0 && (
+                                        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
+                                            <p style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Fotos de Complementos:</p>
+                                            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                                                {prop.complementos.map(c => {
+                                                    const foto = c.fotos && c.fotos !== 'null' && c.fotos !== '[]' ? JSON.parse(c.fotos)[0] : null;
+                                                    if (!foto) return null;
+                                                    return (
+                                                        <div key={c.id} style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => window.open(foto, '_blank')} title={c.status === 'CONCLUIDO' ? 'Foto Instalada' : 'Orientação/Pendente'}>
+                                                            <div style={{ width: '40px', height: '40px', borderRadius: '4px', overflow: 'hidden', border: c.status === 'CONCLUIDO' ? '2px solid #22c55e' : '2px solid #e2e8f0' }}>
+                                                                <img src={foto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Comp" />
+                                                            </div>
+                                                            <span style={{ fontSize: '10px', display: 'block' }}>{c.numeroPredial}</span>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
                                         </div>
                                     )}
 
