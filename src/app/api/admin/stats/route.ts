@@ -31,13 +31,20 @@ export async function GET(req: NextRequest) {
             }
         });
 
+        const agendamentosPendentes = await prisma.agendamento.count({ where: { status: "PENDENTE" } });
+
         const imoveisData = await prisma.imovel.findMany({
             select: { numeroAInstalar: true, status: true }
         });
 
         let totalDigitos = 0;
         let digitosInstalados = 0;
+        let totalAlgarismosLiberados = 0;
         const faltantesPorDigito: Record<string, number> = {
+            "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0
+        };
+
+        const liberadosPorDigito: Record<string, number> = {
             "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 0
         };
 
@@ -49,10 +56,20 @@ export async function GET(req: NextRequest) {
             if (im.status === "CONCLUIDO") {
                 digitosInstalados += len;
             } else {
-                // Se não está concluído, contamos os caracteres para a produção
+                // Se não está concluído, contamos os caracteres para a produção geral
                 for (const char of numStr) {
                     if (faltantesPorDigito[char] !== undefined) {
                         faltantesPorDigito[char]++;
+                    }
+                }
+
+                // Se está liberado, contamos especificamente para os liberados
+                if (im.status === "LIBERADO") {
+                    totalAlgarismosLiberados += len;
+                    for (const char of numStr) {
+                        if (liberadosPorDigito[char] !== undefined) {
+                            liberadosPorDigito[char]++;
+                        }
                     }
                 }
             }
@@ -68,10 +85,13 @@ export async function GET(req: NextRequest) {
             complementosLiberados,
             agendamentosHoje,
             agendamentosSemana,
+            agendamentosPendentes,
+            totalAlgarismosLiberados,
             digitos: {
                 totalNecessario: totalDigitos,
                 totalInstalado: digitosInstalados,
-                faltantesPorDigito
+                faltantesPorDigito,
+                liberadosPorDigito
             }
         });
     } catch (error) {

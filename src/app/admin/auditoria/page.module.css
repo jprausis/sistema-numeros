@@ -80,7 +80,94 @@
     background: var(--accent);
 }
 
+.filterBar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+    background: var(--card);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow);
+}
+
+.filterGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.filterGroup label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--secondary);
+    text-transform: uppercase;
+}
+
+.filterGroup input {
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: var(--background);
+    color: var(--foreground);
+    font-size: 0.9rem;
+    min-width: 200px;
+}
+
+.filterGroup button {
+    padding: 0.6rem 1.2rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: opacity 0.2s;
+}
+
+.filterGroup button:hover {
+    opacity: 0.9;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+}
+
+.pageBtn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--card-border);
+    background: var(--card);
+    color: var(--foreground);
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.pageBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pageBtn:hover:not(:disabled) {
+    background: var(--accent);
+}
+
 @media (max-width: 900px) {
+    .filterBar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .filterGroup input {
+        min-width: 0;
+    }
+
     .detailsCol pre {
         max-width: 200px;
     }

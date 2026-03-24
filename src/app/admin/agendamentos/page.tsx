@@ -49,6 +49,26 @@ export default function AdminAgendamentosPage() {
         }
     };
 
+    const handleExcluir = async (protocolo: string) => {
+        if (!confirm(`Tem certeza que deseja excluir o agendamento ${protocolo}?`)) return;
+
+        try {
+            const res = await fetch(`/api/admin/agendamentos/excluir?protocolo=${protocolo}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                alert("Agendamento excluído com sucesso!");
+                fetchAgendamentos();
+            } else {
+                const data = await res.json();
+                alert(data.error || "Erro ao excluir");
+            }
+        } catch (e) {
+            alert("Erro na conexão");
+        }
+    };
+
     return (
         <div className={styles.container}>
             <header className={styles.header}>
@@ -94,29 +114,49 @@ export default function AdminAgendamentosPage() {
                                     )}
                                 </td>
                                 <td>
-                                    {vinculando === ag.protocolo ? (
-                                        <div className={styles.vincularForm}>
-                                            <input
-                                                type="text"
-                                                placeholder="Inscimob"
-                                                value={inscimobInput}
-                                                onChange={e => setInscimobInput(e.target.value)}
-                                                className={styles.miniInput}
-                                            />
-                                            <button onClick={() => handleVincular(ag.protocolo)} className={styles.vincBtn}>OK</button>
-                                            <button onClick={() => setVinculando(null)} className={styles.cancelBtn}>X</button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            className={styles.actionBtn}
-                                            onClick={() => {
-                                                setVinculando(ag.protocolo);
-                                                setInscimobInput(ag.inscimobVinculo || '');
-                                            }}
-                                        >
-                                            {ag.inscimobVinculo ? "Alterar" : "Vincular"}
-                                        </button>
-                                    )}
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        {vinculando === ag.protocolo ? (
+                                            <div className={styles.vincularForm}>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Inscimob"
+                                                    value={inscimobInput}
+                                                    onChange={e => setInscimobInput(e.target.value)}
+                                                    className={styles.miniInput}
+                                                />
+                                                <button onClick={() => handleVincular(ag.protocolo)} className={styles.vincBtn}>OK</button>
+                                                <button onClick={() => setVinculando(null)} className={styles.cancelBtn}>X</button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    className={styles.actionBtn}
+                                                    onClick={() => {
+                                                        setVinculando(ag.protocolo);
+                                                        setInscimobInput(ag.inscimobVinculo || '');
+                                                    }}
+                                                >
+                                                    {ag.inscimobVinculo ? "Alterar" : "Vincular"}
+                                                </button>
+                                                <button
+                                                    className={styles.deleteBtn}
+                                                    onClick={() => handleExcluir(ag.protocolo)}
+                                                    style={{ 
+                                                        backgroundColor: '#fee2e2', 
+                                                        color: '#b91c1c', 
+                                                        border: '1px solid #fecaca',
+                                                        padding: '6px 10px',
+                                                        borderRadius: '4px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '0.85rem',
+                                                        fontWeight: 500
+                                                    }}
+                                                >
+                                                    Excluir
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}

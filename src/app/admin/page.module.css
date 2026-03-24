@@ -168,6 +168,19 @@
     border-radius: 10px;
     overflow: hidden;
     margin-bottom: 1rem;
+    display: flex;
+}
+
+.progressBar {
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.5s ease-in-out;
+}
+
+.progressBarLiberados {
+    height: 100%;
+    background: #f59e0b; /* Cor warning/âmbar */
+    transition: width 0.5s ease-in-out;
 }
 
 .digitSection {
@@ -223,4 +236,14 @@
 .digitValue strong {
     color: var(--foreground);
     font-size: 1.1rem;
+}
+
+.activeDigit {
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+}
+
+.activeDigit .digitValue strong {
+    color: var(--primary);
 }
