@@ -12,14 +12,26 @@ export async function DELETE(
     const { id } = await params;
 
     try {
-        // 1. Deletar todos os imóveis associados a este bairro primeiro
-        await prisma.imovel.deleteMany({
-            where: { bairroId: id }
-        });
+        await prisma.$transaction(async (tx) => {
+            // 1. Deletar complementos de todos os imóveis do bairro primeiro
+            // Isso é necessário porque Complemento tem FK para Imovel(inscimob)
+            await tx.complemento.deleteMany({
+                where: {
+                    imovel: {
+                        bairroId: id
+                    }
+                }
+            });
 
-        // 2. Deletar o bairro
-        await prisma.bairro.delete({
-            where: { id }
+            // 2. Deletar todos os imóveis associados a este bairro
+            await tx.imovel.deleteMany({
+                where: { bairroId: id }
+            });
+
+            // 3. Deletar o bairro
+            await tx.bairro.delete({
+                where: { id }
+            });
         });
 
         return NextResponse.json({ success: true });

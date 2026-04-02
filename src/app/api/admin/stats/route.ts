@@ -6,34 +6,55 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
     try {
-        const totalImoveis = await prisma.imovel.count();
-        const concluidos = await prisma.imovel.count({ where: { status: "CONCLUIDO" } });
-        const liberados = await prisma.imovel.count({ where: { status: "LIBERADO" } });
-        const ausentes = await prisma.imovel.count({ where: { status: "AUSENTE" } });
-        const pendentes = await prisma.imovel.count({ where: { status: "PENDENTE" } });
+        const { searchParams } = new URL(req.url);
+        const bairroId = searchParams.get("bairroId") || undefined;
 
-        const totalComplementos = await prisma.complemento.count();
-        const complementosLiberados = await prisma.complemento.count({ where: { liberadoInstalacao: true } });
+        const whereImovel = bairroId ? { bairroId } : {};
+        const whereComplemento = bairroId ? { imovel: { bairroId } } : {};
+
+        const totalImoveis = await prisma.imovel.count({ where: whereImovel });
+        const concluidos = await prisma.imovel.count({ where: { ...whereImovel, status: "CONCLUIDO" } });
+        const liberados = await prisma.imovel.count({ where: { ...whereImovel, status: "LIBERADO" } });
+        const ausentes = await prisma.imovel.count({ where: { ...whereImovel, status: "AUSENTE" } });
+        const pendentes = await prisma.imovel.count({ where: { ...whereImovel, status: "PENDENTE" } });
+
+        const totalComplementos = await prisma.complemento.count({ where: whereComplemento });
+        const complementosLiberados = await prisma.complemento.count({ where: { ...whereComplemento, liberadoInstalacao: true } });
 
         const now = new Date();
         const todayStart = startOfDay(now);
         const todayEnd = endOfDay(now);
 
-        const agendamentosHoje = await prisma.agendamento.count({
-            where: {
-                dataHora: { gte: todayStart, lte: todayEnd }
-            }
-        });
+        // Para agendamentos, se houver filtro por bairro, precisamos de uma lógica mais complexa
+        // pois a relação não é formal no banco (inscimobVinculo -> imovel.inscimob)
+        let whereAgendamento: any = {
+            dataHora: { gte: todayStart, lte: todayEnd }
+        };
 
-        const agendamentosSemana = await prisma.agendamento.count({
-            where: {
-                dataHora: { gte: startOfWeek(now), lte: endOfWeek(now) }
-            }
-        });
+        let whereAgendamentoSemana: any = {
+            dataHora: { gte: startOfWeek(now), lte: endOfWeek(now) }
+        };
 
-        const agendamentosPendentes = await prisma.agendamento.count({ where: { status: "PENDENTE" } });
+        let whereAgendamentoPendente: any = { status: "PENDENTE" };
+
+        if (bairroId) {
+            const imoveisNoBairro = await prisma.imovel.findMany({
+                where: { bairroId },
+                select: { inscimob: true }
+            });
+            const inscimobs = imoveisNoBairro.map(i => i.inscimob);
+            
+            whereAgendamento.inscimobVinculo = { in: inscimobs };
+            whereAgendamentoSemana.inscimobVinculo = { in: inscimobs };
+            whereAgendamentoPendente.inscimobVinculo = { in: inscimobs };
+        }
+
+        const agendamentosHoje = await prisma.agendamento.count({ where: whereAgendamento });
+        const agendamentosSemana = await prisma.agendamento.count({ where: whereAgendamentoSemana });
+        const agendamentosPendentes = await prisma.agendamento.count({ where: whereAgendamentoPendente });
 
         const imoveisData = await prisma.imovel.findMany({
+            where: whereImovel,
             select: { numeroAInstalar: true, status: true }
         });
 
@@ -95,6 +116,7 @@ export async function GET(req: NextRequest) {
             }
         });
     } catch (error) {
+        console.error("Erro ao carregar estatísticas:", error);
         return NextResponse.json({ error: "Erro ao carregar estatísticas" }, { status: 500 });
     }
 }

@@ -32,6 +32,46 @@
     color: var(--secondary);
 }
 
+.filterContainer {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 0.5rem 0 0.5rem 0;
+    background: var(--card);
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow);
+}
+
+.filterLabel {
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: var(--secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.select {
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--card-border);
+    background: var(--background);
+    color: var(--foreground);
+    font-size: 0.95rem;
+    min-width: 280px;
+    outline: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
 .statsGrid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -247,3 +287,9 @@
 .activeDigit .digitValue strong {
     color: var(--primary);
 }
+
+.loadingGrid {
+    opacity: 0.6;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}

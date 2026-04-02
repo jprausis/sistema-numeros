@@ -7,20 +7,44 @@ import styles from './page.module.css';
 export default function AdminDashboard() {
     const router = useRouter();
     const [stats, setStats] = useState<any>(null);
+    const [bairros, setBairros] = useState<any[]>([]);
+    const [selectedBairro, setSelectedBairro] = useState<string>('');
+    const [loadingStats, setLoadingStats] = useState(false);
 
     useEffect(() => {
-        fetch('/api/admin/stats')
+        // Buscar lista de bairros para o filtro
+        fetch('/api/admin/bairros')
             .then(res => res.json())
-            .then(data => setStats(data));
+            .then(data => setBairros(data.bairros || []));
     }, []);
+
+    useEffect(() => {
+        setLoadingStats(true);
+        let url = '/api/admin/stats';
+        if (selectedBairro) {
+            url += `?bairroId=${selectedBairro}`;
+        }
+        
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                setStats(data);
+                setLoadingStats(false);
+            })
+            .catch(() => setLoadingStats(false));
+    }, [selectedBairro]);
 
     const handleExport = async () => {
         try {
-            const res = await fetch('/api/admin/exportar');
+            let url = '/api/admin/exportar';
+            if (selectedBairro) {
+                url += `?bairroId=${selectedBairro}`;
+            }
+            const res = await fetch(url);
             const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
+            const downloadUrl = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
+            a.href = downloadUrl;
             a.download = `relatorio-instalacoes-${new Date().toISOString().split('T')[0]}.csv`;
             document.body.appendChild(a);
             a.click();
@@ -45,7 +69,22 @@ export default function AdminDashboard() {
                 </button>
             </header>
 
-            <div className={styles.statsGrid}>
+            <div className={styles.filterContainer}>
+                <span className={styles.filterLabel}>Filtrar por Bairro:</span>
+                <select 
+                    className={styles.select} 
+                    value={selectedBairro} 
+                    onChange={(e) => setSelectedBairro(e.target.value)}
+                >
+                    <option value="">Todos os Bairros</option>
+                    {bairros.map(b => (
+                        <option key={b.id} value={b.id}>{b.nome}</option>
+                    ))}
+                </select>
+                {loadingStats && <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>Atualizando...</span>}
+            </div>
+
+            <div className={`${styles.statsGrid} ${loadingStats ? styles.loadingGrid : ''}`}>
                 <div className={`${styles.card} ${styles.total}`}>
                     <div className={styles.cardHeader}>
                         <span className={styles.cardLabel}>Base de Imóveis</span>
