@@ -22,6 +22,18 @@ export default function AdminImoveisPage() {
     const [selectedImovel, setSelectedImovel] = useState<any | null>(null);
     const [editMode, setEditMode] = useState(false);
     const [mapFocus, setMapFocus] = useState<[number, number] | null>(null);
+    const parseFotos = (fotosStr: any): string | null => {
+        if (!fotosStr) return null;
+        try {
+            if (typeof fotosStr === 'string' && (fotosStr.startsWith('[') || fotosStr.startsWith('{'))) {
+                const parsed = JSON.parse(fotosStr);
+                return Array.isArray(parsed) ? parsed[0] : parsed;
+            }
+            return fotosStr;
+        } catch (e) {
+            return fotosStr;
+        }
+    };
 
     const [bairros, setBairros] = useState<any[]>([]);
     const [bairroFilter, setBairroFilter] = useState('');
@@ -240,9 +252,9 @@ export default function AdminImoveisPage() {
                             ) : filtered.map(i => (
                                 <tr key={i.inscimob}>
                                     <td>
-                                        {(i.status === 'CONCLUIDO' ? i.fotos : (i.fotoLocalInstalacao || i.fotos)) ? (
-                                            <div className={styles.tableThumb} onClick={() => window.open(i.status === 'CONCLUIDO' ? i.fotos : (i.fotoLocalInstalacao || i.fotos), '_blank')}>
-                                                <img src={i.status === 'CONCLUIDO' ? i.fotos : (i.fotoLocalInstalacao || i.fotos)} alt="Foto do Imóvel" />
+                                        {((i.status === 'CONCLUIDO' ? parseFotos(i.fotos) : (parseFotos(i.fotoLocalInstalacao) || parseFotos(i.fotos)))) ? (
+                                            <div className={styles.tableThumb} onClick={() => window.open((i.status === 'CONCLUIDO' ? parseFotos(i.fotos) : (parseFotos(i.fotoLocalInstalacao) || parseFotos(i.fotos))) || '', '_blank')}>
+                                                <img src={(i.status === 'CONCLUIDO' ? parseFotos(i.fotos) : (parseFotos(i.fotoLocalInstalacao) || parseFotos(i.fotos))) || ''} alt="Foto do Imóvel" />
                                                 <span className={styles.photoBadge}>{i.status === 'CONCLUIDO' || (!i.fotoLocalInstalacao && i.fotos) ? 'Instalação' : 'Orientação'}</span>
                                             </div>
                                         ) : (
@@ -319,7 +331,7 @@ export default function AdminImoveisPage() {
                                             </button>
                                         )}
                                     </div>
-                                    <img src={selectedImovel.fotos} alt="Foto" className={styles.modalImg} onClick={() => window.open(selectedImovel.fotos, '_blank')} />
+                                    <img src={parseFotos(selectedImovel.fotos) || ''} alt="Foto" className={styles.modalImg} onClick={() => window.open(parseFotos(selectedImovel.fotos) || '', '_blank')} />
                                 </div>
                             )}
 

@@ -29,6 +29,19 @@ export default function ImovelDetalhesPage() {
     const [user, setUser] = useState<any>(null);
     const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
+    const parseFotos = (fotosStr: any): string | null => {
+        if (!fotosStr) return null;
+        try {
+            if (typeof fotosStr === 'string' && (fotosStr.startsWith('[') || fotosStr.startsWith('{'))) {
+                const parsed = JSON.parse(fotosStr);
+                return Array.isArray(parsed) ? parsed[0] : parsed;
+            }
+            return fotosStr;
+        } catch (e) {
+            return fotosStr;
+        }
+    };
+
     useEffect(() => {
         async function loadData() {
             try {
@@ -217,10 +230,10 @@ export default function ImovelDetalhesPage() {
                                 📍 Foto de Referência / Orientação
                             </h3>
                             <img
-                                src={(imovel.fotoLocalInstalacao || imovel.fotos)}
+                                src={parseFotos(imovel.fotoLocalInstalacao || imovel.fotos) || ''}
                                 alt="Foto indicativa da prefeitura"
                                 style={{ width: '100%', maxHeight: '450px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in' }}
-                                onClick={() => setFullScreenImage(imovel.fotoLocalInstalacao || imovel.fotos)}
+                                onClick={() => setFullScreenImage(parseFotos(imovel.fotoLocalInstalacao || imovel.fotos))}
                             />
                             <p style={{ fontSize: '13px', color: '#4f46e5', marginTop: '10px', marginBottom: 0 }}>
                                 {imovel.fotoLocalInstalacao ? "📍 Local indicado pela Prefeitura para instalação." : "📸 Foto de referência registrada."}
