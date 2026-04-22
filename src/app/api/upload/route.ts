@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 export async function POST(req: NextRequest) {
     try {
@@ -16,35 +14,43 @@ export async function POST(req: NextRequest) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        // Sanitizar nome da pasta para evitar problemas no sistema de arquivos
+        // Sanitizar nome da pasta
         const sanitizedFolder = folder
             .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "") // Remove acentos
-            .replace(/[^a-zA-Z0-9_-]/g, "_"); // Substitui caracteres especiais por underscore
-
-        // Caminho relativo para a pasta de fotos no public
-        const relativePath = join("fotos", sanitizedFolder);
-        const absolutePath = join(process.cwd(), "public", relativePath);
-
-        // Garantir que o diretório existe
-        if (!existsSync(absolutePath)) {
-            await mkdir(absolutePath, { recursive: true });
-        }
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-zA-Z0-9_-]/g, "_");
 
         const fileName = file.name;
-        const filePath = join(absolutePath, fileName);
+        const filePath = `${sanitizedFolder}/${fileName}`;
 
-        await writeFile(filePath, buffer);
+        // Cliente Admin do Supabase para bypass de RLS se necessário e Storage
+        const supabase = createAdminClient();
 
-        const fileUrl = `/${relativePath.replace(/\\/g, '/')}/${fileName}`;
+        // 1. Fazer upload para o Bucket 'fotos-imoveis'
+        const { data, error } = await supabase.storage
+            .from('fotos-imoveis')
+            .upload(filePath, buffer, {
+                contentType: file.type || 'image/webp',
+                upsert: true
+            });
 
-        console.log(`[UPLOAD SUCCESS] Arquivo salvo em: ${fileUrl}`);
+        if (error) {
+            console.error("[SUPABASE STORAGE ERROR]:", error);
+            throw error;
+        }
 
-        return NextResponse.json({ success: true, url: fileUrl });
+        // 2. Obter a URL pública
+        const { data: { publicUrl } } = supabase.storage
+            .from('fotos-imoveis')
+            .getPublicUrl(filePath);
+
+        console.log(`[UPLOAD SUCCESS] Arquivo salvo no Supabase: ${publicUrl}`);
+
+        return NextResponse.json({ success: true, url: publicUrl });
     } catch (error) {
         console.error("[UPLOAD ERROR]:", error);
         return NextResponse.json({ 
-            error: "Falha ao salvar arquivo", 
+            error: "Falha ao salvar arquivo no Storage", 
             details: error instanceof Error ? error.message : String(error) 
         }, { status: 500 });
     }

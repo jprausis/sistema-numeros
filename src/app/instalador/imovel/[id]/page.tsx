@@ -75,11 +75,13 @@ export default function ImovelDetalhesPage() {
             body: formData,
         });
 
+        const uploadData = await uploadRes.json();
+
         if (!uploadRes.ok) {
-            throw new Error(`Falha no upload da foto ${prefix}`);
+            const errorMsg = uploadData.details || uploadData.error || `Falha no upload da foto ${prefix}`;
+            throw new Error(errorMsg);
         }
 
-        const uploadData = await uploadRes.json();
         return uploadData.url;
     };
 
