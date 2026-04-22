@@ -28,6 +28,19 @@ const getIcon = (status: string, isSelected: boolean = false) => {
     });
 };
 
+const parseFotos = (fotosStr: any): string | null => {
+    if (!fotosStr) return null;
+    try {
+        if (typeof fotosStr === 'string' && (fotosStr.startsWith('[') || fotosStr.startsWith('{'))) {
+            const parsed = JSON.parse(fotosStr);
+            return Array.isArray(parsed) ? parsed[0] : parsed;
+        }
+        return fotosStr;
+    } catch (e) {
+        return fotosStr;
+    }
+};
+
 // Componente para forçar o Leaflet a reconhecer o tamanho correto do container
 function MapEffect({ focusOn, userLocation, layerType }: { focusOn?: [number, number] | null, userLocation?: { lat: number, lon: number } | null, layerType: string }) {
     const map = useMap();
@@ -238,12 +251,16 @@ export default function InstallerMap({
                                         </p>
                                     )}
 
-                                    {(prop.status === 'CONCLUIDO' ? prop.fotos : (prop.fotoLocalInstalacao || prop.fotos)) && (
+                                    {(prop.status === 'CONCLUIDO' ? parseFotos(prop.fotos) : (parseFotos(prop.fotoLocalInstalacao) || parseFotos(prop.fotos))) && (
                                         <div className={styles.photoThumb}>
                                             <span style={{ fontSize: '10px', fontWeight: 'bold', backgroundColor: '#e5e7eb', padding: '2px 6px', borderRadius: '4px', marginBottom: '4px', display: 'inline-block' }}>
                                                 {prop.status === 'CONCLUIDO' || (!prop.fotoLocalInstalacao && prop.fotos) ? '📸 Foto Instalação' : '📍 Foto Orientação'}
                                             </span>
-                                            <img src={(prop.status === 'CONCLUIDO' ? prop.fotos : (prop.fotoLocalInstalacao || prop.fotos)) as string} alt="Foto imovel" onClick={() => window.open((prop.status === 'CONCLUIDO' ? prop.fotos : (prop.fotoLocalInstalacao || prop.fotos)) as string, '_blank')} />
+                                            <img 
+                                                src={(prop.status === 'CONCLUIDO' ? parseFotos(prop.fotos) : (parseFotos(prop.fotoLocalInstalacao) || parseFotos(prop.fotos))) || ''} 
+                                                alt="Foto imovel" 
+                                                onClick={() => window.open((prop.status === 'CONCLUIDO' ? parseFotos(prop.fotos) : (parseFotos(prop.fotoLocalInstalacao) || parseFotos(prop.fotos))) || '', '_blank')} 
+                                            />
                                         </div>
                                     )}
 
@@ -252,12 +269,12 @@ export default function InstallerMap({
                                             <p style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Fotos de Complementos:</p>
                                             <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                                                 {prop.complementos.map(c => {
-                                                    const foto = c.fotos && c.fotos !== 'null' && c.fotos !== '[]' ? JSON.parse(c.fotos)[0] : null;
+                                                    const foto = parseFotos(c.fotos);
                                                     if (!foto) return null;
                                                     return (
-                                                        <div key={c.id} style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => window.open(foto, '_blank')} title={c.status === 'CONCLUIDO' ? 'Foto Instalada' : 'Orientação/Pendente'}>
+                                                        <div key={c.id} style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => window.open(foto || '', '_blank')} title={c.status === 'CONCLUIDO' ? 'Foto Instalada' : 'Orientação/Pendente'}>
                                                             <div style={{ width: '40px', height: '40px', borderRadius: '4px', overflow: 'hidden', border: c.status === 'CONCLUIDO' ? '2px solid #22c55e' : '2px solid #e2e8f0' }}>
-                                                                <img src={foto} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Comp" />
+                                                                <img src={foto || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Comp" />
                                                             </div>
                                                             <span style={{ fontSize: '10px', display: 'block' }}>{c.numeroPredial}</span>
                                                         </div>

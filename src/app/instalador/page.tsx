@@ -54,7 +54,7 @@ export default function InstallerDashboard() {
             const { data: { user } } = await supabase.auth.getUser();
             setUser(user);
             await fetchImoveis();
-            handleGpsSearch(); // Ativar GPS automaticamente no início
+            handleGpsSearch(true); // Ativar GPS automaticamente no início em background
         };
         fetchInitialData();
     }, []);
@@ -65,11 +65,11 @@ export default function InstallerDashboard() {
         setProperties(data.imoveis || []);
     }
 
-    const handleGpsSearch = () => {
+    const handleGpsSearch = (silent = false) => {
         if (!navigator.geolocation) return alert("GPS não suportado pelo navegador.");
 
         setLoadingGps(true);
-        setView('gps');
+        if (!silent) setView('gps');
 
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const { latitude, longitude } = pos.coords;
