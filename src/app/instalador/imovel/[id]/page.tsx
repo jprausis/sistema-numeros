@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import styles from './page.module.css';
 import { createClient } from '@/utils/supabase/client';
+import { compressImage } from '@/utils/imageCompressor';
 
 export default function ImovelDetalhesPage() {
     const { id } = useParams();
@@ -63,7 +64,7 @@ export default function ImovelDetalhesPage() {
         loadData();
     }, [id]);
 
-    const uploadFile = async (file: File, folder: string, prefix: string) => {
+    const uploadFile = async (file: File | Blob, folder: string, prefix: string) => {
         const formData = new FormData();
         const fileName = `${id}_${prefix}_${Date.now()}.webp`;
         formData.append("file", file, fileName);
@@ -109,7 +110,8 @@ export default function ImovelDetalhesPage() {
             // 1. Fazer upload da foto principal se ela existir
             let fotos: string[] = [];
             if (photoMain) {
-                const url = await uploadFile(photoMain, folder, 'principal');
+                const compressedMain = await compressImage(photoMain);
+                const url = await uploadFile(compressedMain, folder, 'principal');
                 fotos = [url];
             }
 
@@ -121,7 +123,8 @@ export default function ImovelDetalhesPage() {
                 const cStatus = compStatuses[comp.id];
 
                 if (cFile) {
-                    const url = await uploadFile(cFile, folder, comp.unidade);
+                    const compressedComp = await compressImage(cFile);
+                    const url = await uploadFile(compressedComp, folder, comp.unidade);
                     compFotos = [url];
                 }
 

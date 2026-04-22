@@ -16,8 +16,14 @@ export async function POST(req: NextRequest) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
+        // Sanitizar nome da pasta para evitar problemas no sistema de arquivos
+        const sanitizedFolder = folder
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+            .replace(/[^a-zA-Z0-9_-]/g, "_"); // Substitui caracteres especiais por underscore
+
         // Caminho relativo para a pasta de fotos no public
-        const relativePath = join("fotos", folder);
+        const relativePath = join("fotos", sanitizedFolder);
         const absolutePath = join(process.cwd(), "public", relativePath);
 
         // Garantir que o diretório existe
@@ -32,11 +38,14 @@ export async function POST(req: NextRequest) {
 
         const fileUrl = `/${relativePath.replace(/\\/g, '/')}/${fileName}`;
 
-        console.log(`[UPLOAD] Arquivo salvo em: ${fileUrl}`);
+        console.log(`[UPLOAD SUCCESS] Arquivo salvo em: ${fileUrl}`);
 
         return NextResponse.json({ success: true, url: fileUrl });
     } catch (error) {
-        console.error("Erro no upload:", error);
-        return NextResponse.json({ error: "Falha ao salvar arquivo" }, { status: 500 });
+        console.error("[UPLOAD ERROR]:", error);
+        return NextResponse.json({ 
+            error: "Falha ao salvar arquivo", 
+            details: error instanceof Error ? error.message : String(error) 
+        }, { status: 500 });
     }
 }
