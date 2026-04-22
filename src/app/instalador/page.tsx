@@ -144,7 +144,7 @@ export default function InstallerDashboard() {
                     </button>
                     <button
                         className={`${view === 'gps' ? styles.activeNav : ''}`}
-                        onClick={handleGpsSearch}
+                        onClick={() => handleGpsSearch()}
                     >
                         <svg width="18" height="18" style={{ marginRight: '6px', verticalAlign: 'middle' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="12" cy="12" r="3" />
