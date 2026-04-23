@@ -296,6 +296,24 @@
     border: 1px solid var(--primary);
 }
 
+.whatsappButton {
+    background: #25D366;
+    color: white;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    font-size: 1.4rem;
+    border: none;
+}
+
+.secondaryActions {
+    display: flex;
+    gap: 0.5rem;
+}
+
 .gpsHeader {
     margin-bottom: 1rem;
 }
