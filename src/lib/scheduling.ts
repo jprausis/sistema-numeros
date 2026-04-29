@@ -52,7 +52,7 @@ export async function getAvailableSlots(date: Date) {
     const slots = [];
     while (isBefore(currentSlot, lastSlot)) {
         const isBooked = existingAppointments.some(
-            (app) => app.dataHora.getTime() === currentSlot.getTime()
+            (app) => app.dataHora?.getTime() === currentSlot.getTime()
         );
 
         if (!isBooked) {
