@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
         const agendamentos = await prisma.agendamento.findMany({
             where: status ? { status } : {},
-            orderBy: { dataHora: 'asc' }
+            orderBy: { createdAt: 'desc' }
         });
 
         return NextResponse.json({ agendamentos });

@@ -12,7 +12,7 @@ function SucessoContent() {
     return (
         <div className={styles.container} style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
-            <h1 className={styles.title}>Agendamento Confirmado!</h1>
+            <h1 className={styles.title}>Dados Recebidos!</h1>
             <p className={styles.subtitle}>Sua solicitação foi registrada com sucesso.</p>
 
             <div style={{
@@ -27,8 +27,7 @@ function SucessoContent() {
             </div>
 
             <p style={{ color: 'var(--secondary)', marginBottom: '2rem' }}>
-                A instalação será realizada no dia e horário selecionados.
-                Mantenha o local acessível para nossos instaladores.
+                Nossa equipe entrará em contato em breve para combinar os detalhes da instalação do seu número.
             </p>
 
             <Link href="/" className={styles.submitButton} style={{ display: 'inline-block', textDecoration: 'none' }}>

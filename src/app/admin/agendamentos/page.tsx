@@ -83,7 +83,7 @@ export default function AdminAgendamentosPage() {
                             <th>Protocolo</th>
                             <th>Morador</th>
                             <th>Endereço</th>
-                            <th>Data/Hora</th>
+                            <th>Data do Pedido</th>
                             <th>Vínculo (Inscimob)</th>
                             <th>Ações</th>
                         </tr>
@@ -100,8 +100,8 @@ export default function AdminAgendamentosPage() {
                                 </td>
                                 <td>{ag.enderecoCompleto}</td>
                                 <td>
-                                    {new Date(ag.dataHora).toLocaleDateString()}<br />
-                                    {new Date(ag.dataHora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    {new Date(ag.createdAt).toLocaleDateString()}<br />
+                                    {new Date(ag.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </td>
                                 <td>
                                     {ag.inscimobVinculo ? (

@@ -72,7 +72,7 @@ model Agendamento {
   nome              String
   telefone          String
   enderecoCompleto  String
-  dataHora          DateTime
+  dataHora          DateTime?
   status            String   @default("AGENDADO") // AGENDADO, EM_ROTA, CONCLUIDO, REAGENDAR, CANCELADO, PENDENTE
   inscimobVinculo   String?  // Vínculo manual ao Imovel.inscimob
   createdAt         DateTime @default(now())

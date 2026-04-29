@@ -238,7 +238,7 @@ export default function InstallerDashboard() {
                                             <h3>{ag.nome}</h3>
                                             <p>{ag.enderecoCompleto}</p>
                                             <div className={styles.timeInfo}>
-                                                📅 {new Date(ag.dataHora).toLocaleDateString()} às {new Date(ag.dataHora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                📅 Solicitado em: {new Date(ag.createdAt).toLocaleDateString()}
                                             </div>
                                         </div>
                                         <div className={styles.cardActions}>

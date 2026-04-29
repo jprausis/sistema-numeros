@@ -28,11 +28,11 @@ export async function GET(req: NextRequest) {
         // Para agendamentos, se houver filtro por bairro, precisamos de uma lógica mais complexa
         // pois a relação não é formal no banco (inscimobVinculo -> imovel.inscimob)
         let whereAgendamento: any = {
-            dataHora: { gte: todayStart, lte: todayEnd }
+            createdAt: { gte: todayStart, lte: todayEnd }
         };
 
         let whereAgendamentoSemana: any = {
-            dataHora: { gte: startOfWeek(now), lte: endOfWeek(now) }
+            createdAt: { gte: startOfWeek(now), lte: endOfWeek(now) }
         };
 
         let whereAgendamentoPendente: any = { status: "PENDENTE" };

@@ -7,9 +7,9 @@ import { parseISO } from "date-fns";
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { nome, telefone, rua, numero, bairro, dataHora } = body;
+        const { nome, telefone, rua, numero, bairro } = body;
 
-        if (!nome || !telefone || !rua || !numero || !bairro || !dataHora) {
+        if (!nome || !telefone || !rua || !numero || !bairro) {
             return NextResponse.json({ error: "Todos os campos são obrigatórios" }, { status: 400 });
         }
 
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
                 nome,
                 telefone,
                 enderecoCompleto,
-                dataHora: parseISO(dataHora),
+                dataHora: new Date(), // Adicionado para evitar erro caso o BD exija a data
                 status: "AGENDADO",
             },
         });
