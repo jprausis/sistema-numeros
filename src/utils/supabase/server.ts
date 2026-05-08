@@ -24,6 +24,11 @@ export async function createClient() {
                     }
                 },
             },
+            cookieOptions: {
+                maxAge: 60 * 60 * 24 * 30,
+                path: '/',
+                sameSite: 'lax',
+            }
         }
     )
 }

@@ -24,6 +24,11 @@ export async function updateSession(request: NextRequest) {
                     )
                 },
             },
+            cookieOptions: {
+                maxAge: 60 * 60 * 24 * 30,
+                path: '/',
+                sameSite: 'lax',
+            }
         }
     )
 
@@ -32,6 +37,15 @@ export async function updateSession(request: NextRequest) {
     const {
         data: { user },
     } = await supabase.auth.getUser()
+
+    const pathname = request.nextUrl.pathname;
+    const isProtectedRoute = pathname.startsWith('/instalador') || pathname.startsWith('/admin') || pathname.startsWith('/prefeitura');
+
+    if (isProtectedRoute && !user) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/login';
+        return NextResponse.redirect(url);
+    }
 
     return supabaseResponse
 }
