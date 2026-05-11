@@ -109,14 +109,6 @@ export default function ImovelDetalhesPage() {
             return;
         }
 
-        // Validação de complementos
-        for (const comp of activeCompsToProcess) {
-            if (compStatuses[comp.id] === 'CONCLUIDO' && !compPhotos[comp.id]) {
-                alert(`⚠️ Você deve tirar a foto do Complemento ${comp.numeroPredial} para concluí-lo.`);
-                return;
-            }
-        }
-
         setLoading(true);
 
         const folder = imovel.bairro.nome || 'geral';
@@ -184,7 +176,7 @@ export default function ImovelDetalhesPage() {
     if (!imovel) return <div className="container text-center py-20">Imóvel não encontrado.</div>;
 
     const activeCompsToProcess = imovel.complementos?.filter((c: any) => c.liberadoInstalacao && c.status !== 'CONCLUIDO') || [];
-    const disabledMainStatus = imovel.status !== 'LIBERADO' && imovel.status !== 'PENDENTE' && imovel.status !== 'AUSENTE';
+    const disabledMainStatus = imovel.status !== 'LIBERADO' && imovel.status !== 'PENDENTE' && imovel.status !== 'AUSENTE' && imovel.status !== 'NAO_INICIADO';
 
     return (
         <div className={styles.container}>
@@ -331,7 +323,7 @@ export default function ImovelDetalhesPage() {
                                         onChange={e => setCompPhotos(prev => ({ ...prev, [c.id]: e.target.files?.[0] || null }))}
                                     />
                                     <span style={{ fontSize: '12px', color: '#64748b' }}>
-                                        {compStatuses[c.id] === 'CONCLUIDO' ? 'Foto da Unidade obrigatória' : 'Foto pendência opcional'}
+                                        Foto do complemento (Opcional)
                                     </span>
                                 </div>
                             </div>
