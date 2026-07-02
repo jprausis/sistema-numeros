@@ -1,0 +1,113 @@
+.mapWrapper {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--card-border);
+}
+
+.loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 400px;
+    background: var(--accent);
+    border-radius: var(--radius);
+    color: var(--secondary);
+}
+
+.popup {
+    min-width: 180px;
+}
+
+.popup h3 {
+    margin-bottom: 0.5rem;
+    color: var(--primary);
+    font-size: 1.1rem;
+}
+
+.popup p {
+    font-size: 0.85rem;
+    margin: 0.25rem 0;
+    color: var(--foreground);
+}
+
+.photoThumb {
+    margin: 0.5rem 0;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.photoThumb img {
+    width: 100%;
+    height: 100px;
+    object-fit: cover;
+}
+
+.actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.button {
+    background: var(--primary);
+    color: #ffffff !important;
+    padding: 0.5rem;
+    text-align: center;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    text-decoration: none;
+    font-weight: 700;
+    display: block;
+}
+
+.buttonSecondary {
+    background: var(--accent);
+    color: var(--primary);
+    padding: 0.5rem;
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+}
+
+.mapControls {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.controlBtn {
+    background: white;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    font-size: 1.4rem;
+    color: var(--primary);
+    border: 2px solid white;
+    transition: all 0.2s;
+}
+
+.controlBtn:hover {
+    transform: scale(1.1);
+    border-color: var(--primary);
+}
+
+.controlBtn:active {
+    transform: scale(0.95);
+}

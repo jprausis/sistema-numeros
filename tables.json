@@ -1,0 +1,65 @@
+{
+    "project": "Gestão de Instalação de Números Residenciais",
+    "tables": [
+        {
+            "name": "User",
+            "columns": {
+                "id": "text (primary key)",
+                "name": "text",
+                "email": "text (unique)",
+                "password": "text",
+                "role": "text (default: INSTALLER)",
+                "createdAt": "timestamp",
+                "updatedAt": "timestamp"
+            }
+        },
+        {
+            "name": "Bairro",
+            "columns": {
+                "id": "text (primary key)",
+                "nome": "text",
+                "dataImportacao": "timestamp",
+                "totalImoveis": "integer",
+                "status": "text (default: ATIVO)",
+                "observacoes": "text"
+            }
+        },
+        {
+            "name": "Imovel",
+            "columns": {
+                "inscimob": "text (primary key)",
+                "x": "float",
+                "y": "float",
+                "numeroAInstalar": "text",
+                "endereco": "text",
+                "status": "text (default: NAO_INICIADO)",
+                "dataExecucao": "timestamp",
+                "instaladorResp": "text",
+                "fotos": "text",
+                "obsPendente": "text",
+                "bairroId": "text (foreign key -> Bairro.id)"
+            }
+        },
+        {
+            "name": "Agendamento",
+            "columns": {
+                "protocolo": "text (primary key)",
+                "nome": "text",
+                "telefone": "text",
+                "enderecoCompleto": "text",
+                "dataHora": "timestamp",
+                "status": "text (default: AGENDADO)",
+                "inscimobVinculo": "text",
+                "createdAt": "timestamp"
+            }
+        },
+        {
+            "name": "Config",
+            "columns": {
+                "key": "text (primary key)",
+                "value": "text",
+                "updatedAt": "timestamp"
+            }
+        }
+    ]
+}

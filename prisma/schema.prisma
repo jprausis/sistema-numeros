@@ -1,0 +1,99 @@
+datasource db {
+  provider = "postgresql"
+}
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  password      String?
+  role          String    @default("INSTALLER") // ADMIN, OPERATOR, INSTALLER
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Bairro {
+  id                String   @id @default(cuid())
+  nome              String
+  dataImportacao    DateTime @default(now())
+  totalImoveis      Int      @default(0)
+  status            String   @default("ATIVO") // ATIVO, ARQUIVADO
+  observacoes       String?
+  imoveis           Imovel[]
+}
+
+model Imovel {
+  inscimob          String   @id
+  x                 Float
+  y                 Float
+  numeroAInstalar   String
+  endereco          String?
+  status            String   @default("NAO_INICIADO") // NAO_INICIADO, CONCLUIDO, PENDENTE, LIBERADO, AUSENTE
+  dataExecucao      DateTime?
+  instaladorResp    String?
+  fotos             String?  // JSON ou caminhos separados por vírgula
+  fotoLocalInstalacao String? // Foto tirada pelo operador da prefeitura com a indicação de onde instalar
+  obsPendente       String?
+  usuarioAlt        String?  // Nome/Email do usuário que fez a última alteração
+  latExecucao       Float?   // Coordenadas reais da instalação (GPS)
+  lonExecucao       Float?
+  bairroId          String
+  bairro            Bairro   @relation(fields: [bairroId], references: [id])
+  malha             Json?
+  complementos      Complemento[]
+}
+
+model Complemento {
+  id                String   @id @default(cuid())
+  unidade           String   // ID do complemento da planilha
+  numeroPredial     String   // ex: CS1, CS2
+  status            String   @default("NAO_INICIADO")
+  liberadoInstalacao Boolean  @default(false)
+  dataExecucao      DateTime?
+  fotos             String?  // JSON
+  fotoLocalInstalacao String? // Foto tirada pelo operador da prefeitura com a indicação de onde instalar
+  x                 Float?
+  y                 Float?
+  latExecucao       Float?   // Coordenadas reais da instalação (GPS)
+  lonExecucao       Float?
+  imovel            Imovel   @relation(fields: [inscimob], references: [inscimob])
+  inscimob          String
+
+  @@unique([inscimob, unidade])
+}
+
+model Agendamento {
+  protocolo         String   @id // AG-XXXXXX
+  nome              String
+  telefone          String
+  enderecoCompleto  String
+  dataHora          DateTime?
+  status            String   @default("AGENDADO") // AGENDADO, EM_ROTA, CONCLUIDO, REAGENDAR, CANCELADO, PENDENTE
+  inscimobVinculo   String?  // Vínculo manual ao Imovel.inscimob
+  createdAt         DateTime @default(now())
+}
+
+model Config {
+  key       String   @id
+  value     String   // Armazenado como JSON stringified
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  userEmail  String
+  action     String   // ex: "UPDATE_IMOVEL"
+  resource   String   // ex: "imovel"
+  resourceId String?  // inscimob ou id do recurso
+  details    Json     // Alterações realizadas (antes/depois)
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+}
+

@@ -1,0 +1,105 @@
+.container {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 1rem;
+}
+
+.header {
+    margin-bottom: 2rem;
+}
+
+.title {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--foreground);
+}
+
+.subtitle {
+    color: var(--secondary);
+}
+
+.uploadCard,
+.resultCard {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 2rem;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.input {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--input);
+    border-radius: var(--radius-sm);
+    background: var(--background);
+    color: var(--foreground);
+}
+
+.fileInput {
+    padding: 1rem;
+    border: 2px dashed var(--input);
+    border-radius: var(--radius);
+    background: var(--accent);
+    cursor: pointer;
+}
+
+.help {
+    font-size: 0.8rem;
+    color: var(--secondary);
+}
+
+.submitButton {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+}
+
+.submitButton:hover {
+    background: var(--primary-hover);
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.statItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    background: var(--accent);
+    border-radius: var(--radius-sm);
+}
+
+.statItem span {
+    font-size: 0.75rem;
+    color: var(--secondary);
+}
+
+.statItem strong {
+    font-size: 1.5rem;
+    color: var(--primary);
+}

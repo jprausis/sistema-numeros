@@ -1,0 +1,404 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.header h1 {
+    font-size: 1.8rem;
+    font-weight: 800;
+}
+
+.headerActions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.exportBtn {
+    background: #22c55e;
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    box-shadow: 0 4px 10px rgba(34, 197, 94, 0.2);
+    border: none;
+    cursor: pointer;
+}
+
+.filterSelect {
+    padding: 0.7rem;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: white;
+    font-weight: 600;
+}
+
+.viewToggle {
+    display: flex;
+    background: var(--accent);
+    padding: 0.25rem;
+    border-radius: 8px;
+}
+
+.viewToggle button {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.activeToggle {
+    background: var(--primary);
+    color: white;
+}
+
+.searchWrapper {
+    width: 100%;
+}
+
+.searchBar {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    font-size: 1rem;
+    box-shadow: var(--shadow);
+}
+
+.listCard {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th {
+    text-align: left;
+    padding: 1rem;
+    border-bottom: 2px solid var(--accent);
+    color: var(--secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--accent);
+}
+
+.tableThumb {
+    width: 60px;
+    height: 40px;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+    background: #f1f5f9;
+}
+
+.tableThumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.noPhoto {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.badge {
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 800;
+}
+
+.NAO_INICIADO {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.LIBERADO {
+    background: #dbeafe;
+    color: #3b82f6;
+}
+
+.AUSENTE {
+    background: #ffedd5;
+    color: #f97316;
+}
+
+.PENDENTE {
+    background: #fef9c3;
+    color: #eab308;
+}
+
+.CONCLUIDO {
+    background: #dcfce7;
+    color: #22c55e;
+}
+
+.actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.locateBtn {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 0.4rem;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.editBtn {
+    background: var(--accent);
+    color: var(--primary);
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    border: none;
+    cursor: pointer;
+}
+
+.mapContainer {
+    height: 70vh;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--card-border);
+}
+
+/* Modal */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 1rem;
+}
+
+.modal {
+    background: white;
+    width: 100%;
+    max-width: 500px;
+    max-height: 90vh;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    overflow-y: auto;
+}
+
+.modalImg {
+    width: 100%;
+    max-height: 250px;
+    object-fit: contain;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.photoHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.deletePhotoBtn {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.deletePhotoBtn:hover {
+    background: #fecaca;
+}
+
+.modalPhotoArea {
+    margin-bottom: 1.5rem;
+}
+
+.modalPhotoArea label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+    color: var(--secondary);
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+.formGroup label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+}
+
+.formGroup select,
+.formGroup textarea {
+    width: 100%;
+    padding: 0.8rem;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.modalActions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.saveBtn {
+    flex: 2;
+    background: var(--primary);
+    color: white;
+    padding: 0.8rem;
+    border-radius: 10px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+}
+
+.cancelBtn {
+    flex: 1;
+    background: #f1f5f9;
+    padding: 0.8rem;
+    border-radius: 10px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+}
+
+.modalComplementSection {
+    margin-bottom: 1rem;
+}
+
+.modalComplementSection label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--secondary);
+}
+
+.compactCompList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.41rem;
+    max-height: 250px;
+    overflow-y: auto;
+    padding: 0.6rem;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+}
+
+.compIndicator {
+    font-size: 0.65rem;
+    font-weight: 900;
+    padding: 0.2rem 0.6rem;
+    border-radius: 100px;
+    color: white;
+}
+
+.compDone {
+    background: #22c55e;
+}
+
+.compReleased {
+    background: #3b82f6;
+}
+
+.compBlocked {
+    background: #ef4444;
+}
+
+/* Estilos para o Cadastro de Imóvel */
+.formGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.fullWidth {
+    grid-column: span 2;
+}
+
+.formInput,
+.formSelect {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+    border: 1.5px solid #e2e8f0;
+    background: #f8fafc;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.formInput:focus,
+.formSelect:focus {
+    outline: none;
+    border-color: #3b82f6;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.geoButton {
+    background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+    color: white;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    transition: all 0.2s ease;
+}
+
+.geoButton:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+}
+
+.geoButton:active {
+    transform: translateY(0);
+}

@@ -1,0 +1,136 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+:root {
+  /* Colors - Light Mode (Green Theme) */
+  --background: #ffffff;
+  --foreground: #0f172a;
+
+  --primary: #16a34a;
+  /* Verde 600 */
+  --primary-hover: #15803d;
+  /* Verde 700 */
+  --primary-foreground: #ffffff;
+
+  --secondary: #475569;
+  --secondary-foreground: #ffffff;
+
+  --accent: #f0fdf4;
+  /* Verde muito claro */
+  --accent-foreground: #16a34a;
+
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --card-border: #e2e8f0;
+
+  --input: #e2e8f0;
+  --input-focus: #16a34a;
+
+  /* Status Colors */
+  --success: #10b981;
+  /* Verde (Concluído) */
+  --warning: #f59e0b;
+  /* Amarelo (Pendente) */
+  --danger: #ef4444;
+  /* Vermelho (Erro/Não iniciado) */
+  --info: #0ea5e9;
+  /* Ciano claro */
+
+
+  /* Glassmorphism / Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+  --radius: 0.75rem;
+  --radius-sm: 0.5rem;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Dark mode forçado para light conforme pedido do usuário */
+
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+/* Base utility classes for Vanilla CSS */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-1 {
+  gap: 0.25rem;
+}
+
+.gap-2 {
+  gap: 0.5rem;
+}
+
+.gap-4 {
+  gap: 1rem;
+}
+
+.grid {
+  display: grid;
+}
+
+.text-center {
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --radius: 0.5rem;
+  }
+}

@@ -1,0 +1,93 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.header h1 {
+    font-size: 1.8rem;
+    font-weight: 800;
+}
+
+.section {
+    background: var(--card);
+    padding: 2rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--card-border);
+}
+
+.section h3 {
+    margin-bottom: 1.5rem;
+    color: var(--primary);
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.formGroup label {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.formGroup input {
+    padding: 0.75rem;
+    border: 1px solid var(--input);
+    border-radius: var(--radius-sm);
+    background: var(--background);
+}
+
+.saveButton {
+    background: var(--primary);
+    color: white;
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    font-size: 1rem;
+    margin-top: 1rem;
+}
+
+.configItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--accent);
+}
+
+.configItem:last-child {
+    border-bottom: none;
+}
+
+.configItem strong {
+    display: block;
+    font-size: 1rem;
+}
+
+.configItem p {
+    font-size: 0.85rem;
+    color: var(--secondary);
+}
+
+.status {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--primary);
+    background: var(--accent);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}

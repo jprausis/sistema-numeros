@@ -1,0 +1,382 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.header {
+    margin-bottom: 1rem;
+    background: white;
+    padding: 1.2rem;
+    border-radius: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    flex-shrink: 0;
+}
+
+.header h1 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.gpsButton {
+    background: var(--primary);
+    color: white;
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.nav button {
+    padding: 0.8rem;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    font-weight: 700;
+    color: var(--secondary);
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+
+.activeNav {
+    background: var(--primary) !important;
+    color: white !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 4px 12px rgba(0, 71, 187, 0.2);
+}
+
+.content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: transparent;
+}
+
+.candidateList {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.candidateCard {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: var(--shadow);
+}
+
+.candidateInfo h3 {
+    font-size: 1.1rem;
+    color: var(--primary);
+}
+
+.candidateInfo p {
+    font-size: 0.8rem;
+    color: var(--secondary);
+}
+
+.openButton {
+    background: var(--accent);
+    color: var(--primary);
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.logoutBtn {
+    background: #fee2e2;
+    color: #ef4444;
+    border: none;
+    padding: 0.6rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Nova Tela de Processo */
+.NAO_INICIADO {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.PENDENTE {
+    background: #fef9c3;
+    color: #eab308;
+}
+
+.AUSENTE {
+    background: #ffedd5;
+    color: #f97316;
+}
+
+.LIBERADO {
+    background: #dbeafe;
+    color: #3b82f6;
+}
+
+.CONCLUIDO {
+    background: #dcfce7;
+    color: #22c55e;
+}
+
+.processContainer {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: #f8fafc;
+}
+
+.backLink {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 0;
+    cursor: pointer;
+}
+
+.processContent {
+    padding: 1.2rem;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.processCard {
+    background: white;
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.propertyHeader h2 {
+    font-size: 1.4rem;
+    color: var(--primary);
+    margin: 0;
+}
+
+.propertyHeader p {
+    color: var(--secondary);
+    font-size: 0.85rem;
+}
+
+.captureBtnHuge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: #f1f5f9;
+    border: 3px dashed #cbd5e1;
+    border-radius: 20px;
+    padding: 3.5rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.captureBtnHuge:active {
+    background: #e2e8f0;
+    transform: scale(0.98);
+}
+
+.cameraIcon {
+    font-size: 3.5rem;
+}
+
+.captureBtnHuge span {
+    font-weight: 800;
+    font-size: 1.2rem;
+    color: var(--primary);
+}
+
+.captureBtnHuge p {
+    font-size: 0.85rem;
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.preview {
+    width: 100%;
+    max-height: 400px;
+    object-fit: cover;
+    border-radius: 16px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.changeBtn {
+    background: none;
+    border: none;
+    color: #ef4444;
+    font-weight: 700;
+    text-decoration: underline;
+    margin-top: 0.5rem;
+}
+
+.textarea {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    min-height: 100px;
+    font-size: 1rem;
+    background: #f8fafc;
+}
+
+.finishBtnFull {
+    background: var(--success);
+    color: white;
+    padding: 1.25rem;
+    border-radius: 16px;
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
+    border: none;
+}
+
+.finishBtnFull:disabled {
+    background: #cbd5e1;
+    box-shadow: none;
+    opacity: 0.7;
+}
+
+.protocolBadge {
+    font-size: 0.7rem;
+    background: var(--accent);
+    color: var(--primary);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    display: inline-block;
+}
+
+.timeInfo {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--secondary);
+}
+
+.cardActions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.mapButton {
+    background: var(--accent);
+    color: var(--primary);
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    font-size: 1.4rem;
+    border: 1px solid var(--primary);
+}
+
+.whatsappButton {
+    background: #25D366;
+    color: white;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    font-size: 1.4rem;
+    border: none;
+}
+
+.secondaryActions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.gpsHeader {
+    margin-bottom: 1rem;
+}
+
+.radiusSelector {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+
+.radiusSelector span {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--secondary);
+    margin-right: 0.2rem;
+}
+
+.radiusBtn {
+    background: white;
+    border: 1px solid #cbd5e1;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--secondary);
+    white-space: nowrap;
+}
+
+.activeRadius {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.loadingText {
+    padding: 2rem;
+    text-align: center;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.linkingAlert {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+    padding: 0.75rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.subtext {
+    font-size: 0.85rem;
+    color: var(--secondary);
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
