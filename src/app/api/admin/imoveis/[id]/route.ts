@@ -13,9 +13,14 @@ export async function PATCH(
     const user = await getSessionUser();
     if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    // Restrição para OPERATOR: não pode editar imóveis
+    // Restrição para OPERATOR: permite apenas alteração do número do imóvel (numeroAInstalar)
     if (user.role === 'OPERATOR') {
-        return NextResponse.json({ error: "Operadores não podem editar imóveis diretamente." }, { status: 403 });
+        if (status !== undefined || fotos !== undefined || obsPendente !== undefined || instaladorResp !== undefined) {
+            return NextResponse.json({ error: "Operadores não podem editar status, fotos ou observações diretamente." }, { status: 403 });
+        }
+        if (numeroAInstalar === undefined) {
+            return NextResponse.json({ error: "Nenhum dado editável enviado." }, { status: 400 });
+        }
     }
 
     try {

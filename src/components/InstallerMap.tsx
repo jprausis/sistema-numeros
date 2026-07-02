@@ -88,12 +88,16 @@ export default function InstallerMap({
     properties,
     focusOn,
     userLocation,
-    onEdit
+    onEdit,
+    onFilterClick,
+    filterActive
 }: {
     properties: Property[],
     focusOn?: [number, number] | null,
     userLocation?: { lat: number, lon: number } | null,
-    onEdit?: (p: any) => void
+    onEdit?: (p: any) => void,
+    onFilterClick?: () => void,
+    filterActive?: boolean
 }) {
     const [isMounted, setIsMounted] = useState(false);
     const [layerType, setLayerType] = useState<'street' | 'satellite'>('street');
@@ -145,6 +149,23 @@ export default function InstallerMap({
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="12" cy="12" r="3" />
                             <path d="M12 2v3m0 14v3m-7-10H2m17 0h3" />
+                        </svg>
+                    </div>
+                )}
+                
+                {onFilterClick && (
+                    <div
+                        className={styles.controlBtn}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onFilterClick();
+                        }}
+                        title="Filtrar por Bairro"
+                        style={filterActive ? { borderColor: '#16a34a', color: '#16a34a', background: '#f0fdf4' } : {}}
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
                         </svg>
                     </div>
                 )}

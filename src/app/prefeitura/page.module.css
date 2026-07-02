@@ -77,6 +77,10 @@
     padding: 1.5rem;
     border-radius: 20px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
 }
 
 .gpsView h2 {
@@ -484,4 +488,13 @@
     border: none;
     cursor: pointer;
     color: var(--secondary);
+}
+
+.content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin: 0 1rem 1rem 1rem;
+    border-radius: 20px;
 }

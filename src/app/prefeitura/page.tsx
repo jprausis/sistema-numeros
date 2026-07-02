@@ -27,6 +27,24 @@ export default function PrefeituraPage() {
     const [photo, setPhoto] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
+    // Estados para edição do número do imóvel principal
+    const [editingNumero, setEditingNumero] = useState('');
+    const [isEditingNumero, setIsEditingNumero] = useState(false);
+
+    // Estados para o filtro de bairros
+    const [selectedBairroId, setSelectedBairroId] = useState<string | null>(null);
+    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+    useEffect(() => {
+        if (selectedForProcess) {
+            setEditingNumero(selectedForProcess.numeroAInstalar || '');
+            setIsEditingNumero(false);
+        } else {
+            setEditingNumero('');
+            setIsEditingNumero(false);
+        }
+    }, [selectedForProcess]);
+
     // Novos estados para o cadastro de imóveis
     const [isCreating, setIsCreating] = useState(false);
     const [bairros, setBairros] = useState<any[]>([]);
@@ -266,10 +284,50 @@ export default function PrefeituraPage() {
         }
     };
 
+    const handleUpdateNumero = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedForProcess || !editingNumero.trim()) return;
+        setUploading(true);
+
+        try {
+            const res = await fetch(`/api/admin/imoveis/${selectedForProcess.inscimob}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    numeroAInstalar: editingNumero.trim(),
+                    usuarioAlt: `Prefeitura: ${user?.user_metadata?.name || user?.email}`
+                })
+            });
+
+            if (res.ok) {
+                alert("Número do imóvel atualizado com sucesso!");
+                setSelectedForProcess((prev: any) => prev ? { ...prev, numeroAInstalar: editingNumero.trim() } : null);
+                setIsEditingNumero(false);
+                fetchImoveis();
+                handleGpsSearch();
+            } else {
+                const data = await res.json();
+                alert(data.error || "Erro ao atualizar o número.");
+            }
+        } catch (e: any) {
+            alert("Erro ao conectar ao servidor: " + (e.message || "Erro desconhecido"));
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const handleLogout = async () => {
         await supabase.auth.signOut();
         router.push('/login');
     };
+
+    const filteredProperties = selectedBairroId
+        ? properties.filter((p: any) => p.bairroId === selectedBairroId)
+        : properties;
+
+    const filteredCandidates = selectedBairroId
+        ? candidates.filter((c: any) => c.bairroId === selectedBairroId)
+        : candidates;
 
     return (
         <div className={styles.container}>
@@ -328,14 +386,50 @@ export default function PrefeituraPage() {
                     Estou no Local
                 </button>
             </nav>
+            
+            {selectedBairroId && (
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 12px',
+                    margin: '0 1rem 1rem 1rem',
+                    background: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    borderRadius: '12px',
+                    fontSize: '0.85rem',
+                    boxShadow: '0 2px 5px rgba(22, 163, 74, 0.05)'
+                }}>
+                    <span style={{ color: '#166534', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        🔍 Filtrado por: {bairros.find(b => b.id === selectedBairroId)?.nome || 'Bairro'}
+                    </span>
+                    <button
+                        onClick={() => setSelectedBairroId(null)}
+                        style={{
+                            background: '#dcfce7',
+                            border: 'none',
+                            color: '#166534',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem'
+                        }}
+                    >
+                        ❌ Limpar
+                    </button>
+                </div>
+            )}
 
             <main className={styles.content}>
                 {view === 'map' && (
                     <div className={styles.mapContainer}>
                         <InstallerMap
-                            properties={properties}
+                            properties={filteredProperties}
                             userLocation={location}
                             onEdit={(p) => setSelectedForProcess(p)}
+                            onFilterClick={() => setIsFilterModalOpen(true)}
+                            filterActive={!!selectedBairroId}
                         />
                     </div>
                 )}
@@ -360,9 +454,9 @@ export default function PrefeituraPage() {
 
                         {loadingGps ? (
                             <p className={styles.loadingText}>📡 Buscando localização...</p>
-                        ) : candidates.length > 0 ? (
+                        ) : filteredCandidates.length > 0 ? (
                             <div className={styles.candidateList}>
-                                {candidates.map(candidate => (
+                                {filteredCandidates.map(candidate => (
                                     <div key={candidate.inscimob} className={styles.candidateCard}>
                                         <div className={styles.candidateInfo}>
                                             <h3>Nº {candidate.numeroAInstalar}</h3>
@@ -406,7 +500,59 @@ export default function PrefeituraPage() {
                         </div>
 
                         <div className={styles.prefeituraActions}>
-                            <p className={styles.sectionLabel}>Número Principal ({selectedForProcess.numeroAInstalar}):</p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '12px', marginBottom: '8px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: '700', fontSize: '0.9rem', color: '#334155' }}>Nº Principal a Instalar:</span>
+                                    {!isEditingNumero && (
+                                        <button 
+                                            onClick={() => setIsEditingNumero(true)} 
+                                            title="Editar número"
+                                            style={{ 
+                                                background: '#eff6ff', 
+                                                border: 'none', 
+                                                color: '#2563eb', 
+                                                cursor: 'pointer', 
+                                                padding: '8px', 
+                                                borderRadius: '10px', 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                justifyContent: 'center',
+                                                transition: 'all 0.2s',
+                                                width: '42px',
+                                                height: '42px'
+                                            }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.background = '#dbeafe'; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.background = '#eff6ff'; }}
+                                        >
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                            </svg>
+                                        </button>
+                                    )}
+                                </div>
+                                {isEditingNumero ? (
+                                    <form onSubmit={handleUpdateNumero} style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                        <input 
+                                            type="text" 
+                                            value={editingNumero} 
+                                            onChange={e => setEditingNumero(e.target.value)} 
+                                            required
+                                            style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                                        />
+                                        <button type="submit" disabled={uploading} style={{ padding: '6px 12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                            Salvar
+                                        </button>
+                                        <button type="button" onClick={() => { setIsEditingNumero(false); setEditingNumero(selectedForProcess.numeroAInstalar || ''); }} style={{ padding: '6px 12px', background: '#e2e8f0', color: '#334155', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                            Cancelar
+                                        </button>
+                                    </form>
+                                ) : (
+                                    <span style={{ fontSize: '1.2rem', fontWeight: '800', color: '#1e293b' }}>
+                                        {selectedForProcess.numeroAInstalar}
+                                    </span>
+                                )}
+                            </div>
 
                             <div className={styles.photoSection} style={{ marginBottom: '15px' }}>
                                 {photoPreview ? (
@@ -443,11 +589,12 @@ export default function PrefeituraPage() {
                                 )}
                             </div>
 
-                            <div className={styles.actionButtonsRow}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%', marginTop: '10px' }}>
                                 <button
                                     className={styles.liberarBtn}
                                     onClick={() => handleStatusUpdate('LIBERADO')}
                                     disabled={uploading}
+                                    style={{ width: '100%' }}
                                 >
                                     Liberar Número
                                 </button>
@@ -455,6 +602,7 @@ export default function PrefeituraPage() {
                                     className={styles.ausenteBtn}
                                     onClick={() => handleStatusUpdate('AUSENTE')}
                                     disabled={uploading}
+                                    style={{ width: '100%' }}
                                 >
                                     Morador Ausente
                                 </button>
@@ -462,6 +610,7 @@ export default function PrefeituraPage() {
                                     className={styles.resetBtn}
                                     onClick={() => handleStatusUpdate('NAO_INICIADO')}
                                     disabled={uploading}
+                                    style={{ width: '100%' }}
                                 >
                                     Resetar
                                 </button>
@@ -589,6 +738,78 @@ export default function PrefeituraPage() {
                                 <button type="submit" className={styles.saveBtn}>Cadastrar Imóvel</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {isFilterModalOpen && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modal} style={{ maxWidth: '400px', display: 'flex', flexDirection: 'column' }}>
+                        <div className={styles.modalHeader}>
+                            <h3>Filtrar por Bairro</h3>
+                            <button className={styles.closeBtn} onClick={() => setIsFilterModalOpen(false)}>×</button>
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px', marginTop: '10px', marginBottom: '15px' }}>
+                            <button
+                                onClick={() => {
+                                    setSelectedBairroId(null);
+                                    setIsFilterModalOpen(false);
+                                }}
+                                style={{
+                                    padding: '12px',
+                                    borderRadius: '12px',
+                                    border: '1px solid #cbd5e1',
+                                    background: !selectedBairroId ? '#eff6ff' : 'white',
+                                    color: !selectedBairroId ? '#1e40af' : '#334155',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    fontSize: '0.9rem'
+                                }}
+                            >
+                                <span>Todos os Bairros (Sem Filtro)</span>
+                                {!selectedBairroId && <span>✓</span>}
+                            </button>
+
+                            {bairros.map(b => (
+                                <button
+                                    key={b.id}
+                                    onClick={() => {
+                                        setSelectedBairroId(b.id);
+                                        setIsFilterModalOpen(false);
+                                    }}
+                                    style={{
+                                        padding: '12px',
+                                        borderRadius: '12px',
+                                        border: '1px solid #cbd5e1',
+                                        background: selectedBairroId === b.id ? '#eff6ff' : 'white',
+                                        color: selectedBairroId === b.id ? '#1e40af' : '#334155',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        textAlign: 'left',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        fontSize: '0.9rem'
+                                    }}
+                                >
+                                    <span>{b.nome}</span>
+                                    {selectedBairroId === b.id && <span>✓</span>}
+                                </button>
+                            ))}
+                        </div>
+                        
+                        <button 
+                            className={styles.closeBtn} 
+                            style={{ margin: 0, padding: '10px', background: '#f1f5f9', color: '#64748b', borderRadius: '10px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+                            onClick={() => setIsFilterModalOpen(false)}
+                        >
+                            Fechar
+                        </button>
                     </div>
                 </div>
             )}
