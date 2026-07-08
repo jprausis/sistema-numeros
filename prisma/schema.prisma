@@ -24,6 +24,7 @@ model Bairro {
   totalImoveis      Int      @default(0)
   status            String   @default("ATIVO") // ATIVO, ARQUIVADO
   observacoes       String?
+  visivelInstalacao Boolean  @default(true)
   imoveis           Imovel[]
 }
 

@@ -81,7 +81,7 @@ export default function AdminImoveisPage() {
     async function fetchImoveis() {
         try {
             const [resImoveis, resBairros] = await Promise.all([
-                fetch('/api/instalador/imoveis'),
+                fetch('/api/admin/imoveis'),
                 fetch('/api/admin/bairros')
             ]);
 

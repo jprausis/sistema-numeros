@@ -67,3 +67,28 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Erro interno ao cadastrar imóvel" }, { status: 500 });
     }
 }
+
+export async function GET(req: NextRequest) {
+    const user = await getSessionUser();
+    if (!user) {
+        return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+
+    const hasAccess = user.role === 'ADMIN' || user.role === 'OPERATOR' || user.role === 'PREFEITURA';
+    if (!hasAccess) {
+        return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+    }
+
+    try {
+        const imoveis = await prisma.imovel.findMany({
+            include: {
+                bairro: { select: { nome: true } },
+                complementos: true
+            }
+        });
+        return NextResponse.json({ imoveis });
+    } catch (error) {
+        console.error("Erro ao listar imóveis para administração:", error);
+        return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    }
+}

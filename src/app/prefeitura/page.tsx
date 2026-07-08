@@ -80,7 +80,7 @@ export default function PrefeituraPage() {
 
     const fetchImoveis = async () => {
         try {
-            const res = await fetch('/api/instalador/imoveis');
+            const res = await fetch('/api/admin/imoveis');
             const data = await res.json();
             setProperties(data.imoveis || []);
         } catch (e) {

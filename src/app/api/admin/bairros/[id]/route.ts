@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { restrictToAdmin } from "@/lib/auth";
+import { restrictToAdmin, getSessionUser } from "@/lib/auth";
 
 export async function DELETE(
     req: NextRequest,
@@ -38,5 +38,34 @@ export async function DELETE(
     } catch (error) {
         console.error("Erro ao deletar bairro:", error);
         return NextResponse.json({ error: "Erro ao deletar bairro" }, { status: 500 });
+    }
+}
+
+export async function PATCH(
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const user = await getSessionUser();
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'OPERATOR')) {
+        return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+    }
+
+    const { id } = await params;
+
+    try {
+        const body = await req.json();
+        const { visivelInstalacao } = body;
+
+        const updated = await prisma.bairro.update({
+            where: { id },
+            data: {
+                ...(visivelInstalacao !== undefined ? { visivelInstalacao } : {})
+            }
+        });
+
+        return NextResponse.json({ success: true, bairro: updated });
+    } catch (error) {
+        console.error("Erro ao atualizar bairro:", error);
+        return NextResponse.json({ error: "Erro ao atualizar bairro" }, { status: 500 });
     }
 }

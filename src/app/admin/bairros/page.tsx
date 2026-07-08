@@ -36,6 +36,29 @@ export default function BairrosPage() {
         fetchData();
     }, [supabase]);
 
+    const handleToggleVisibility = async (id: string, currentStatus: boolean) => {
+        try {
+            // Update local state first for instant response
+            setBairros(prev => prev.map(b => b.id === id ? { ...b, visivelInstalacao: !currentStatus } : b));
+            
+            const res = await fetch(`/api/admin/bairros/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ visivelInstalacao: !currentStatus })
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                // Revert if error
+                setBairros(prev => prev.map(b => b.id === id ? { ...b, visivelInstalacao: currentStatus } : b));
+                alert("Erro ao salvar visibilidade: " + (data.error || res.statusText || res.status));
+            }
+        } catch (e: any) {
+            setBairros(prev => prev.map(b => b.id === id ? { ...b, visivelInstalacao: currentStatus } : b));
+            alert("Erro ao se conectar ao servidor: " + (e.message || e));
+        }
+    };
+
     const isAdmin = role === 'ADMIN';
 
     return (
@@ -52,18 +75,29 @@ export default function BairrosPage() {
                             <th>Nome do Bairro</th>
                             <th>Data de Importação</th>
                             <th>Total de Imóveis</th>
+                            <th>Visível p/ Instalador</th>
                             <th>Status</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan={5}>Carregando...</td></tr>
+                            <tr><td colSpan={6}>Carregando...</td></tr>
                         ) : bairros.map(b => (
                             <tr key={b.id}>
                                 <td><strong>{b.nome}</strong></td>
                                 <td>{new Date(b.dataImportacao).toLocaleDateString()}</td>
                                 <td>{b._count.imoveis}</td>
+                                <td>
+                                    <label className={styles.switch}>
+                                        <input
+                                            type="checkbox"
+                                            checked={b.visivelInstalacao ?? true}
+                                            onChange={() => handleToggleVisibility(b.id, b.visivelInstalacao ?? true)}
+                                        />
+                                        <span className={styles.slider}></span>
+                                    </label>
+                                </td>
                                 <td><span className={styles.activeBadge}>{b.status}</span></td>
                                 <td>
                                     <div className={styles.actions}>

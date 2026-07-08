@@ -5,8 +5,13 @@ import prisma from "@/lib/prisma";
 export async function GET(req: NextRequest) {
     try {
         const imoveis = await prisma.imovel.findMany({
+            where: {
+                bairro: {
+                    visivelInstalacao: true
+                }
+            },
             include: {
-                bairro: { select: { nome: true } },
+                bairro: { select: { nome: true, visivelInstalacao: true } },
                 complementos: true
             }
         });

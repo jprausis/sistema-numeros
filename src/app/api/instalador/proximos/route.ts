@@ -21,10 +21,13 @@ export async function GET(req: NextRequest) {
             where: {
                 status: {
                     in: ["NAO_INICIADO", "PENDENTE", "AUSENTE", "LIBERADO"]
+                },
+                bairro: {
+                    visivelInstalacao: true
                 }
             },
             include: {
-                bairro: { select: { nome: true } },
+                bairro: { select: { nome: true, visivelInstalacao: true } },
                 complementos: true
             }
         });
