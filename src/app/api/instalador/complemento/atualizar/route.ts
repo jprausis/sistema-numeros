@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
+import { getSessionUser } from "@/lib/auth";
 
 export async function PATCH(req: NextRequest) {
     try {
+        const user = await getSessionUser();
+        if (!user) {
+            return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+        }
+
         const body = await req.json();
-        const { id, status, fotos, instaladorResp, userId, userEmail } = body;
+        const { id, status, fotos } = body;
 
         if (!id) {
             return NextResponse.json({ error: "ID do complemento é obrigatório" }, { status: 400 });
@@ -33,6 +39,8 @@ export async function PATCH(req: NextRequest) {
             data: dataUpdate
         });
 
+        const actualInstaladorResp = user.name || user.email || "Instalador";
+
         // Opcional: Atualizar status do imóvel pai se todos os complementos estiverem concluídos
         const parentImovel = await prisma.imovel.findUnique({
             where: { inscimob: complemento.inscimob },
@@ -45,15 +53,15 @@ export async function PATCH(req: NextRequest) {
                 data: {
                     status: "CONCLUIDO",
                     dataExecucao: new Date(),
-                    instaladorResp: instaladorResp || "Instalador Padrão"
+                    instaladorResp: actualInstaladorResp
                 }
             });
         }
 
         // Registrar Log de Auditoria
         await createAuditLog({
-            userId: userId || "sistema",
-            userEmail: userEmail || "sistema@projemix.com.br",
+            userId: user.id,
+            userEmail: user.email || "sem-email@projemix.com.br",
             action: "UPDATE_COMPLEMENTO",
             resource: "complemento",
             resourceId: id,
@@ -70,3 +78,4 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: "Erro ao atualizar" }, { status: 500 });
     }
 }
+

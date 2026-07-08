@@ -3,18 +3,24 @@ export const dynamic = "force-dynamic";
 import prisma from "@/lib/prisma";
 import { calculateDistance } from "@/lib/geoUtils";
 import { utmToLatLng } from "@/utils/geo";
+import { getSessionUser } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-    const { searchParams } = new URL(req.url);
-    const lat = parseFloat(searchParams.get("lat") || "0");
-    const lon = parseFloat(searchParams.get("lon") || "0");
-    const radius = parseFloat(searchParams.get("radius") || "50");
-
-    if (!lat || !lon) {
-        return NextResponse.json({ error: "Coordenadas são obrigatórias" }, { status: 400 });
-    }
-
     try {
+        const user = await getSessionUser();
+        if (!user) {
+            return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(req.url);
+        const lat = parseFloat(searchParams.get("lat") || "0");
+        const lon = parseFloat(searchParams.get("lon") || "0");
+        const radius = parseFloat(searchParams.get("radius") || "50");
+
+        if (!lat || !lon) {
+            return NextResponse.json({ error: "Coordenadas são obrigatórias" }, { status: 400 });
+        }
+
         // Buscar todos os imóveis que PODEM ser trabalhados
         // (Não Concluídos, ou que foram marcados como Ausente ou Liberado)
         const imoveis = await prisma.imovel.findMany({
@@ -50,3 +56,4 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Erro interno" }, { status: 500 });
     }
 }
+

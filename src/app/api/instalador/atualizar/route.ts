@@ -2,15 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 import { createAuditLog } from "@/lib/audit";
+import { getSessionUser } from "@/lib/auth";
 
 export async function PATCH(req: NextRequest) {
     try {
+        const user = await getSessionUser();
+        if (!user) {
+            return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+        }
+
         const body = await req.json();
-        const { inscimob, status, obsPendente, fotos, instaladorResp, userEmail, userId, complementosData } = body;
+        const { inscimob, status, obsPendente, fotos, complementosData } = body;
 
         if (!inscimob || !status) {
             return NextResponse.json({ error: "Inscimob e Status são obrigatórios" }, { status: 400 });
         }
+
+        const actualInstaladorResp = user.name || user.email || "Instalador";
 
         // 1. Atualizar o imóvel principal
         const imovel = await prisma.imovel.update({
@@ -20,7 +28,7 @@ export async function PATCH(req: NextRequest) {
                 obsPendente: status === "PENDENTE" ? obsPendente : null,
                 fotos: fotos ? JSON.stringify(fotos) : undefined,
                 dataExecucao: new Date(),
-                instaladorResp: instaladorResp || "Instalador Padrão"
+                instaladorResp: actualInstaladorResp
             }
         });
 
@@ -54,8 +62,8 @@ export async function PATCH(req: NextRequest) {
 
         // Registrar Log de Auditoria
         await createAuditLog({
-            userId: userId || "sistema",
-            userEmail: userEmail || "sistema@projemix.com.br",
+            userId: user.id,
+            userEmail: user.email || "sem-email@projemix.com.br",
             action: "UPDATE_IMOVEL_LOTE",
             resource: "imovel",
             resourceId: inscimob,
@@ -73,3 +81,4 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: "Erro ao atualizar" }, { status: 500 });
     }
 }
+
