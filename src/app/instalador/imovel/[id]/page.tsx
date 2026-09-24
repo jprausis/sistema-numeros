@@ -22,7 +22,6 @@ export default function ImovelDetalhesPage() {
     const [obs, setObs] = useState('');
     const [photoMain, setPhotoMain] = useState<File | null>(null);
     const [photoMainPreview, setPhotoMainPreview] = useState<string | null>(null);
-    const mainFileInputRef = useRef<HTMLInputElement>(null);
 
     // Complementos: fotos novas, previews, status, seleção e número predial editável (key = complemento id)
     const [compPhotos, setCompPhotos] = useState<Record<string, File | null>>({});
@@ -30,7 +29,55 @@ export default function ImovelDetalhesPage() {
     const [compStatuses, setCompStatuses] = useState<Record<string, 'CONCLUIDO' | 'PENDENTE'>>({});
     const [compIncluded, setCompIncluded] = useState<Record<string, boolean>>({});
     const [compNumeroPredial, setCompNumeroPredial] = useState<Record<string, string>>({});
-    const compFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+    // Modal e Seleção de Foto (Câmera ou Arquivos de Mídia)
+    const cameraInputRef = useRef<HTMLInputElement>(null);
+    const galleryInputRef = useRef<HTMLInputElement>(null);
+    const [photoModalTarget, setPhotoModalTarget] = useState<{
+        type: 'main' | 'comp';
+        compId?: string;
+        title: string;
+    } | null>(null);
+    const photoModalTargetRef = useRef<{
+        type: 'main' | 'comp';
+        compId?: string;
+        title: string;
+    } | null>(null);
+
+    const openPhotoPicker = (type: 'main' | 'comp', compId?: string, title: string = '') => {
+        const target = { type, compId, title };
+        photoModalTargetRef.current = target;
+        setPhotoModalTarget(target);
+    };
+
+    const handleSelectOption = (source: 'camera' | 'gallery') => {
+        setPhotoModalTarget(null);
+        if (source === 'camera') {
+            if (cameraInputRef.current) {
+                cameraInputRef.current.value = '';
+                cameraInputRef.current.click();
+            }
+        } else {
+            if (galleryInputRef.current) {
+                galleryInputRef.current.value = '';
+                galleryInputRef.current.click();
+            }
+        }
+    };
+
+    const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null;
+        if (!file) return;
+
+        const target = photoModalTargetRef.current;
+        if (!target) return;
+
+        if (target.type === 'main') {
+            handleMainPhotoChange(file);
+        } else if (target.type === 'comp' && target.compId) {
+            handleCompPhotoChange(target.compId, file);
+        }
+    };
 
     const [user, setUser] = useState<any>(null);
     const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
@@ -341,7 +388,7 @@ export default function ImovelDetalhesPage() {
                                 </span>
                                 <button
                                     type="button"
-                                    onClick={() => mainFileInputRef.current?.click()}
+                                    onClick={() => openPhotoPicker('main', undefined, 'Número Principal')}
                                     style={{
                                         background: '#2563eb',
                                         color: '#ffffff',
@@ -397,16 +444,6 @@ export default function ImovelDetalhesPage() {
                         </div>
                     )}
 
-                    {/* Input de Arquivo / Câmera (Oculto) */}
-                    <input
-                        ref={mainFileInputRef}
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className={styles.hiddenFileInput}
-                        onChange={e => handleMainPhotoChange(e.target.files?.[0] || null)}
-                    />
-
                     {/* Botão de Envio de Foto quando ainda não há foto selecionada e não tem foto salva */}
                     {!existingMainPhoto && !photoMainPreview && (
                         <div className={styles.formGroup}>
@@ -414,7 +451,7 @@ export default function ImovelDetalhesPage() {
                             <button
                                 type="button"
                                 className={styles.uploadTriggerBtn}
-                                onClick={() => mainFileInputRef.current?.click()}
+                                onClick={() => openPhotoPicker('main', undefined, 'Número Principal')}
                             >
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
@@ -569,22 +606,12 @@ export default function ImovelDetalhesPage() {
                                         </div>
                                     )}
 
-                                    {/* Input de Foto Oculto */}
-                                    <input
-                                        ref={el => { compFileInputRefs.current[c.id] = el; }}
-                                        type="file"
-                                        accept="image/*"
-                                        capture="environment"
-                                        className={styles.hiddenFileInput}
-                                        onChange={e => handleCompPhotoChange(c.id, e.target.files?.[0] || null)}
-                                    />
-
                                     {/* Botão para tirar foto da placa instalada */}
                                     <div className={styles.formGroup} style={{ marginTop: '0.5rem' }}>
                                         <button
                                             type="button"
                                             className={styles.uploadTriggerBtn}
-                                            onClick={() => compFileInputRefs.current[c.id]?.click()}
+                                            onClick={() => openPhotoPicker('comp', c.id, `Unidade ${compNumeroPredial[c.id] || c.numeroPredial}`)}
                                         >
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
@@ -694,7 +721,7 @@ export default function ImovelDetalhesPage() {
                                                 </span>
                                                 <button
                                                     type="button"
-                                                    onClick={() => compFileInputRefs.current[c.id]?.click()}
+                                                    onClick={() => openPhotoPicker('comp', c.id, `Unidade ${compNumeroPredial[c.id] || c.numeroPredial}`)}
                                                     style={{
                                                         background: '#2563eb',
                                                         color: '#ffffff',
@@ -750,22 +777,12 @@ export default function ImovelDetalhesPage() {
                                         </div>
                                     )}
 
-                                    {/* Input de Arquivo Oculto para Substituição */}
-                                    <input
-                                        ref={el => { compFileInputRefs.current[c.id] = el; }}
-                                        type="file"
-                                        accept="image/*"
-                                        capture="environment"
-                                        className={styles.hiddenFileInput}
-                                        onChange={e => handleCompPhotoChange(c.id, e.target.files?.[0] || null)}
-                                    />
-
                                     {/* Caso não tenha foto salva ainda por algum motivo */}
                                     {!existingCompPhoto && !preview && (
                                         <button
                                             type="button"
                                             className={styles.uploadTriggerBtn}
-                                            onClick={() => compFileInputRefs.current[c.id]?.click()}
+                                            onClick={() => openPhotoPicker('comp', c.id, `Unidade ${compNumeroPredial[c.id] || c.numeroPredial}`)}
                                         >
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
@@ -844,6 +861,124 @@ export default function ImovelDetalhesPage() {
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
+                    </div>
+                </div>
+            )}
+
+            {/* Inputs Ocultos Centralizados (Câmera e Galeria) */}
+            <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className={styles.hiddenFileInput}
+                onChange={handleFileSelected}
+            />
+            <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*"
+                className={styles.hiddenFileInput}
+                onChange={handleFileSelected}
+            />
+
+            {/* Modal de Escolha: Câmera ou Galeria */}
+            {photoModalTarget && (
+                <div
+                    className={styles.modalOverlay}
+                    onClick={() => {
+                        setPhotoModalTarget(null);
+                        photoModalTargetRef.current = null;
+                    }}
+                >
+                    <div
+                        className={styles.modalSheet}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className={styles.modalHandle}></div>
+
+                        <div className={styles.modalHeader}>
+                            <div>
+                                <h3 className={styles.modalTitle}>Adicionar Foto</h3>
+                                {photoModalTarget.title && (
+                                    <div className={styles.modalSubtitle}>
+                                        {photoModalTarget.title}
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                className={styles.modalCloseBtn}
+                                onClick={() => {
+                                    setPhotoModalTarget(null);
+                                    photoModalTargetRef.current = null;
+                                }}
+                                aria-label="Fechar"
+                            >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className={styles.modalOptions}>
+                            <button
+                                type="button"
+                                className={styles.modalOptionBtn}
+                                onClick={() => handleSelectOption('camera')}
+                            >
+                                <div className={styles.optionIconWrapperCamera}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                                        <circle cx="12" cy="13" r="4"></circle>
+                                    </svg>
+                                </div>
+                                <div className={styles.optionInfo}>
+                                    <span className={styles.optionTitle}>Tirar Foto</span>
+                                    <span className={styles.optionDesc}>Abrir a câmera do dispositivo</span>
+                                </div>
+                                <div className={styles.optionChevron}>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                    </svg>
+                                </div>
+                            </button>
+
+                            <button
+                                type="button"
+                                className={styles.modalOptionBtn}
+                                onClick={() => handleSelectOption('gallery')}
+                            >
+                                <div className={styles.optionIconWrapperGallery}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                        <polyline points="21 15 16 10 5 21"></polyline>
+                                    </svg>
+                                </div>
+                                <div className={styles.optionInfo}>
+                                    <span className={styles.optionTitle}>Carregar dos Arquivos de Mídia</span>
+                                    <span className={styles.optionDesc}>Escolher da galeria ou arquivos</span>
+                                </div>
+                                <div className={styles.optionChevron}>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                    </svg>
+                                </div>
+                            </button>
+                        </div>
+
+                        <button
+                            type="button"
+                            className={styles.modalCancelBtn}
+                            onClick={() => {
+                                setPhotoModalTarget(null);
+                                photoModalTargetRef.current = null;
+                            }}
+                        >
+                            Cancelar
+                        </button>
                     </div>
                 </div>
             )}

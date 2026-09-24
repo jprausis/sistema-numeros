@@ -466,4 +466,214 @@
     opacity: 0.6;
     cursor: not-allowed;
     box-shadow: none;
+}
+
+/* Modal / Bottom Sheet de Escolha de Foto */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    z-index: 9999;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: fadeInModal 0.2s ease-out;
+}
+
+.modalSheet {
+    background: #ffffff;
+    width: 100%;
+    max-width: 480px;
+    border-radius: 20px 20px 0 0;
+    padding: 1.25rem 1.25rem 2rem 1.25rem;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.2);
+    animation: slideUpModal 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+    .modalOverlay {
+        align-items: center;
+        padding: 1rem;
+    }
+
+    .modalSheet {
+        border-radius: 18px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08);
+        animation: scaleUpModal 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+}
+
+.modalHandle {
+    width: 38px;
+    height: 4px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    margin: 0 auto 1.15rem auto;
+}
+
+@media (min-width: 640px) {
+    .modalHandle {
+        display: none;
+    }
+}
+
+.modalHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+
+.modalTitle {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+    letter-spacing: -0.01em;
+}
+
+.modalSubtitle {
+    font-size: 0.825rem;
+    color: #2563eb;
+    font-weight: 600;
+    margin-top: 0.25rem;
+}
+
+.modalCloseBtn {
+    background: #f1f5f9;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.modalCloseBtn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.modalOptions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.modalOptionBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.95rem 1rem;
+    border-radius: 14px;
+    border: 1.5px solid #e2e8f0;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.modalOptionBtn:hover {
+    border-color: #2563eb;
+    background: #f8faff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.modalOptionBtn:active {
+    transform: translateY(0);
+}
+
+.optionIconWrapperCamera {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.optionIconWrapperGallery {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: #f0fdf4;
+    color: #16a34a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.optionInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.optionTitle {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 2px;
+}
+
+.optionDesc {
+    font-size: 0.775rem;
+    color: #64748b;
+}
+
+.optionChevron {
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+}
+
+.modalCancelBtn {
+    margin-top: 1rem;
+    width: 100%;
+    padding: 0.85rem;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    color: #475569;
+    font-weight: 700;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.modalCancelBtn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+@keyframes fadeInModal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUpModal {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+@keyframes scaleUpModal {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
 }
