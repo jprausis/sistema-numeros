@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest) {
             data: {
                 status,
                 obsPendente: status === "PENDENTE" ? obsPendente : null,
-                fotos: fotos ? JSON.stringify(fotos) : undefined,
+                fotos: (fotos && Array.isArray(fotos) && fotos.length > 0) ? JSON.stringify(fotos) : undefined,
                 dataExecucao: new Date(),
                 instaladorResp: actualInstaladorResp
             }
@@ -40,8 +40,10 @@ export async function PATCH(req: NextRequest) {
                         where: { id: comp.id },
                         data: {
                             status: comp.status,
+                            ...(comp.numeroPredial ? { numeroPredial: comp.numeroPredial.trim() } : {}),
                             fotos: comp.fotos && comp.fotos.length > 0 ? JSON.stringify(comp.fotos) : undefined,
-                            dataExecucao: (comp.status === "CONCLUIDO" || comp.status === "PENDENTE") ? new Date() : undefined
+                            dataExecucao: (comp.status === "CONCLUIDO" || comp.status === "PENDENTE") ? new Date() : undefined,
+                            liberadoInstalacao: comp.status === "CONCLUIDO" ? true : undefined
                         }
                     });
                 }

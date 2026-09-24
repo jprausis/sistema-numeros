@@ -40,20 +40,25 @@
 
 .nav {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
     margin: 0 1rem 1rem 1rem;
     flex-shrink: 0;
 }
 
 .navBtn {
-    padding: 1rem;
+    padding: 0.85rem 0.5rem;
     border-radius: 16px;
     border: 1px solid #e2e8f0;
     background: white;
     font-weight: 700;
     color: var(--secondary);
     transition: all 0.2s;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
 }
 
 .activeNav {
@@ -497,4 +502,177 @@
     overflow: hidden;
     margin: 0 1rem 1rem 1rem;
     border-radius: 20px;
-}
+}
+
+/* Estilos de Busca de Imóveis para Prefeitura */
+.searchView {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    gap: 1rem;
+}
+
+.searchHeader {
+    margin-bottom: 0.25rem;
+}
+
+.searchHeader h2 {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin: 0 0 0.25rem 0;
+}
+
+.searchHeader p {
+    font-size: 0.85rem;
+    color: var(--secondary);
+    margin: 0;
+}
+
+.searchBarWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.searchIcon {
+    position: absolute;
+    left: 1rem;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.searchInput {
+    width: 100%;
+    padding: 0.9rem 2.8rem 0.9rem 2.8rem;
+    border-radius: 14px;
+    border: 2px solid #e2e8f0;
+    background: white;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1e293b;
+    transition: all 0.2s;
+    outline: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.searchInput:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 71, 187, 0.15);
+}
+
+.clearSearchBtn {
+    position: absolute;
+    right: 0.75rem;
+    background: #e2e8f0;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    color: #475569;
+    font-size: 0.8rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.clearSearchBtn:hover {
+    background: #cbd5e1;
+}
+
+.searchStats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #64748b;
+    padding: 0 0.25rem;
+}
+
+.inscBadge {
+    display: inline-flex;
+    align-items: center;
+    background: #e0e7ff;
+    color: #3730a3;
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    letter-spacing: 0.3px;
+}
+
+.complementoBadge {
+    display: inline-flex;
+    align-items: center;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+}
+
+.mapSmallButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.mapSmallButton:hover {
+    background: #e0f2fe;
+}
+
+.emptySearchState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 3rem 1.5rem;
+    background: #f8fafc;
+    border-radius: 16px;
+    border: 1px dashed #cbd5e1;
+    color: #64748b;
+    margin-top: 0.5rem;
+}
+
+.emptySearchIcon {
+    width: 48px;
+    height: 48px;
+    color: #94a3b8;
+    margin-bottom: 1rem;
+}
+
+.emptySearchState h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #334155;
+    margin: 0 0 0.5rem 0;
+}
+
+.emptySearchState p {
+    font-size: 0.85rem;
+    color: #64748b;
+    max-width: 320px;
+    margin: 0;
+}
+

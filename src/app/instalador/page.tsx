@@ -19,15 +19,69 @@ export default function InstallerDashboard() {
     const [location, setLocation] = useState<{ lat: number; lon: number } | null>(null);
     const [candidates, setCandidates] = useState<any[]>([]);
     const [loadingGps, setLoadingGps] = useState(false);
-    const [view, setView] = useState<'map' | 'list' | 'gps'>('map');
+    const [view, setView] = useState<'map' | 'list' | 'gps' | 'search'>('map');
     const [properties, setProperties] = useState<any[]>([]);
     const [agendamentosList, setAgendamentosList] = useState<any[]>([]);
     const [searchRadius, setSearchRadius] = useState<number>(80);
+
+    // Estados para Busca de Imóvel por Inscrição
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [searching, setSearching] = useState(false);
+    const [mapFocus, setMapFocus] = useState<[number, number] | null>(null);
 
     // Estados para o Processo de Conclusão (Nova Tela)
     const [linkingAgendamento, setLinkingAgendamento] = useState<any | null>(null);
     const [user, setUser] = useState<any>(null);
     const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+
+    // Efeito para busca por inscrição / número com debounce e filtro local instantâneo
+    useEffect(() => {
+        const query = searchQuery.trim();
+        if (!query) {
+            setSearchResults([]);
+            setSearching(false);
+            return;
+        }
+
+        // Filtro local instantâneo (resposta imediata se os imóveis já estiverem em memória)
+        const qLower = query.toLowerCase();
+        const localMatches = properties.filter((p: any) =>
+            p.inscimob?.toLowerCase().includes(qLower) ||
+            p.numeroAInstalar?.toLowerCase().includes(qLower) ||
+            p.endereco?.toLowerCase().includes(qLower)
+        );
+        setSearchResults(localMatches);
+        setSearching(true);
+
+        const timer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/instalador/buscar?q=${encodeURIComponent(query)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const serverMatches = data.imoveis || [];
+
+                    // Mesclar sem duplicatas
+                    setSearchResults(() => {
+                        const map = new Map<string, any>();
+                        serverMatches.forEach((item: any) => map.set(item.inscimob, item));
+                        localMatches.forEach((item: any) => {
+                            if (!map.has(item.inscimob)) {
+                                map.set(item.inscimob, item);
+                            }
+                        });
+                        return Array.from(map.values());
+                    });
+                }
+            } catch (err) {
+                console.error("Erro ao buscar imóveis:", err);
+            } finally {
+                setSearching(false);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [searchQuery, properties]);
 
     useEffect(() => {
         if (view === 'list') {
@@ -103,7 +157,14 @@ export default function InstallerDashboard() {
         }
     };
 
-
+    const handleViewOnMap = (property: any) => {
+        if (property.x && property.y) {
+            setMapFocus([property.x, property.y]);
+            setView('map');
+        } else {
+            alert("Este imóvel não possui coordenadas de mapa cadastradas.");
+        }
+    };
 
     return (
         <div className={styles.container}>
@@ -124,7 +185,7 @@ export default function InstallerDashboard() {
                         className={`${view === 'map' ? styles.activeNav : ''}`}
                         onClick={() => { setView('map'); setLinkingAgendamento(null); }}
                     >
-                        <svg width="18" height="18" style={{ marginRight: '6px', verticalAlign: 'middle' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="18" height="18" style={{ marginRight: '4px', verticalAlign: 'middle' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
                             <circle cx="12" cy="10" r="3" />
                         </svg>
@@ -134,7 +195,7 @@ export default function InstallerDashboard() {
                         className={`${view === 'list' ? styles.activeNav : ''}`}
                         onClick={() => { setView('list'); setLinkingAgendamento(null); }}
                     >
-                        <svg width="18" height="18" style={{ marginRight: '6px', verticalAlign: 'middle' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="18" height="18" style={{ marginRight: '4px', verticalAlign: 'middle' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                             <line x1="16" y1="2" x2="16" y2="6" />
                             <line x1="8" y1="2" x2="8" y2="6" />
@@ -146,11 +207,21 @@ export default function InstallerDashboard() {
                         className={`${view === 'gps' ? styles.activeNav : ''}`}
                         onClick={() => handleGpsSearch()}
                     >
-                        <svg width="18" height="18" style={{ marginRight: '6px', verticalAlign: 'middle' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="18" height="18" style={{ marginRight: '4px', verticalAlign: 'middle' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="12" cy="12" r="3" />
                             <path d="M12 2v3m0 14v3m-7-10H2m17 0h3" />
                         </svg>
                         Local
+                    </button>
+                    <button
+                        className={`${view === 'search' ? styles.activeNav : ''}`}
+                        onClick={() => setView('search')}
+                    >
+                        <svg width="18" height="18" style={{ marginRight: '4px', verticalAlign: 'middle' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        Buscar
                     </button>
                 </nav>
             </header>
@@ -159,9 +230,134 @@ export default function InstallerDashboard() {
                 {view === 'map' && (
                     <InstallerMap
                         properties={properties}
+                        focusOn={mapFocus}
                         userLocation={location}
                         onEdit={(p) => handleProcess(p)}
                     />
+                )}
+
+                {view === 'search' && (
+                    <div className={styles.searchView}>
+                        {linkingAgendamento && (
+                            <div className={styles.linkingAlert}>
+                                <div><strong>Vinculando Agendamento:</strong> {linkingAgendamento.nome} ({linkingAgendamento.protocolo})</div>
+                                <div style={{ fontSize: '0.8rem', marginTop: '2px' }}>{linkingAgendamento.enderecoCompleto}</div>
+                                <button
+                                    onClick={() => setLinkingAgendamento(null)}
+                                    style={{ marginTop: '6px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}
+                                >
+                                    Cancelar Vínculo
+                                </button>
+                            </div>
+                        )}
+
+                        <div className={styles.searchHeader}>
+                            <h2>Buscar Imóvel por Inscrição</h2>
+                            <p>Digite a inscrição imobiliária (INSCIMOB) ou número da residência</p>
+                        </div>
+
+                        <div className={styles.searchBarWrapper}>
+                            <svg className={styles.searchIcon} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8" />
+                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                            </svg>
+                            <input
+                                type="text"
+                                className={styles.searchInput}
+                                placeholder="Digite a inscrição (ex: 01.02.003...) ou número"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                autoFocus
+                            />
+                            {searchQuery && (
+                                <button
+                                    type="button"
+                                    className={styles.clearSearchBtn}
+                                    onClick={() => setSearchQuery('')}
+                                    aria-label="Limpar busca"
+                                >
+                                    ✕
+                                </button>
+                            )}
+                        </div>
+
+                        {searchQuery.trim() !== '' && (
+                            <div className={styles.searchStats}>
+                                <span>{searchResults.length} {searchResults.length === 1 ? 'imóvel encontrado' : 'imóveis encontrados'}</span>
+                                {searching && <span>Buscando no banco...</span>}
+                            </div>
+                        )}
+
+                        {searchQuery.trim() === '' ? (
+                            <div className={styles.emptySearchState}>
+                                <svg className={styles.emptySearchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                    <line x1="8" y1="11" x2="14" y2="11" />
+                                </svg>
+                                <h3>Digite a Inscrição para Pesquisar</h3>
+                                <p>Informe a inscrição imobiliária completa ou parcial para localizar o cadastro do imóvel rapidamente.</p>
+                            </div>
+                        ) : searchResults.length > 0 ? (
+                            <div className={styles.candidateList}>
+                                {searchResults.map((imovel) => (
+                                    <div key={imovel.inscimob} className={styles.candidateCard}>
+                                        <div className={styles.candidateInfo}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
+                                                <span className={styles.inscBadge}>Insc: {imovel.inscimob}</span>
+                                                <span className={`${styles.statusPill} ${styles[imovel.status]}`}>
+                                                    {imovel.status === 'NAO_INICIADO' ? 'Não Iniciado' :
+                                                        imovel.status === 'LIBERADO' ? 'Liberado' :
+                                                            imovel.status === 'AUSENTE' ? 'Ausente' :
+                                                                imovel.status === 'PENDENTE' ? 'Pendente' :
+                                                                    imovel.status === 'CONCLUIDO' ? 'Concluído' : imovel.status}
+                                                </span>
+                                                {imovel.complementos && imovel.complementos.length > 0 && (
+                                                    <span className={styles.complementoBadge}>
+                                                        +{imovel.complementos.length} compl.
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <h3>Nº {imovel.numeroAInstalar}</h3>
+                                            <p>{imovel.bairro?.nome || 'Bairro'}{imovel.endereco ? ` • ${imovel.endereco}` : ''}</p>
+                                        </div>
+                                        <div className={styles.cardActions} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                            <button
+                                                className={styles.openButton}
+                                                onClick={() => handleProcess(imovel)}
+                                            >
+                                                {linkingAgendamento ? 'Vincular Este' : 'Instalar / Concluir'}
+                                            </button>
+                                            {imovel.x && imovel.y && (
+                                                <button
+                                                    type="button"
+                                                    className={styles.mapSmallButton}
+                                                    onClick={() => handleViewOnMap(imovel)}
+                                                >
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                                                        <circle cx="12" cy="10" r="3" />
+                                                    </svg>
+                                                    Ver no Mapa
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : !searching ? (
+                            <div className={styles.emptySearchState}>
+                                <svg className={styles.emptySearchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="8" y1="12" x2="16" y2="12" />
+                                </svg>
+                                <h3>Nenhum imóvel encontrado</h3>
+                                <p>Não encontramos nenhum imóvel com a inscrição ou número "{searchQuery}". Verifique os dígitos e tente novamente.</p>
+                            </div>
+                        ) : (
+                            <p className={styles.loadingText}>Buscando imóvel...</p>
+                        )}
+                    </div>
                 )}
 
                 {view === 'gps' && (
@@ -186,10 +382,30 @@ export default function InstallerDashboard() {
                             </div>
                         </div>
                         {linkingAgendamento && (
-                            <p className={styles.subtext}>Abaixo estão os imóveis perto de você agora.</p>
+                            <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                                <p className={styles.subtext} style={{ marginBottom: '0.5rem' }}>Abaixo estão os imóveis perto de você agora.</p>
+                                <button
+                                    type="button"
+                                    onClick={() => setView('search')}
+                                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '0.45rem 0.9rem', background: '#eef2ff', color: '#4338ca', border: '1px solid #c7d2fe', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="11" cy="11" r="8" />
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                    </svg>
+                                    Ou buscar imóvel por Inscrição
+                                </button>
+                            </div>
                         )}
                         {loadingGps ? (
-                            <p className={styles.loadingText}>📡 Buscando sua localização e imóveis...</p>
+                            <p className={styles.loadingText} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                                    <path d="M2 12h20" />
+                                </svg>
+                                Buscando sua localização e imóveis...
+                            </p>
                         ) : candidates.length > 0 ? (
                             <div className={styles.candidateList}>
                                 {candidates.map(candidate => (
@@ -216,7 +432,20 @@ export default function InstallerDashboard() {
                                 ))}
                             </div>
                         ) : (
-                            <p>Nenhum imóvel encontrado por perto.</p>
+                            <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+                                <p style={{ color: '#64748b', marginBottom: '0.75rem' }}>Nenhum imóvel encontrado por perto.</p>
+                                <button
+                                    type="button"
+                                    onClick={() => setView('search')}
+                                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '0.6rem 1.2rem', background: '#e0e7ff', color: '#3730a3', border: '1px solid #c7d2fe', borderRadius: '10px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer' }}
+                                >
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="11" cy="11" r="8" />
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                    </svg>
+                                    Buscar imóvel por Inscrição
+                                </button>
+                            </div>
                         )}
                         <button onClick={() => { setView('map'); setLinkingAgendamento(null); }} className={styles.backButton} style={{ marginTop: '2rem', padding: '1rem', width: '100%', background: '#f1f5f9', border: 'none', borderRadius: '10px', fontWeight: '700' }}>Cancelar e Voltar</button>
                     </div>
@@ -237,8 +466,14 @@ export default function InstallerDashboard() {
                                             <span className={styles.protocolBadge}>{ag.protocolo}</span>
                                             <h3>{ag.nome}</h3>
                                             <p>{ag.enderecoCompleto}</p>
-                                            <div className={styles.timeInfo}>
-                                                📅 Solicitado em: {new Date(ag.createdAt).toLocaleDateString()}
+                                            <div className={styles.timeInfo} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                                    <line x1="16" y1="2" x2="16" y2="6" />
+                                                    <line x1="8" y1="2" x2="8" y2="6" />
+                                                    <line x1="3" y1="10" x2="21" y2="10" />
+                                                </svg>
+                                                Solicitado em: {new Date(ag.createdAt).toLocaleDateString()}
                                             </div>
                                         </div>
                                         <div className={styles.cardActions}>
@@ -305,7 +540,12 @@ export default function InstallerDashboard() {
                         alt="Fullscreen"
                         style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', borderRadius: '8px' }}
                     />
-                    <div style={{ position: 'absolute', top: '20px', right: '20px', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', width: '40px', height: '40px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 'bold' }}>✕</div>
+                    <div style={{ position: 'absolute', top: '20px', right: '20px', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', width: '40px', height: '40px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </div>
                 </div>
             )}
         </div>

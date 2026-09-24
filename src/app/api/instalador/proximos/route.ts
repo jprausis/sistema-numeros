@@ -25,9 +25,22 @@ export async function GET(req: NextRequest) {
         // (Não Concluídos, ou que foram marcados como Ausente ou Liberado)
         const imoveis = await prisma.imovel.findMany({
             where: {
-                status: {
-                    in: ["NAO_INICIADO", "PENDENTE", "AUSENTE", "LIBERADO"]
-                },
+                OR: [
+                    {
+                        status: {
+                            in: ["NAO_INICIADO", "PENDENTE", "AUSENTE", "LIBERADO"]
+                        }
+                    },
+                    {
+                        complementos: {
+                            some: {
+                                status: {
+                                    not: "CONCLUIDO"
+                                }
+                            }
+                        }
+                    }
+                ],
                 bairro: {
                     visivelInstalacao: true
                 }

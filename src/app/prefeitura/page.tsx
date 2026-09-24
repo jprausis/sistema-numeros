@@ -15,7 +15,7 @@ const InstallerMap = dynamic(() => import('@/components/InstallerMap'), {
 export default function PrefeituraPage() {
     const router = useRouter();
     const supabase = createClient();
-    const [view, setView] = useState<'map' | 'gps'>('map');
+    const [view, setView] = useState<'map' | 'gps' | 'search'>('map');
     const [properties, setProperties] = useState<any[]>([]);
     const [searchRadius, setSearchRadius] = useState<number>(80);
     const [location, setLocation] = useState<{ lat: number; lon: number } | null>(null);
@@ -26,6 +26,12 @@ export default function PrefeituraPage() {
     const [user, setUser] = useState<any>(null);
     const [photo, setPhoto] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+    // Estados para busca de imóveis por inscrição
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [searching, setSearching] = useState(false);
+    const [mapFocus, setMapFocus] = useState<[number, number] | null>(null);
 
     // Estados para edição do número do imóvel principal
     const [editingNumero, setEditingNumero] = useState('');
@@ -44,6 +50,59 @@ export default function PrefeituraPage() {
             setIsEditingNumero(false);
         }
     }, [selectedForProcess]);
+
+    // Efeito para busca por inscrição / número com debounce e filtro local instantâneo
+    useEffect(() => {
+        const query = searchQuery.trim();
+        if (!query) {
+            setSearchResults([]);
+            setSearching(false);
+            return;
+        }
+
+        // Filtro local instantâneo nos imóveis já carregados (respeitando filtro de bairro se ativo)
+        const qLower = query.toLowerCase();
+        const baseProperties = selectedBairroId
+            ? properties.filter((p: any) => p.bairroId === selectedBairroId)
+            : properties;
+
+        const localMatches = baseProperties.filter((p: any) =>
+            p.inscimob?.toLowerCase().includes(qLower) ||
+            p.numeroAInstalar?.toLowerCase().includes(qLower) ||
+            p.endereco?.toLowerCase().includes(qLower)
+        );
+        setSearchResults(localMatches);
+        setSearching(true);
+
+        const timer = setTimeout(async () => {
+            try {
+                const url = `/api/prefeitura/buscar?q=${encodeURIComponent(query)}${selectedBairroId ? `&bairroId=${selectedBairroId}` : ''}`;
+                const res = await fetch(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    const serverMatches = data.imoveis || [];
+
+                    // Mesclar sem duplicatas
+                    setSearchResults(() => {
+                        const map = new Map<string, any>();
+                        serverMatches.forEach((item: any) => map.set(item.inscimob, item));
+                        localMatches.forEach((item: any) => {
+                            if (!map.has(item.inscimob)) {
+                                map.set(item.inscimob, item);
+                            }
+                        });
+                        return Array.from(map.values());
+                    });
+                }
+            } catch (err) {
+                console.error("Erro ao buscar imóveis da prefeitura:", err);
+            } finally {
+                setSearching(false);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [searchQuery, properties, selectedBairroId]);
 
     // Novos estados para o cadastro de imóveis
     const [isCreating, setIsCreating] = useState(false);
@@ -316,6 +375,15 @@ export default function PrefeituraPage() {
         }
     };
 
+    const handleViewOnMap = (property: any) => {
+        if (property.x && property.y) {
+            setMapFocus([property.x, property.y]);
+            setView('map');
+        } else {
+            alert("Este imóvel não possui coordenadas de mapa cadastradas.");
+        }
+    };
+
     const handleLogout = async () => {
         await supabase.auth.signOut();
         router.push('/login');
@@ -385,6 +453,16 @@ export default function PrefeituraPage() {
                     </svg>
                     Estou no Local
                 </button>
+                <button
+                    className={`${styles.navBtn} ${view === 'search' ? styles.activeNav : ''}`}
+                    onClick={() => setView('search')}
+                >
+                    <svg width="18" height="18" style={{ marginRight: '6px', verticalAlign: 'middle' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Buscar Imóvel
+                </button>
             </nav>
             
             {selectedBairroId && (
@@ -426,11 +504,128 @@ export default function PrefeituraPage() {
                     <div className={styles.mapContainer}>
                         <InstallerMap
                             properties={filteredProperties}
+                            focusOn={mapFocus}
                             userLocation={location}
                             onEdit={(p) => setSelectedForProcess(p)}
                             onFilterClick={() => setIsFilterModalOpen(true)}
                             filterActive={!!selectedBairroId}
                         />
+                    </div>
+                )}
+
+                {view === 'search' && (
+                    <div className={styles.searchView}>
+                        <div className={styles.searchHeader}>
+                            <h2>Buscar Imóvel por Inscrição</h2>
+                            <p>Localize qualquer imóvel pela inscrição imobiliária (INSCIMOB) ou número predial</p>
+                        </div>
+
+                        <div className={styles.searchBarWrapper}>
+                            <svg className={styles.searchIcon} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8" />
+                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                            </svg>
+                            <input
+                                type="text"
+                                className={styles.searchInput}
+                                placeholder="Digite a inscrição (ex: 01.02.003...) ou número"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                autoFocus
+                            />
+                            {searchQuery && (
+                                <button
+                                    type="button"
+                                    className={styles.clearSearchBtn}
+                                    onClick={() => setSearchQuery('')}
+                                    aria-label="Limpar busca"
+                                >
+                                    ✕
+                                </button>
+                            )}
+                        </div>
+
+                        {searchQuery.trim() !== '' && (
+                            <div className={styles.searchStats}>
+                                <span>{searchResults.length} {searchResults.length === 1 ? 'imóvel encontrado' : 'imóveis encontrados'}</span>
+                                {searching && <span>Buscando no banco...</span>}
+                            </div>
+                        )}
+
+                        {searchQuery.trim() === '' ? (
+                            <div className={styles.emptySearchState}>
+                                <svg className={styles.emptySearchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                    <line x1="8" y1="11" x2="14" y2="11" />
+                                </svg>
+                                <h3>Digite a Inscrição para Pesquisar</h3>
+                                <p>Informe a inscrição imobiliária completa ou parcial para localizar o imóvel e gerenciar suas permissões ou complementos.</p>
+                            </div>
+                        ) : searchResults.length > 0 ? (
+                            <div className={styles.candidateList}>
+                                {searchResults.map((imovel) => (
+                                    <div key={imovel.inscimob} className={styles.candidateCard}>
+                                        <div className={styles.candidateInfo}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
+                                                <span className={styles.inscBadge}>Insc: {imovel.inscimob}</span>
+                                                <span className={`${styles.statusPill} ${styles[imovel.status]}`}>
+                                                    {imovel.status === 'NAO_INICIADO' ? 'Não Iniciado' :
+                                                        imovel.status === 'LIBERADO' ? 'Liberado' :
+                                                            imovel.status === 'AUSENTE' ? 'Ausente' :
+                                                                imovel.status === 'PENDENTE' ? 'Pendente' :
+                                                                    imovel.status === 'CONCLUIDO' ? 'Concluído' : imovel.status}
+                                                </span>
+                                                {imovel.complementos && imovel.complementos.length > 0 && (
+                                                    <span className={styles.complementoBadge}>
+                                                        +{imovel.complementos.length} compl.
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <h3>Nº {imovel.numeroAInstalar}</h3>
+                                            <p>{imovel.bairro?.nome || 'Bairro'}{imovel.endereco ? ` • ${imovel.endereco}` : ''}</p>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                            <button
+                                                className={styles.openButton}
+                                                onClick={() => setSelectedForProcess(imovel)}
+                                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                                            >
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <circle cx="12" cy="12" r="3" />
+                                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                                                </svg>
+                                                <span>Ação</span>
+                                            </button>
+                                            {imovel.x && imovel.y && (
+                                                <button
+                                                    type="button"
+                                                    className={styles.mapSmallButton}
+                                                    onClick={() => handleViewOnMap(imovel)}
+                                                >
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                                                        <circle cx="12" cy="10" r="3" />
+                                                    </svg>
+                                                    Ver no Mapa
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : !searching ? (
+                            <div className={styles.emptySearchState}>
+                                <svg className={styles.emptySearchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="8" y1="12" x2="16" y2="12" />
+                                </svg>
+                                <h3>Nenhum imóvel encontrado</h3>
+                                <p>Não encontramos nenhum imóvel com a inscrição ou número "{searchQuery}". Verifique os dígitos e tente novamente.</p>
+                            </div>
+                        ) : (
+                            <p className={styles.loadingText}>Buscando imóvel...</p>
+                        )}
                     </div>
                 )}
 
@@ -472,14 +667,32 @@ export default function PrefeituraPage() {
                                         <button
                                             className={styles.openButton}
                                             onClick={() => setSelectedForProcess(candidate)}
+                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                                         >
-                                            🚀 Ação
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="3" />
+                                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                                            </svg>
+                                            <span>Ação</span>
                                         </button>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <p>Nenhum imóvel encontrado por perto.</p>
+                            <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+                                <p style={{ color: '#64748b', marginBottom: '0.75rem' }}>Nenhum imóvel encontrado por perto.</p>
+                                <button
+                                    type="button"
+                                    onClick={() => setView('search')}
+                                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '0.6rem 1.2rem', background: '#e0e7ff', color: '#3730a3', border: '1px solid #c7d2fe', borderRadius: '10px', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer' }}
+                                >
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="11" cy="11" r="8" />
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                    </svg>
+                                    Buscar imóvel por Inscrição
+                                </button>
+                            </div>
                         )}
                     </div>
                 )}

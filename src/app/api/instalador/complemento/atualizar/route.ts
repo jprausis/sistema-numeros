@@ -11,7 +11,7 @@ export async function PATCH(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { id, status, fotos } = body;
+        const { id, status, fotos, numeroPredial } = body;
 
         if (!id) {
             return NextResponse.json({ error: "ID do complemento é obrigatório" }, { status: 400 });
@@ -29,6 +29,9 @@ export async function PATCH(req: NextRequest) {
         if (status !== undefined) {
             dataUpdate.status = status;
             dataUpdate.dataExecucao = (status === "CONCLUIDO" || status === "PENDENTE") ? new Date() : null;
+        }
+        if (numeroPredial !== undefined) {
+            dataUpdate.numeroPredial = String(numeroPredial).trim();
         }
         if (fotos !== undefined) {
             dataUpdate.fotos = (fotos === null || (Array.isArray(fotos) && fotos.length === 0)) ? null : (Array.isArray(fotos) ? JSON.stringify(fotos) : fotos);
