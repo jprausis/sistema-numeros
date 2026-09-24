@@ -57,3 +57,32 @@ export function utmToLatLng(x: number, y: number): [number, number] {
 
     return [lat * (180 / Math.PI), lon * (180 / Math.PI)];
 }
+
+/**
+ * Converte recursivamente coordenadas GeoJSON (UTM Zona 22S) para WGS84 [longitude, latitude]
+ */
+export function convertCoordinatesToWgs84(coords: any): any {
+    if (!Array.isArray(coords)) return coords;
+    if (typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+        const x = coords[0];
+        const y = coords[1];
+        // Se as coordenadas forem métricas UTM (ex: 669000, 7213000), converte para [lon, lat]
+        if (Math.abs(x) > 180 || Math.abs(y) > 180) {
+            const [lat, lon] = utmToLatLng(x, y);
+            return [lon, lat];
+        }
+        return coords;
+    }
+    return coords.map(convertCoordinatesToWgs84);
+}
+
+/**
+ * Converte uma geometria GeoJSON completa (Polygon, MultiPolygon, Point, etc.) para WGS84
+ */
+export function convertGeometryToWgs84(geometry: any): any {
+    if (!geometry || !geometry.coordinates) return geometry;
+    return {
+        ...geometry,
+        coordinates: convertCoordinatesToWgs84(geometry.coordinates)
+    };
+}

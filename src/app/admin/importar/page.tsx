@@ -314,6 +314,12 @@ function ImportStats({ result, type }: { result: any, type: 'EXCEL' | 'GEOJSON' 
                 <span>{type === 'EXCEL' ? 'Erro' : 'Não Encontrados'}</span>
                 <strong>{type === 'EXCEL' ? result.skipped : result.notFound}</strong>
             </div>
+            {result.missingKey !== undefined && result.missingKey > 0 && (
+                <div className={styles.statItem} style={{ color: '#d97706' }}>
+                    <span>Sem Identificador</span>
+                    <strong>{result.missingKey}</strong>
+                </div>
+            )}
         </div>
     );
 }

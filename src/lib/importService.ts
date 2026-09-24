@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import prisma from './prisma';
+import { convertGeometryToWgs84 } from '@/utils/geo';
 
 export interface PropertyImportData {
     inscimob: string;
@@ -82,6 +83,7 @@ export async function processGeoJSONImport(buffer: Buffer) {
 
     let updatedCount = 0;
     let notFoundCount = 0;
+    let missingKeyCount = 0;
     let processed = 0;
     const total = geojson.features.length;
 
@@ -93,17 +95,40 @@ export async function processGeoJSONImport(buffer: Buffer) {
             console.log(`Progresso GeoJSON: ${processed}/${total} processados...`);
         }
 
-        const inscimob = feature.properties?.inscimob;
-        if (!inscimob) continue;
+        // Procura chaves comuns de identificação do lote/imóvel
+        const rawInsc = feature.properties?.inscimob
+            ?? feature.properties?.INSCIMOB
+            ?? feature.properties?.lote
+            ?? feature.properties?.LOTE
+            ?? feature.properties?.indicacaof
+            ?? feature.properties?.INDICACAOF
+            ?? feature.properties?.inscricao
+            ?? feature.properties?.INSCRICAO;
 
-        const imovel = await prisma.imovel.findUnique({
-            where: { inscimob: String(inscimob) }
+        if (!rawInsc) {
+            missingKeyCount++;
+            continue;
+        }
+
+        const inscClean = String(rawInsc).trim();
+
+        // Tenta achar com trim ou com eventual espaço no início
+        const imovel = await prisma.imovel.findFirst({
+            where: {
+                OR: [
+                    { inscimob: inscClean },
+                    { inscimob: ` ${inscClean}` }
+                ]
+            }
         });
 
         if (imovel) {
+            // Converte geometria para WGS84 [longitude, latitude] caso esteja em UTM
+            const convertedGeometry = convertGeometryToWgs84(feature.geometry);
+
             await prisma.imovel.update({
-                where: { inscimob: String(inscimob) },
-                data: { malha: feature.geometry }
+                where: { inscimob: imovel.inscimob },
+                data: { malha: convertedGeometry }
             });
             updatedCount++;
         } else {
@@ -111,12 +136,13 @@ export async function processGeoJSONImport(buffer: Buffer) {
         }
     }
 
-    console.log(`Processamento GeoJSON finalizado. Sucesso: ${updatedCount}, Não encontrados: ${notFoundCount}`);
+    console.log(`Processamento GeoJSON finalizado. Sucesso: ${updatedCount}, Não encontrados: ${notFoundCount}, Sem chave: ${missingKeyCount}`);
 
     return {
         total: geojson.features.length,
         updated: updatedCount,
-        notFound: notFoundCount
+        notFound: notFoundCount,
+        missingKey: missingKeyCount
     };
 }
 

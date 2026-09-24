@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
+import { convertGeometryToWgs84 } from '../src/utils/geo';
 
 const prisma = new PrismaClient();
 
@@ -24,26 +25,43 @@ async function importGeoJSON(filePath: string) {
 
         let updatedCount = 0;
         let notFoundCount = 0;
+        let missingKeyCount = 0;
 
         for (const feature of geojson.features) {
-            const inscimob = feature.properties?.inscimob;
+            const rawInsc = feature.properties?.inscimob
+                ?? feature.properties?.INSCIMOB
+                ?? feature.properties?.lote
+                ?? feature.properties?.LOTE
+                ?? feature.properties?.indicacaof
+                ?? feature.properties?.INDICACAOF
+                ?? feature.properties?.inscricao
+                ?? feature.properties?.INSCRICAO;
 
-            if (!inscimob) {
-                console.warn('Feição ignorada: propriedade "inscimob" ausente.', feature.properties);
+            if (!rawInsc) {
+                missingKeyCount++;
                 continue;
             }
 
-            // Procura o imóvel no banco
-            const imovel = await prisma.imovel.findUnique({
-                where: { inscimob: String(inscimob) }
+            const inscClean = String(rawInsc).trim();
+
+            // Procura o imóvel no banco com ou sem espaço no início
+            const imovel = await prisma.imovel.findFirst({
+                where: {
+                    OR: [
+                        { inscimob: inscClean },
+                        { inscimob: ` ${inscClean}` }
+                    ]
+                }
             });
 
             if (imovel) {
-                // Atualiza a geometria (malha)
+                // Atualiza a geometria (malha) convertida para WGS84 se estiver em UTM
+                const convertedGeometry = convertGeometryToWgs84(feature.geometry);
+
                 await prisma.imovel.update({
-                    where: { inscimob: String(inscimob) },
+                    where: { inscimob: imovel.inscimob },
                     data: {
-                        malha: feature.geometry
+                        malha: convertedGeometry
                     }
                 });
                 updatedCount++;
@@ -59,6 +77,7 @@ async function importGeoJSON(filePath: string) {
         console.log(`Total de feições: ${geojson.features.length}`);
         console.log(`Imóveis atualizados com sucesso: ${updatedCount}`);
         console.log(`Imóveis não encontrados no banco: ${notFoundCount}`);
+        console.log(`Feições sem chave de inscrição: ${missingKeyCount}`);
         console.log('----------------------------');
 
     } catch (error) {
