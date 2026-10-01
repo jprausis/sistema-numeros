@@ -449,7 +449,7 @@ export default function AdminImoveisPage() {
                         </button>
                         <button
                             className={view === 'map' ? styles.activeToggle : ''}
-                            onClick={() => setView('map')}
+                            onClick={() => { setView('map'); setMapFocus(null); }}
                         >
                             Mapa
                         </button>

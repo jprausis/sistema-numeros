@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, GeoJSON } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -42,32 +42,43 @@ const parseFotos = (fotosStr: any): string | null => {
     }
 };
 
-// Componente para forçar o Leaflet a reconhecer o tamanho correto do container
+// Componente para controlar posicionamento e redimensionamento do Leaflet
 function MapEffect({ focusOn, userLocation, layerType }: { focusOn?: [number, number] | null, userLocation?: { lat: number, lon: number } | null, layerType: string }) {
     const map = useMap();
-    const [lastLoc, setLastLoc] = useState<string>('');
+    const hasCenteredUser = useRef<boolean>(false);
+    const lastFocusedCoord = useRef<string | null>(null);
 
     useEffect(() => {
         // Pequeno delay para garantir que o DOM já tenha as dimensões
-        setTimeout(() => {
+        const timer = setTimeout(() => {
             map.invalidateSize();
         }, 100);
+        return () => clearTimeout(timer);
     }, [map, layerType]);
 
+    // Foco em coordenada de imóvel (tem prioridade máxima)
     useEffect(() => {
-        if (focusOn) {
-            const [lat, lng] = utmToLatLng(focusOn[0], focusOn[1]);
-            map.setView([lat, lng], 18);
+        if (focusOn && typeof focusOn[0] === 'number' && typeof focusOn[1] === 'number') {
+            const coordKey = `${focusOn[0]},${focusOn[1]}`;
+            if (lastFocusedCoord.current !== coordKey) {
+                lastFocusedCoord.current = coordKey;
+                // Impede que a localização do usuário sobreponha o imóvel solicitado
+                hasCenteredUser.current = true;
+                const [lat, lng] = utmToLatLng(focusOn[0], focusOn[1]);
+                map.setView([lat, lng], 18, { animate: true });
+            }
+        } else if (!focusOn) {
+            lastFocusedCoord.current = null;
         }
     }, [focusOn, map]);
 
-    // Centralizar no usuário quando a localização mudar pela primeira vez ou quando quiser resetar
+    // Centralizar no usuário APENAS se não houver imóvel com foco solicitado e ainda não tiver centralizado
     useEffect(() => {
-        if (userLocation && !lastLoc) {
+        if (!focusOn && userLocation && !hasCenteredUser.current) {
+            hasCenteredUser.current = true;
             map.setView([userLocation.lat, userLocation.lon], 16);
-            setLastLoc(`${userLocation.lat},${userLocation.lon}`);
         }
-    }, [userLocation, map, lastLoc]);
+    }, [focusOn, userLocation, map]);
 
     return null;
 }
@@ -104,16 +115,47 @@ export default function InstallerMap({
     const [layerType, setLayerType] = useState<'street' | 'satellite'>('street');
     const [mapRef, setMapRef] = useState<L.Map | null>(null);
     const [selectedInsc, setSelectedInsc] = useState<string | null>(null);
+    const markerRefs = useRef<Map<string, L.Marker>>(new Map());
 
     useEffect(() => {
         setIsMounted(true);
     }, []);
 
+    // Sincronizar selectedInsc quando focusOn for fornecido
+    useEffect(() => {
+        if (focusOn && properties.length > 0) {
+            const target = properties.find(p =>
+                typeof p.x === 'number' &&
+                typeof p.y === 'number' &&
+                Math.abs(p.x - focusOn[0]) < 0.5 &&
+                Math.abs(p.y - focusOn[1]) < 0.5
+            );
+            if (target) {
+                setSelectedInsc(target.inscimob);
+            }
+        }
+    }, [focusOn, properties]);
+
+    // Abrir popup do imóvel focado
+    useEffect(() => {
+        if (selectedInsc) {
+            const marker = markerRefs.current.get(selectedInsc);
+            if (marker) {
+                const timer = setTimeout(() => {
+                    marker.openPopup();
+                }, 150);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [selectedInsc]);
+
     if (!isMounted) return <div className={styles.loader}>Iniciando GPS...</div>;
 
     const mapCenter: [number, number] = focusOn
         ? utmToLatLng(focusOn[0], focusOn[1])
-        : [-25.187883706053842, -49.314766448822134];
+        : userLocation
+            ? [userLocation.lat, userLocation.lon]
+            : [-25.187883706053842, -49.314766448822134];
 
     const selectedProperty = properties.find(p => p.inscimob === selectedInsc);
 
@@ -174,7 +216,7 @@ export default function InstallerMap({
 
             <MapContainer
                 center={mapCenter}
-                zoom={focusOn ? 18 : 14}
+                zoom={focusOn ? 18 : (userLocation ? 16 : 14)}
                 style={{ height: '100%', width: '100%', zIndex: 1 }}
                 scrollWheelZoom={true}
                 ref={setMapRef}
@@ -255,6 +297,16 @@ export default function InstallerMap({
                             key={`${prop.inscimob}-${prop.status}`}
                             position={[lat, lng]}
                             icon={getIcon(pinStatus, selectedInsc === prop.inscimob)}
+                            ref={(ref) => {
+                                if (ref) {
+                                    markerRefs.current.set(prop.inscimob, ref);
+                                    if (selectedInsc === prop.inscimob && !ref.isPopupOpen()) {
+                                        setTimeout(() => ref.openPopup(), 100);
+                                    }
+                                } else {
+                                    markerRefs.current.delete(prop.inscimob);
+                                }
+                            }}
                             eventHandlers={{
                                 click: () => {
                                     setSelectedInsc(prop.inscimob);
@@ -288,7 +340,7 @@ export default function InstallerMap({
                                     {(prop.status === 'CONCLUIDO' ? parseFotos(prop.fotos) : (parseFotos(prop.fotoLocalInstalacao) || parseFotos(prop.fotos))) && (
                                         <div className={styles.photoThumb}>
                                             <span style={{ fontSize: '10px', fontWeight: 'bold', backgroundColor: '#e5e7eb', padding: '2px 6px', borderRadius: '4px', marginBottom: '4px', display: 'inline-block' }}>
-                                                {prop.status === 'CONCLUIDO' || (!prop.fotoLocalInstalacao && prop.fotos) ? '📸 Foto Instalação' : '📍 Foto Orientação'}
+                                                {prop.status === 'CONCLUIDO' || (!prop.fotoLocalInstalacao && prop.fotos) ? 'Foto Instalação' : 'Foto Orientação'}
                                             </span>
                                             <img 
                                                 src={(prop.status === 'CONCLUIDO' ? parseFotos(prop.fotos) : (parseFotos(prop.fotoLocalInstalacao) || parseFotos(prop.fotos))) || ''} 

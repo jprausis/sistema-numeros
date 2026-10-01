@@ -185,7 +185,11 @@ export default function InstallerDashboard() {
     };
 
     const handleViewOnMap = (property: any) => {
-        if (property.x && property.y) {
+        if (property?.x && property?.y) {
+            setProperties(prev => {
+                if (prev.some(p => p.inscimob === property.inscimob)) return prev;
+                return [...prev, property];
+            });
             setMapFocus([property.x, property.y]);
             setView('map');
         } else {
@@ -210,7 +214,7 @@ export default function InstallerDashboard() {
                 <nav className={styles.nav}>
                     <button
                         className={`${view === 'map' ? styles.activeNav : ''}`}
-                        onClick={() => { setView('map'); setLinkingAgendamento(null); }}
+                        onClick={() => { setView('map'); setLinkingAgendamento(null); setMapFocus(null); }}
                     >
                         <svg width="18" height="18" style={{ marginRight: '4px', verticalAlign: 'middle' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
@@ -476,7 +480,7 @@ export default function InstallerDashboard() {
                                 </button>
                             </div>
                         )}
-                        <button onClick={() => { setView('map'); setLinkingAgendamento(null); }} className={styles.backButton} style={{ marginTop: '2rem', padding: '1rem', width: '100%', background: '#f1f5f9', border: 'none', borderRadius: '10px', fontWeight: '700' }}>Cancelar e Voltar</button>
+                        <button onClick={() => { setView('map'); setLinkingAgendamento(null); setMapFocus(null); }} className={styles.backButton} style={{ marginTop: '2rem', padding: '1rem', width: '100%', background: '#f1f5f9', border: 'none', borderRadius: '10px', fontWeight: '700' }}>Cancelar e Voltar</button>
                     </div>
                 )}
 

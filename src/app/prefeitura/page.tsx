@@ -388,7 +388,11 @@ export default function PrefeituraPage() {
     };
 
     const handleViewOnMap = (property: any) => {
-        if (property.x && property.y) {
+        if (property?.x && property?.y) {
+            setProperties(prev => {
+                if (prev.some(p => p.inscimob === property.inscimob)) return prev;
+                return [...prev, property];
+            });
             setMapFocus([property.x, property.y]);
             setView('map');
         } else {
@@ -532,7 +536,7 @@ export default function PrefeituraPage() {
             <nav className={styles.nav}>
                 <button
                     className={`${styles.navBtn} ${view === 'map' ? styles.activeNav : ''}`}
-                    onClick={() => setView('map')}
+                    onClick={() => { setView('map'); setMapFocus(null); }}
                 >
                     <svg width="18" height="18" style={{ marginRight: '6px', verticalAlign: 'middle' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
