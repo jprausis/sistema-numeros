@@ -19,6 +19,19 @@ export async function POST(req: NextRequest) {
             }
         });
 
+        const imovel = await prisma.imovel.findUnique({
+            where: { inscimob }
+        });
+        if (imovel) {
+            await prisma.imovel.update({
+                where: { inscimob },
+                data: {
+                    status: "AGENDADO",
+                    usuarioAlt: "Vinculado a agendamento por admin"
+                }
+            });
+        }
+
         return NextResponse.json({ success: true, agendamento });
     } catch (error) {
         return NextResponse.json({ error: "Erro ao realizar vínculo" }, { status: 500 });

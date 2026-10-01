@@ -41,6 +41,18 @@ export default function PrefeituraPage() {
     const [selectedBairroId, setSelectedBairroId] = useState<string | null>(null);
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
+    // Estados para Agendamento de Instalação pela Prefeitura
+    const [agendandoImovel, setAgendandoImovel] = useState<any | null>(null);
+    const [agendamentoProtocolo, setAgendamentoProtocolo] = useState<string | null>(null);
+    const [carregandoDadosAgendamento, setCarregandoDadosAgendamento] = useState(false);
+    const [agendamentoData, setAgendamentoData] = useState('');
+    const [agendamentoHorario, setAgendamentoHorario] = useState('09:00');
+    const [agendamentoNome, setAgendamentoNome] = useState('');
+    const [agendamentoTelefone, setAgendamentoTelefone] = useState('');
+    const [agendamentoObservacao, setAgendamentoObservacao] = useState('');
+    const [agendandoLoading, setAgendandoLoading] = useState(false);
+    const [agendamentoSuccessProtocolo, setAgendamentoSuccessProtocolo] = useState<string | null>(null);
+
     useEffect(() => {
         if (selectedForProcess) {
             setEditingNumero(selectedForProcess.numeroAInstalar || '');
@@ -384,6 +396,91 @@ export default function PrefeituraPage() {
         }
     };
 
+    const handleOpenAgendamento = async (imovel: any) => {
+        setAgendandoImovel(imovel);
+        setAgendamentoSuccessProtocolo(null);
+        setAgendamentoProtocolo(null);
+
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const yyyy = tomorrow.getFullYear();
+        const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+        const dd = String(tomorrow.getDate()).padStart(2, '0');
+        setAgendamentoData(`${yyyy}-${mm}-${dd}`);
+        setAgendamentoHorario('09:00');
+        setAgendamentoNome('');
+        setAgendamentoTelefone('');
+        setAgendamentoObservacao(imovel.obsPendente || '');
+
+        // Buscar agendamento existente para permitir edição
+        setCarregandoDadosAgendamento(true);
+        try {
+            const res = await fetch(`/api/prefeitura/agendamentos/obter?inscimob=${encodeURIComponent(imovel.inscimob)}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.agendamento) {
+                    const ag = data.agendamento;
+                    setAgendamentoProtocolo(ag.protocolo || null);
+                    if (ag.data) setAgendamentoData(ag.data);
+                    if (ag.horario) setAgendamentoHorario(ag.horario);
+                    if (ag.nome) setAgendamentoNome(ag.nome);
+                    if (ag.telefone) setAgendamentoTelefone(ag.telefone);
+                    if (ag.observacao !== undefined) setAgendamentoObservacao(ag.observacao);
+                }
+            }
+        } catch (err) {
+            console.error("Erro ao buscar dados do agendamento:", err);
+        } finally {
+            setCarregandoDadosAgendamento(false);
+        }
+    };
+
+    const handleSalvarAgendamento = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!agendandoImovel) return;
+        if (!agendamentoData || !agendamentoHorario) {
+            alert("Por favor, selecione data e horário para o agendamento.");
+            return;
+        }
+
+        setAgendandoLoading(true);
+        try {
+            const res = await fetch('/api/prefeitura/agendamentos/criar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    inscimob: agendandoImovel.inscimob,
+                    protocolo: agendamentoProtocolo,
+                    data: agendamentoData,
+                    horario: agendamentoHorario,
+                    nome: agendamentoNome,
+                    telefone: agendamentoTelefone,
+                    observacao: agendamentoObservacao
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setAgendamentoSuccessProtocolo(data.protocolo);
+                // Atualizar status para AGENDADO na memória imediatamente
+                setProperties(prev => prev.map(p => p.inscimob === agendandoImovel.inscimob ? { ...p, status: 'AGENDADO' } : p));
+                setSearchResults(prev => prev.map(p => p.inscimob === agendandoImovel.inscimob ? { ...p, status: 'AGENDADO' } : p));
+                setCandidates(prev => prev.map(c => c.inscimob === agendandoImovel.inscimob ? { ...c, status: 'AGENDADO' } : c));
+                if (selectedForProcess && selectedForProcess.inscimob === agendandoImovel.inscimob) {
+                    setSelectedForProcess((prev: any) => prev ? { ...prev, status: 'AGENDADO' } : null);
+                }
+                fetchImoveis();
+            } else {
+                alert(data.error || "Erro ao salvar agendamento.");
+            }
+        } catch (err: any) {
+            console.error("Erro ao agendar instalação:", err);
+            alert("Erro de conexão ao salvar agendamento.");
+        } finally {
+            setAgendandoLoading(false);
+        }
+    };
+
     const handleLogout = async () => {
         await supabase.auth.signOut();
         router.push('/login');
@@ -574,7 +671,8 @@ export default function PrefeituraPage() {
                                                         imovel.status === 'LIBERADO' ? 'Liberado' :
                                                             imovel.status === 'AUSENTE' ? 'Ausente' :
                                                                 imovel.status === 'PENDENTE' ? 'Pendente' :
-                                                                    imovel.status === 'CONCLUIDO' ? 'Concluído' : imovel.status}
+                                                                    imovel.status === 'CONCLUIDO' ? 'Concluído' :
+                                                                        imovel.status === 'AGENDADO' ? 'Agendado' : imovel.status}
                                                 </span>
                                                 {imovel.complementos && imovel.complementos.length > 0 && (
                                                     <span className={styles.complementoBadge}>
@@ -586,6 +684,20 @@ export default function PrefeituraPage() {
                                             <p>{imovel.bairro?.nome || 'Bairro'}{imovel.endereco ? ` • ${imovel.endereco}` : ''}</p>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                            <button
+                                                type="button"
+                                                className={styles.agendarCardBtn}
+                                                onClick={() => handleOpenAgendamento(imovel)}
+                                                title={imovel.status === 'AGENDADO' ? 'Editar Agendamento' : 'Cadastrar Agendamento'}
+                                            >
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                                    <line x1="16" y1="2" x2="16" y2="6" />
+                                                    <line x1="8" y1="2" x2="8" y2="6" />
+                                                    <line x1="3" y1="10" x2="21" y2="10" />
+                                                </svg>
+                                                <span>{imovel.status === 'AGENDADO' ? 'Editar Agenda' : 'Agendar'}</span>
+                                            </button>
                                             <button
                                                 className={styles.openButton}
                                                 onClick={() => setSelectedForProcess(imovel)}
@@ -661,20 +773,38 @@ export default function PrefeituraPage() {
                                                 {candidate.status === 'NAO_INICIADO' ? 'Não Iniciado' :
                                                     candidate.status === 'LIBERADO' ? 'Liberado' :
                                                         candidate.status === 'AUSENTE' ? 'Ausente' :
-                                                            candidate.status === 'PENDENTE' ? 'Pendente' : candidate.status}
+                                                            candidate.status === 'PENDENTE' ? 'Pendente' :
+                                                                candidate.status === 'CONCLUIDO' ? 'Concluído' :
+                                                                    candidate.status === 'AGENDADO' ? 'Agendado' : candidate.status}
                                             </span>
                                         </div>
-                                        <button
-                                            className={styles.openButton}
-                                            onClick={() => setSelectedForProcess(candidate)}
-                                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                                        >
-                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                <circle cx="12" cy="12" r="3" />
-                                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                                            </svg>
-                                            <span>Ação</span>
-                                        </button>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                            <button
+                                                type="button"
+                                                className={styles.agendarCardBtn}
+                                                onClick={() => handleOpenAgendamento(candidate)}
+                                                title={candidate.status === 'AGENDADO' ? 'Editar Agendamento' : 'Cadastrar Agendamento'}
+                                            >
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                                    <line x1="16" y1="2" x2="16" y2="6" />
+                                                    <line x1="8" y1="2" x2="8" y2="6" />
+                                                    <line x1="3" y1="10" x2="21" y2="10" />
+                                                </svg>
+                                                <span>{candidate.status === 'AGENDADO' ? 'Editar Agenda' : 'Agendar'}</span>
+                                            </button>
+                                            <button
+                                                className={styles.openButton}
+                                                onClick={() => setSelectedForProcess(candidate)}
+                                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                                            >
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <circle cx="12" cy="12" r="3" />
+                                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                                                </svg>
+                                                <span>Ação</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -803,6 +933,19 @@ export default function PrefeituraPage() {
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%', marginTop: '10px' }}>
+                                <button
+                                    type="button"
+                                    className={styles.agendarModalBtn}
+                                    onClick={() => handleOpenAgendamento(selectedForProcess)}
+                                >
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                        <line x1="16" y1="2" x2="16" y2="6" />
+                                        <line x1="8" y1="2" x2="8" y2="6" />
+                                        <line x1="3" y1="10" x2="21" y2="10" />
+                                    </svg>
+                                    <span>{selectedForProcess.status === 'AGENDADO' ? 'Editar Agendamento' : 'Cadastrar Agendamento'}</span>
+                                </button>
                                 <button
                                     className={styles.liberarBtn}
                                     onClick={() => handleStatusUpdate('LIBERADO')}
@@ -1023,6 +1166,198 @@ export default function PrefeituraPage() {
                         >
                             Fechar
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Cadastro de Agendamento da Prefeitura */}
+            {agendandoImovel && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modal} style={{ maxWidth: '480px' }}>
+                        <div className={styles.modalHeader}>
+                            <div>
+                                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9333ea" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                        <line x1="16" y1="2" x2="16" y2="6" />
+                                        <line x1="8" y1="2" x2="8" y2="6" />
+                                        <line x1="3" y1="10" x2="21" y2="10" />
+                                    </svg>
+                                    {agendamentoProtocolo ? `Editar Agendamento (${agendamentoProtocolo})` : 'Cadastrar Agendamento'}
+                                </h3>
+                                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                                    {agendamentoProtocolo
+                                        ? 'Altere a data, horário ou dados de contato da instalação'
+                                        : 'Defina a data e horário de instalação para a equipe'}
+                                </p>
+                            </div>
+                            <button
+                                className={styles.closeBtn}
+                                onClick={() => { setAgendandoImovel(null); setAgendamentoSuccessProtocolo(null); setAgendamentoProtocolo(null); }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {agendamentoSuccessProtocolo ? (
+                            <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+                                <div style={{ width: '56px', height: '56px', borderRadius: '28px', background: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto' }}>
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                </div>
+                                <h4 style={{ fontSize: '1.2rem', color: '#166534', margin: '0 0 0.5rem 0' }}>
+                                    {agendamentoProtocolo ? 'Agendamento Atualizado!' : 'Agendamento Confirmado!'}
+                                </h4>
+                                <p style={{ fontSize: '0.9rem', color: '#334155', margin: '0 0 1rem 0' }}>
+                                    Protocolo: <strong style={{ color: '#0f172a', fontSize: '1.1rem', letterSpacing: '0.5px' }}>{agendamentoSuccessProtocolo}</strong>
+                                </p>
+                                <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '0 0 1.5rem 0' }}>
+                                    O imóvel está com status <strong>Agendado</strong> (marcador roxo no mapa) e atualizado na Agenda do Instalador.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => { setAgendandoImovel(null); setAgendamentoSuccessProtocolo(null); setAgendamentoProtocolo(null); }}
+                                    className={styles.submitModalBtn}
+                                    style={{ width: '100%' }}
+                                >
+                                    Concluir
+                                </button>
+                            </div>
+                        ) : (
+                            <form onSubmit={handleSalvarAgendamento} className={styles.agendamentoForm}>
+                                {carregandoDadosAgendamento && (
+                                    <div style={{ padding: '8px 12px', background: '#f3e8ff', color: '#7e22ce', borderRadius: '8px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #e9d5ff' }}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+                                        </svg>
+                                        Carregando dados do agendamento existente...
+                                    </div>
+                                )}
+                                <div className={styles.imovelBriefCard}>
+                                    <div className={styles.imovelBriefHeader}>
+                                        <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#0f172a' }}>
+                                            Nº {agendandoImovel.numeroAInstalar}
+                                        </span>
+                                        <span className={styles.inscBadge}>Insc: {agendandoImovel.inscimob}</span>
+                                    </div>
+                                    <span style={{ fontSize: '0.85rem', color: '#475569' }}>
+                                        {agendandoImovel.bairro?.nome || 'Bairro'}{agendandoImovel.endereco ? ` • ${agendandoImovel.endereco}` : ''}
+                                    </span>
+                                </div>
+
+                                <div className={styles.formRow}>
+                                    <div className={styles.formGroup}>
+                                        <label>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                                <line x1="16" y1="2" x2="16" y2="6" />
+                                                <line x1="8" y1="2" x2="8" y2="6" />
+                                                <line x1="3" y1="10" x2="21" y2="10" />
+                                            </svg>
+                                            Data do Agendamento *
+                                        </label>
+                                        <input
+                                            type="date"
+                                            required
+                                            value={agendamentoData}
+                                            onChange={e => setAgendamentoData(e.target.value)}
+                                            className={styles.formInput}
+                                        />
+                                    </div>
+
+                                    <div className={styles.formGroup}>
+                                        <label>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="10" />
+                                                <polyline points="12 6 12 12 16 14" />
+                                            </svg>
+                                            Horário *
+                                        </label>
+                                        <input
+                                            type="time"
+                                            required
+                                            value={agendamentoHorario}
+                                            onChange={e => setAgendamentoHorario(e.target.value)}
+                                            className={styles.formInput}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className={styles.formGroup}>
+                                    <label>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                            <circle cx="12" cy="7" r="4" />
+                                        </svg>
+                                        Nome do Solicitante / Morador (opcional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="Ex: João da Silva"
+                                        value={agendamentoNome}
+                                        onChange={e => setAgendamentoNome(e.target.value)}
+                                        className={styles.formInput}
+                                    />
+                                </div>
+
+                                <div className={styles.formGroup}>
+                                    <label>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                                        </svg>
+                                        Telefone / WhatsApp (opcional)
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        placeholder="Ex: (41) 99999-9999"
+                                        value={agendamentoTelefone}
+                                        onChange={e => setAgendamentoTelefone(e.target.value)}
+                                        className={styles.formInput}
+                                    />
+                                </div>
+
+                                <div className={styles.formGroup}>
+                                    <label>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="8" y1="6" x2="21" y2="6" />
+                                            <line x1="8" y1="12" x2="21" y2="12" />
+                                            <line x1="8" y1="18" x2="21" y2="18" />
+                                            <line x1="3" y1="6" x2="3.01" y2="6" />
+                                            <line x1="3" y1="12" x2="3.01" y2="12" />
+                                            <line x1="3" y1="18" x2="3.01" y2="18" />
+                                        </svg>
+                                        Observações / Instruções para o Instalador (opcional)
+                                    </label>
+                                    <textarea
+                                        placeholder="Ex: Chamar no interfone, morador em casa pela manhã..."
+                                        value={agendamentoObservacao}
+                                        onChange={e => setAgendamentoObservacao(e.target.value)}
+                                        className={styles.formTextarea}
+                                    />
+                                </div>
+
+                                <div className={styles.modalActions}>
+                                    <button
+                                        type="button"
+                                        className={styles.cancelModalBtn}
+                                        onClick={() => { setAgendandoImovel(null); setAgendamentoProtocolo(null); }}
+                                        disabled={agendandoLoading}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className={styles.submitModalBtn}
+                                        disabled={agendandoLoading || carregandoDadosAgendamento}
+                                    >
+                                        {agendandoLoading
+                                            ? 'Salvando...'
+                                            : (agendamentoProtocolo ? 'Salvar Alterações' : 'Confirmar Agendamento')}
+                                    </button>
+                                </div>
+                            </form>
+                        )}
                     </div>
                 </div>
             )}

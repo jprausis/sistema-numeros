@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import styles from './page.module.css';
 import { createClient } from '@/utils/supabase/client';
 import { compressImage } from '@/utils/imageCompressor';
+import { utmToLatLng } from '@/utils/geo';
 
 // Importação dinâmica do mapa para evitar erros de SSR com Leaflet
 const InstallerMap = dynamic(() => import('@/components/InstallerMap'), {
@@ -22,6 +23,9 @@ export default function InstallerDashboard() {
     const [view, setView] = useState<'map' | 'list' | 'gps' | 'search'>('map');
     const [properties, setProperties] = useState<any[]>([]);
     const [agendamentosList, setAgendamentosList] = useState<any[]>([]);
+    const [agendaFilter, setAgendaFilter] = useState<'proximos' | 'hoje' | 'todos' | 'concluidos'>('proximos');
+    const [agendaStats, setAgendaStats] = useState<{ totalPendentes: number; totalHoje: number }>({ totalPendentes: 0, totalHoje: 0 });
+    const [loadingAgenda, setLoadingAgenda] = useState(false);
     const [searchRadius, setSearchRadius] = useState<number>(80);
 
     // Estados para Busca de Imóvel por Inscrição
@@ -85,22 +89,45 @@ export default function InstallerDashboard() {
 
     useEffect(() => {
         if (view === 'list') {
-            fetchAgendamentos();
+            fetchAgenda(agendaFilter);
         }
-    }, [view]);
+    }, [view, agendaFilter]);
 
-    async function fetchAgendamentos() {
-        setLoadingGps(true);
+    async function fetchAgenda(filterToUse = agendaFilter) {
+        setLoadingAgenda(true);
         try {
-            const res = await fetch('/api/agendamentos/listar');
+            const res = await fetch(`/api/instalador/agenda?filter=${filterToUse}`);
             const data = await res.json();
             setAgendamentosList(data.agendamentos || []);
+            if (data.totalPendentes !== undefined) {
+                setAgendaStats({
+                    totalPendentes: data.totalPendentes,
+                    totalHoje: data.totalHoje
+                });
+            }
         } catch (e) {
-            console.error("Erro ao carregar agendamentos");
+            console.error("Erro ao carregar agenda:", e);
         } finally {
-            setLoadingGps(false);
+            setLoadingAgenda(false);
         }
     }
+
+    const formatAgendaDate = (dataHora: string | null) => {
+        if (!dataHora) return { hour: '--:--', dateStr: 'A Definir', isHoje: false };
+        const d = new Date(dataHora);
+        const now = new Date();
+        const isHoje = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const isAmanha = d.getDate() === tomorrow.getDate() && d.getMonth() === tomorrow.getMonth() && d.getFullYear() === tomorrow.getFullYear();
+
+        const hour = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        let dateStr = d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+        if (isHoje) dateStr = 'Hoje';
+        else if (isAmanha) dateStr = 'Amanhã';
+
+        return { hour, dateStr, isHoje };
+    };
 
     // Buscar todos os imóveis para o mapa
     useEffect(() => {
@@ -310,7 +337,8 @@ export default function InstallerDashboard() {
                                                         imovel.status === 'LIBERADO' ? 'Liberado' :
                                                             imovel.status === 'AUSENTE' ? 'Ausente' :
                                                                 imovel.status === 'PENDENTE' ? 'Pendente' :
-                                                                    imovel.status === 'CONCLUIDO' ? 'Concluído' : imovel.status}
+                                                                    imovel.status === 'CONCLUIDO' ? 'Concluído' :
+                                                                        imovel.status === 'AGENDADO' ? 'Agendado' : imovel.status}
                                                 </span>
                                                 {imovel.complementos && imovel.complementos.length > 0 && (
                                                     <span className={styles.complementoBadge}>
@@ -419,7 +447,8 @@ export default function InstallerDashboard() {
                                                     candidate.status === 'LIBERADO' ? 'Liberado' :
                                                         candidate.status === 'AUSENTE' ? 'Ausente' :
                                                             candidate.status === 'PENDENTE' ? 'Pendente' :
-                                                                candidate.status === 'CONCLUIDO' ? 'Concluído' : candidate.status}
+                                                                candidate.status === 'CONCLUIDO' ? 'Concluído' :
+                                                                    candidate.status === 'AGENDADO' ? 'Agendado' : candidate.status}
                                             </span>
                                         </div>
                                         <button
@@ -452,79 +481,259 @@ export default function InstallerDashboard() {
                 )}
 
                 {view === 'list' && (
-                    <div className={styles.listView}>
-                        <div className={styles.listHeader}>
-                            <h2>Agendamentos de Moradores</h2>
+                    <div className={styles.agendaView}>
+                        <div className={styles.agendaHeader}>
+                            <h2>
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                    <line x1="16" y1="2" x2="16" y2="6" />
+                                    <line x1="8" y1="2" x2="8" y2="6" />
+                                    <line x1="3" y1="10" x2="21" y2="10" />
+                                </svg>
+                                Agenda de Instalações
+                            </h2>
+                            <p>Organizada pela ordem da próxima instalação a ser realizada</p>
                         </div>
-                        {loadingGps ? (
-                            <p>Carregando agendamentos...</p>
+
+                        {/* Filtros da Agenda */}
+                        <div className={styles.agendaTabs}>
+                            <button
+                                className={`${styles.agendaTab} ${agendaFilter === 'proximos' ? styles.activeAgendaTab : ''}`}
+                                onClick={() => setAgendaFilter('proximos')}
+                            >
+                                <span>Próximas Instalações</span>
+                                {agendaStats.totalPendentes > 0 && (
+                                    <span className={styles.tabBadge}>{agendaStats.totalPendentes}</span>
+                                )}
+                            </button>
+                            <button
+                                className={`${styles.agendaTab} ${agendaFilter === 'hoje' ? styles.activeAgendaTab : ''}`}
+                                onClick={() => setAgendaFilter('hoje')}
+                            >
+                                <span>Hoje</span>
+                                {agendaStats.totalHoje > 0 && (
+                                    <span className={styles.tabBadge}>{agendaStats.totalHoje}</span>
+                                )}
+                            </button>
+                            <button
+                                className={`${styles.agendaTab} ${agendaFilter === 'todos' ? styles.activeAgendaTab : ''}`}
+                                onClick={() => setAgendaFilter('todos')}
+                            >
+                                <span>Todas</span>
+                            </button>
+                            <button
+                                className={`${styles.agendaTab} ${agendaFilter === 'concluidos' ? styles.activeAgendaTab : ''}`}
+                                onClick={() => setAgendaFilter('concluidos')}
+                            >
+                                <span>Concluídas</span>
+                            </button>
+                        </div>
+
+                        {loadingAgenda ? (
+                            <p className={styles.loadingText} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <path d="M12 6v6l4 2" />
+                                </svg>
+                                Carregando agenda ordenada...
+                            </p>
                         ) : agendamentosList.length > 0 ? (
-                            <div className={styles.candidateList}>
-                                {agendamentosList.map(ag => (
-                                    <div key={ag.protocolo} className={styles.candidateCard}>
-                                        <div className={styles.candidateInfo}>
-                                            <span className={styles.protocolBadge}>{ag.protocolo}</span>
-                                            <h3>{ag.nome}</h3>
-                                            <p>{ag.enderecoCompleto}</p>
-                                            <div className={styles.timeInfo} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                                    <line x1="16" y1="2" x2="16" y2="6" />
-                                                    <line x1="8" y1="2" x2="8" y2="6" />
-                                                    <line x1="3" y1="10" x2="21" y2="10" />
-                                                </svg>
-                                                Solicitado em: {new Date(ag.createdAt).toLocaleDateString()}
-                                            </div>
-                                        </div>
-                                        <div className={styles.cardActions}>
-                                            <div className={styles.secondaryActions}>
-                                                <a
-                                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ag.enderecoCompleto)}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className={styles.mapButton}
-                                                >
-                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
-                                                        <circle cx="12" cy="10" r="3" />
+                            <div className={styles.agendaList}>
+                                {agendamentosList.map(ag => {
+                                    const targetImovel = ag.imovel;
+                                    const { hour, dateStr, isHoje } = formatAgendaDate(ag.dataHora);
+                                    const isDone = ag.status === 'CONCLUIDO';
+
+                                    return (
+                                        <div
+                                            key={ag.protocolo}
+                                            className={`${styles.agendaCard} ${ag.proximaInstalacao ? styles.agendaCardProxima : ''}`}
+                                        >
+                                            {ag.proximaInstalacao && (
+                                                <div className={styles.proximaRibbon}>
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <circle cx="12" cy="12" r="10" />
+                                                        <circle cx="12" cy="12" r="6" />
+                                                        <circle cx="12" cy="12" r="2" />
                                                     </svg>
-                                                </a>
-                                                <a
-                                                    href={`https://wa.me/55${ag.telefone.replace(/\D/g, '')}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className={styles.whatsappButton}
-                                                >
-                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.937 3.659 1.432 5.631 1.433h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
-                                                    </svg>
-                                                </a>
+                                                    Próxima Instalação
+                                                </div>
+                                            )}
+
+                                            <div className={styles.agendaCardTop}>
+                                                <div className={styles.agendaTimeBadge}>
+                                                    <span className={styles.timeHour}>
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                            <circle cx="12" cy="12" r="10" />
+                                                            <polyline points="12 6 12 12 16 14" />
+                                                        </svg>
+                                                        {hour}
+                                                    </span>
+                                                    <span className={`${styles.timeDate} ${isHoje ? styles.hojeBadge : ''}`}>
+                                                        {dateStr}
+                                                    </span>
+                                                    {ag.isAtrasado && (
+                                                        <span className={styles.atrasadoPill}>Atrasado</span>
+                                                    )}
+                                                </div>
+
+                                                <div className={styles.agendaCardBody}>
+                                                    <div className={styles.agendaMetaRow}>
+                                                        <span className={styles.protocolBadge}>{ag.protocolo}</span>
+                                                        <span className={`${styles.statusPill} ${styles[targetImovel?.status || ag.status]}`}>
+                                                            {targetImovel?.status === 'AGENDADO' || ag.status === 'AGENDADO' ? 'Agendado' :
+                                                                targetImovel?.status === 'CONCLUIDO' || ag.status === 'CONCLUIDO' ? 'Concluído' :
+                                                                    targetImovel?.status === 'PENDENTE' ? 'Pendente' :
+                                                                        targetImovel?.status === 'LIBERADO' ? 'Liberado' : 'Não Iniciado'}
+                                                        </span>
+                                                        {(targetImovel?.inscimob || ag.inscimobVinculo) && (
+                                                            <span className={styles.inscBadge}>
+                                                                Insc: {targetImovel?.inscimob || ag.inscimobVinculo}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <h3 className={styles.agendaNumeroInstalar}>
+                                                        Nº {targetImovel?.numeroAInstalar || ag.numero || ag.enderecoCompleto?.match(/Nº\s*([^\s-]+)/)?.[1] || 'S/N'}
+                                                    </h3>
+
+                                                    <p className={styles.agendaAddress}>
+                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: '#64748b' }}>
+                                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                                                            <circle cx="12" cy="10" r="3" />
+                                                        </svg>
+                                                        <span>
+                                                            {targetImovel?.bairro?.nome ? `${targetImovel.bairro.nome} - ` : ''}
+                                                            {targetImovel?.endereco || ag.enderecoCompleto}
+                                                        </span>
+                                                    </p>
+
+                                                    {ag.nome && (
+                                                        <p className={styles.agendaResident}>
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                                                <circle cx="12" cy="7" r="4" />
+                                                            </svg>
+                                                            <span>{ag.nome}</span>
+                                                            {ag.telefone && <span style={{ color: '#94a3b8' }}>• {ag.telefone}</span>}
+                                                        </p>
+                                                    )}
+
+                                                    {targetImovel?.complementos && targetImovel.complementos.length > 0 && (
+                                                        <div style={{ marginTop: '2px' }}>
+                                                            <span className={styles.complementoBadge}>
+                                                                +{targetImovel.complementos.length} unidades complementares
+                                                            </span>
+                                                        </div>
+                                                    )}
+
+                                                    {targetImovel?.obsPendente && (
+                                                        <div className={styles.agendaObservation}>
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '2px' }}>
+                                                                <circle cx="12" cy="12" r="10" />
+                                                                <line x1="12" y1="8" x2="12" y2="12" />
+                                                                <line x1="12" y1="16" x2="12.01" y2="16" />
+                                                            </svg>
+                                                            <span><strong>Obs:</strong> {targetImovel.obsPendente}</span>
+                                                        </div>
+                                                    )}
+
+                                                    {targetImovel?.fotoLocalInstalacao && (
+                                                        <div
+                                                            className={styles.orientationPhotoPreview}
+                                                            onClick={() => setFullScreenImage(targetImovel.fotoLocalInstalacao)}
+                                                            title="Ver foto de orientação em tela cheia"
+                                                        >
+                                                            <img src={targetImovel.fotoLocalInstalacao} alt="Orientação" />
+                                                            <span>Ver Foto de Orientação da Prefeitura</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <button
-                                                className={styles.openButton}
-                                                onClick={() => {
-                                                    if (ag.inscimobVinculo) {
-                                                        const target = properties.find(p => p.inscimob === ag.inscimobVinculo);
-                                                        if (target) {
-                                                            router.push(`/instalador/imovel/${target.inscimob}?agendamento=${ag.protocolo}&nome=${encodeURIComponent(ag.nome)}&telefone=${encodeURIComponent(ag.telefone)}`);
+
+                                            <div className={styles.agendaActions}>
+                                                <button
+                                                    className={styles.agendaPrimaryBtn}
+                                                    onClick={() => {
+                                                        if (targetImovel) {
+                                                            router.push(`/instalador/imovel/${targetImovel.inscimob}?agendamento=${ag.protocolo}&nome=${encodeURIComponent(ag.nome || '')}&telefone=${encodeURIComponent(ag.telefone || '')}`);
+                                                        } else if (ag.inscimobVinculo) {
+                                                            router.push(`/instalador/imovel/${ag.inscimobVinculo}?agendamento=${ag.protocolo}&nome=${encodeURIComponent(ag.nome || '')}&telefone=${encodeURIComponent(ag.telefone || '')}`);
                                                         } else {
-                                                            alert("Imóvel vinculado não encontrado.");
+                                                            setLinkingAgendamento(ag);
+                                                            handleGpsSearch();
                                                         }
-                                                    } else {
-                                                        // NOVO FLUXO: Vincular via GPS
-                                                        setLinkingAgendamento(ag);
-                                                        handleGpsSearch();
-                                                    }
-                                                }}
-                                            >
-                                                Concluir
-                                            </button>
+                                                    }}
+                                                >
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <polyline points="20 6 9 17 4 12" />
+                                                    </svg>
+                                                    {isDone ? 'Ver / Reabrir' : 'Instalar / Concluir'}
+                                                </button>
+
+                                                {targetImovel?.x && targetImovel?.y && (
+                                                    <button
+                                                        type="button"
+                                                        className={styles.agendaIconBtn}
+                                                        onClick={() => handleViewOnMap(targetImovel)}
+                                                        title="Ver no Mapa"
+                                                    >
+                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                                                            <circle cx="12" cy="10" r="3" />
+                                                        </svg>
+                                                        <span>Mapa</span>
+                                                    </button>
+                                                )}
+
+                                                <a
+                                                    href={targetImovel?.x && targetImovel?.y
+                                                        ? (() => {
+                                                            const [lat, lng] = utmToLatLng(targetImovel.x, targetImovel.y);
+                                                            return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+                                                        })()
+                                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ag.enderecoCompleto)}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className={styles.agendaIconBtn}
+                                                    title="Navegar no Google Maps"
+                                                >
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <polygon points="3 11 22 2 13 21 11 13 3 11" />
+                                                    </svg>
+                                                    <span>Rota GPS</span>
+                                                </a>
+
+                                                {ag.telefone && (
+                                                    <a
+                                                        href={`https://wa.me/55${ag.telefone.replace(/\D/g, '')}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className={styles.agendaWhatsappBtn}
+                                                        title="Chamar no WhatsApp"
+                                                    >
+                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                                                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.937 3.659 1.432 5.631 1.433h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+                                                        </svg>
+                                                        <span>WhatsApp</span>
+                                                    </a>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         ) : (
-                            <p>Nenhum agendamento encontrado.</p>
+                            <div className={styles.emptySearchState}>
+                                <svg className={styles.emptySearchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                    <line x1="16" y1="2" x2="16" y2="6" />
+                                    <line x1="8" y1="2" x2="8" y2="6" />
+                                    <line x1="3" y1="10" x2="21" y2="10" />
+                                </svg>
+                                <h3>Nenhum agendamento encontrado</h3>
+                                <p>Não há instalações agendadas para o filtro selecionado no momento.</p>
+                            </div>
                         )}
                     </div>
                 )}

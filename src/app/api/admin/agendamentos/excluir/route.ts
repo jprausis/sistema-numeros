@@ -27,6 +27,21 @@ export async function DELETE(req: NextRequest) {
             where: { protocolo }
         });
 
+        if (agendamento.inscimobVinculo) {
+            const imovel = await prisma.imovel.findUnique({
+                where: { inscimob: agendamento.inscimobVinculo }
+            });
+            if (imovel && imovel.status === "AGENDADO") {
+                await prisma.imovel.update({
+                    where: { inscimob: agendamento.inscimobVinculo },
+                    data: {
+                        status: "NAO_INICIADO",
+                        usuarioAlt: `Agendamento excluído por admin: ${user?.email || 'admin'}`
+                    }
+                });
+            }
+        }
+
         // Registrar auditoria
         await prisma.auditLog.create({
             data: {

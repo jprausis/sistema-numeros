@@ -139,6 +139,12 @@
     color: #22c55e;
 }
 
+.AGENDADO {
+    background: #f3e8ff;
+    color: #7e22ce;
+    border: 1px solid #d8b4fe;
+}
+
 .processContainer {
     display: flex;
     flex-direction: column;
@@ -550,4 +556,354 @@
     color: #64748b;
     max-width: 320px;
     margin: 0;
-}
+}
+
+/* Nova Agenda do Instalador */
+.agendaView {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding-bottom: 2rem;
+}
+
+.agendaHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.agendaHeader h2 {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.agendaHeader p {
+    font-size: 0.85rem;
+    color: var(--secondary);
+    margin: 0;
+}
+
+.agendaTabs {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.4rem;
+    scrollbar-width: none;
+}
+
+.agendaTabs::-webkit-scrollbar {
+    display: none;
+}
+
+.agendaTab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.5rem 0.9rem;
+    border-radius: 20px;
+    border: 1px solid #cbd5e1;
+    background: white;
+    color: #475569;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+}
+
+.agendaTab:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+}
+
+.activeAgendaTab {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.tabBadge {
+    background: rgba(0, 0, 0, 0.1);
+    color: inherit;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 12px;
+}
+
+.activeAgendaTab .tabBadge {
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+}
+
+.agendaList {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.agendaCard {
+    background: white;
+    border-radius: 18px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.agendaCard:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.agendaCardProxima {
+    border: 2px solid #9333ea;
+    box-shadow: 0 6px 20px rgba(147, 51, 234, 0.15);
+    background: linear-gradient(180deg, #faf5ff 0%, #ffffff 100%);
+}
+
+.proximaRibbon {
+    background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
+    color: white;
+    padding: 0.35rem 0.85rem;
+    margin: -1.25rem -1.25rem 0.5rem -1.25rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-transform: uppercase;
+}
+
+.agendaCardTop {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.agendaTimeBadge {
+    display: flex;
+    flex-direction: column;
+    background: #f1f5f9;
+    border-radius: 12px;
+    padding: 0.5rem 0.75rem;
+    min-width: 90px;
+    text-align: center;
+    border: 1px solid #e2e8f0;
+}
+
+.agendaCardProxima .agendaTimeBadge {
+    background: #faf5ff;
+    border-color: #e9d5ff;
+}
+
+.timeHour {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.timeDate {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.hojeBadge {
+    color: #7e22ce;
+    font-weight: 800;
+}
+
+.atrasadoPill {
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 6px;
+    margin-top: 4px;
+    text-transform: uppercase;
+}
+
+.agendaCardBody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+}
+
+.agendaMetaRow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.protocolBadge {
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    font-family: monospace;
+    letter-spacing: 0.5px;
+}
+
+.agendaNumeroInstalar {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.agendaAddress {
+    font-size: 0.88rem;
+    color: #475569;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.agendaResident {
+    font-size: 0.82rem;
+    color: #64748b;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.agendaObservation {
+    background: #fffbeb;
+    border: 1px solid #fef3c7;
+    border-radius: 10px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    color: #92400e;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 0.25rem;
+}
+
+.orientationPhotoPreview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 6px 10px;
+    cursor: pointer;
+    margin-top: 0.25rem;
+}
+
+.orientationPhotoPreview img {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+.orientationPhotoPreview span {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #2563eb;
+}
+
+.agendaActions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
+    padding-top: 0.5rem;
+    border-top: 1px solid #f1f5f9;
+}
+
+.agendaPrimaryBtn {
+    flex: 2;
+    min-width: 140px;
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    color: white;
+    padding: 0.65rem 1rem;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 0.88rem;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    box-shadow: 0 4px 10px rgba(22, 163, 74, 0.2);
+    transition: all 0.15s;
+}
+
+.agendaPrimaryBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(22, 163, 74, 0.3);
+}
+
+.agendaIconBtn {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    padding: 0.65rem 0.85rem;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: all 0.15s;
+    text-decoration: none;
+}
+
+.agendaIconBtn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.agendaWhatsappBtn {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    padding: 0.65rem 0.85rem;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    text-decoration: none;
+    transition: all 0.15s;
+}
+
+.agendaWhatsappBtn:hover {
+    background: #dcfce7;
+}
+

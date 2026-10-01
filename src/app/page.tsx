@@ -1,131 +1,153 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
+import {
+  CalendarDays,
+  Truck,
+  AlertCircle,
+  CheckCircle2,
+  MapPin,
+  HelpCircle,
+  Lock,
+  Clock
+} from 'lucide-react';
 import styles from './page.module.css';
 
 export default function Home() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    nome: '',
-    telefone: '',
-    rua: '',
-    numero: '',
-    bairro: ''
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/agendamentos/criar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        router.push(`/agendar/sucesso?protocolo=${data.protocolo}`);
-      } else {
-        alert(data.error || "Erro ao criar agendamento.");
-      }
-    } catch (error) {
-      alert("Erro na conexão com o servidor.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
     <main className={styles.container}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Rio Branco do Sul tem endereço</h1>
+      {/* Hero Header */}
+      <header className={styles.hero}>
+        <div className={styles.badge}>
+          <MapPin className={styles.badgeIcon} />
+          <span>Programa Oficial de Endereçamento</span>
+        </div>
+        <h1 className={styles.title}>
+          Rio Branco do Sul <span className={styles.titleHighlight}>tem endereço</span>
+        </h1>
         <p className={styles.subtitle}>
-            Preencha os dados abaixo para solicitar o número da sua residência.<br/><br/>
-            <strong>Envie seus dados que nossa equipe entrará em contato sobre a instalação.</strong>
+          Estamos organizando e instalando a numeração predial oficial de todas as residências.
+          Confira abaixo como funciona o processo de atendimento no seu bairro.
         </p>
       </header>
 
-      <section className={styles.formCard}>
-        <form onSubmit={handleSubmit} className={styles.form}>
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Nome Completo</label>
-            <input
-              type="text"
-              required
-              className={styles.input}
-              value={formData.nome}
-              onChange={e => setFormData({ ...formData, nome: e.target.value })}
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Telefone / WhatsApp</label>
-            <input
-              type="tel"
-              required
-              placeholder="(00) 00000-0000"
-              className={styles.input}
-              value={formData.telefone}
-              onChange={e => setFormData({ ...formData, telefone: e.target.value })}
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label}>Logradouro (Rua/Av)</label>
-            <input
-              type="text"
-              required
-              className={styles.input}
-              value={formData.rua}
-              onChange={e => setFormData({ ...formData, rua: e.target.value })}
-            />
-          </div>
-
-          <div className={styles.row}>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Número</label>
-              <input
-                type="text"
-                required
-                className={styles.input}
-                value={formData.numero}
-                onChange={e => setFormData({ ...formData, numero: e.target.value })}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.label}>Bairro</label>
-              <input
-                type="text"
-                required
-                className={styles.input}
-                value={formData.bairro}
-                onChange={e => setFormData({ ...formData, bairro: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className={styles.submitButton}
-            disabled={submitting}
-          >
-            {submitting ? "Enviando..." : "Enviar Dados"}
-          </button>
-        </form>
+      {/* Main Notice Banner */}
+      <section className={styles.noticeBanner}>
+        <Clock className={styles.noticeBannerIcon} />
+        <div className={styles.noticeBannerContent}>
+          <h2>Atendimento Programado nas Ruas</h2>
+          <p>
+            As equipes de instalação percorrem as ruas de forma contínua e planejada.
+            O morador não precisa realizar nenhum cadastro prévio nem pagar nada pelo serviço — basta aguardar a passagem da equipe pela sua localidade.
+          </p>
+        </div>
       </section>
 
+      {/* Information Cards Grid */}
+      <section className={styles.sectionHeading}>
+        <h3>Como funciona o atendimento</h3>
+        <p>Entenda cada etapa e saiba o que fazer em cada situação</p>
+      </section>
+
+      <section className={styles.grid}>
+        {/* Card 1: Cronograma */}
+        <div className={styles.card}>
+          <div className={`${styles.iconWrapper} ${styles.iconWrapperGreen}`}>
+            <CalendarDays size={24} />
+          </div>
+          <div className={styles.cardBody}>
+            <h4 className={styles.cardTitle}>1. Conforme Cronograma</h4>
+            <p className={styles.cardDescription}>
+              As instalações ocorrem rigorosamente de acordo com o cronograma estabelecido por bairros e setores. Toda a cidade será atendida pelas equipes de campo.
+            </p>
+          </div>
+        </div>
+
+        {/* Card 2: Notificação na Rua */}
+        <div className={styles.card}>
+          <div className={`${styles.iconWrapper} ${styles.iconWrapperBlue}`}>
+            <Truck size={24} />
+          </div>
+          <div className={styles.cardBody}>
+            <h4 className={styles.cardTitle}>2. Recebeu a Notificação?</h4>
+            <p className={styles.cardDescription}>
+              Se você recebeu o comunicado ou aviso em sua casa, fique tranquilo: sua região já entrou na rota de atendimento e muito em breve a equipe passará instalando os números na sua rua.
+            </p>
+          </div>
+        </div>
+
+        {/* Card 3: Vizinhos instalados e você não */}
+        <div className={`${styles.card} ${styles.cardHighlight}`}>
+          <div className={`${styles.iconWrapper} ${styles.iconWrapperAmber}`}>
+            <AlertCircle size={24} />
+          </div>
+          <div className={styles.cardBody}>
+            <h4 className={styles.cardTitle}>3. Ficou sem placa?</h4>
+            <p className={styles.cardDescription}>
+              Se você percebeu que os números já foram instalados nos seus vizinhos e na sua residência ainda não, entre em contato com a prefeitura para agendar sua instalação.
+            </p>
+          </div>
+          <div className={styles.contactNote}>
+            Entre em contato com a prefeitura para solicitar o agendamento da sua residência.
+          </div>
+        </div>
+      </section>
+
+      {/* Quick FAQ / Guidelines */}
+      <section className={styles.faqSection}>
+        <div className={styles.faqHeader}>
+          <HelpCircle className={styles.faqHeaderIcon} />
+          <h4>Orientações Importantes</h4>
+        </div>
+        <div className={styles.faqList}>
+          <div className={styles.faqItem}>
+            <div className={styles.faqQuestion}>
+              <CheckCircle2 className={styles.checkIcon} />
+              <span>Onde o número é fixado?</span>
+            </div>
+            <p className={styles.faqAnswer}>
+              A placa é instalada na parte frontal externa do imóvel (muro, portão ou fachada visível da via pública).
+            </p>
+          </div>
+
+          <div className={styles.faqItem}>
+            <div className={styles.faqQuestion}>
+              <CheckCircle2 className={styles.checkIcon} />
+              <span>Preciso estar em casa?</span>
+            </div>
+            <p className={styles.faqAnswer}>
+              Não é obrigatório, desde que haja acesso seguro e livre à fachada frontal para a equipe realizar a fixação.
+            </p>
+          </div>
+
+          <div className={styles.faqItem}>
+            <div className={styles.faqQuestion}>
+              <CheckCircle2 className={styles.checkIcon} />
+              <span>Existe cobrança?</span>
+            </div>
+            <p className={styles.faqAnswer}>
+              Não. O serviço e as placas são 100% gratuitos para os moradores.
+            </p>
+          </div>
+
+          <div className={styles.faqItem}>
+            <div className={styles.faqQuestion}>
+              <CheckCircle2 className={styles.checkIcon} />
+              <span>E se não for possível instalar por falta de acesso?</span>
+            </div>
+            <p className={styles.faqAnswer}>
+              Em caso de não ser possível instalar o número em sua residência por falta de acesso (como portão fechado ou impossibilidade de fixação externa), entre em contato com a prefeitura para agendar o atendimento.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
       <footer className={styles.footer}>
+        <span className={styles.footerText}>
+          Sistema de Gestão de Endereçamento &bull; Rio Branco do Sul
+        </span>
         <Link href="/login" className={styles.loginLink}>
-          Acesso Restrito
+          <Lock className={styles.lockIcon} />
+          <span>Acesso Restrito</span>
         </Link>
       </footer>
     </main>

@@ -16,6 +16,7 @@ const getIcon = (status: string, isSelected: boolean = false) => {
     if (status === 'AUSENTE') color = '#f97316'; // Laranja
     if (status === 'PENDENTE') color = '#eab308'; // Amarelo
     if (status === 'CONCLUIDO') color = '#22c55e'; // Verde
+    if (status === 'AGENDADO') color = '#9333ea'; // Roxo (Agendado) - destaque visual alto
 
     const size = isSelected ? 18 : 14;
     const border = isSelected ? '3px solid #000' : '2px solid #fff';
@@ -265,10 +266,22 @@ export default function InstallerMap({
                                     <h3>Nº {prop.numeroAInstalar}</h3>
                                     <p><strong>Insc:</strong> {prop.inscimob}</p>
                                     <p><strong>Bairro:</strong> {prop.bairro?.nome}</p>
-                                    <p><strong>Status:</strong> {prop.status}</p>
+                                    <p><strong>Status:</strong> {
+                                        prop.status === 'NAO_INICIADO' ? 'Não Iniciado' :
+                                        prop.status === 'LIBERADO' ? 'Liberado' :
+                                        prop.status === 'AUSENTE' ? 'Ausente' :
+                                        prop.status === 'PENDENTE' ? 'Pendente' :
+                                        prop.status === 'CONCLUIDO' ? 'Concluído' :
+                                        prop.status === 'AGENDADO' ? 'Agendado' : prop.status
+                                    }</p>
                                     {prop.complementos && prop.complementos.length > 0 && (
-                                        <p style={{ color: 'var(--primary)', fontWeight: 'bold' }}>
-                                            ⚠️ Possui {prop.complementos.length} complementos
+                                        <p style={{ color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                                                <line x1="12" y1="9" x2="12" y2="13" />
+                                                <line x1="12" y1="17" x2="12.01" y2="17" />
+                                            </svg>
+                                            Possui {prop.complementos.length} complementos
                                         </p>
                                     )}
 

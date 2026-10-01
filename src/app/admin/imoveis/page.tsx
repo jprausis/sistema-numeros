@@ -436,6 +436,7 @@ export default function AdminImoveisPage() {
                         <option value="LIBERADO">Liberado</option>
                         <option value="AUSENTE">Ausente</option>
                         <option value="PENDENTE">Pendente</option>
+                        <option value="AGENDADO">Agendado</option>
                         <option value="CONCLUIDO">Concluído</option>
                     </select>
 

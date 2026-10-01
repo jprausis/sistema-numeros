@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
                 OR: [
                     {
                         status: {
-                            in: ["NAO_INICIADO", "PENDENTE", "AUSENTE", "LIBERADO"]
+                            in: ["NAO_INICIADO", "PENDENTE", "AUSENTE", "LIBERADO", "AGENDADO"]
                         }
                     },
                     {
