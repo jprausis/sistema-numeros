@@ -5,6 +5,7 @@ import { getSessionUser } from "@/lib/auth";
 import { createClient } from "@/utils/supabase/server";
 import { generateProtocol } from "@/lib/scheduling";
 import { createAuditLog } from "@/lib/audit";
+import { buildBrazilDate } from "@/lib/timezone";
 
 export async function POST(req: NextRequest) {
     try {
@@ -48,15 +49,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Imóvel com inscrição ${inscimob} não encontrado.` }, { status: 404 });
         }
 
-        // Montar a data e hora do agendamento
-        const [year, month, day] = String(data).split("-").map(Number);
-        const [hours, minutes] = String(horario).split(":").map(Number);
+        // Montar a data e hora do agendamento (sempre no horário de Brasília)
+        const dataHora = buildBrazilDate(data, horario);
 
-        if (!year || !month || !day || isNaN(hours) || isNaN(minutes)) {
+        if (!dataHora) {
             return NextResponse.json({ error: "Formato de data ou horário inválido." }, { status: 400 });
         }
-
-        const dataHora = new Date(year, month - 1, day, hours, minutes);
 
         // Montar endereço completo
         const enderecoParts = [];

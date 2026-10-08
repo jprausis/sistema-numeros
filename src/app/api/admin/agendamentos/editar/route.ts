@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser, restrictToAdmin } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
+import { buildBrazilDate } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -28,11 +29,8 @@ export async function POST(req: NextRequest) {
 
         let dataHora: Date | null = agendamento.dataHora;
         if (data && horario) {
-            const [year, month, day] = String(data).split("-").map(Number);
-            const [hours, minutes] = String(horario).split(":").map(Number);
-            if (year && month && day && !isNaN(hours) && !isNaN(minutes)) {
-                dataHora = new Date(year, month - 1, day, hours, minutes);
-            }
+            const parsed = buildBrazilDate(data, horario);
+            if (parsed) dataHora = parsed;
         }
 
         const updateAgendamentoData: any = {};

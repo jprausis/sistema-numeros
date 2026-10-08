@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { createClient } from "@/utils/supabase/server";
+import { splitBrazilDate } from "@/lib/timezone";
 
 export async function GET(req: NextRequest) {
     try {
@@ -44,15 +45,9 @@ export async function GET(req: NextRequest) {
         let horarioStr = "09:00";
 
         if (agendamento.dataHora) {
-            const d = new Date(agendamento.dataHora);
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, "0");
-            const dd = String(d.getDate()).padStart(2, "0");
-            dataStr = `${yyyy}-${mm}-${dd}`;
-
-            const hh = String(d.getHours()).padStart(2, "0");
-            const min = String(d.getMinutes()).padStart(2, "0");
-            horarioStr = `${hh}:${min}`;
+            const { data, horario } = splitBrazilDate(new Date(agendamento.dataHora));
+            dataStr = data;
+            horarioStr = horario;
         }
 
         // Buscar dados do imóvel para observação
