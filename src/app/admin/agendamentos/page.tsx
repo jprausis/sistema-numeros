@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import styles from './page.module.css';
 
 export default function AdminAgendamentosPage() {
-    const [activeTab, setActiveTab] = useState<'agendamentos' | 'contatos'>('agendamentos');
+    const [activeTab, setActiveTab] = useState<'agendamentos' | 'concluidos' | 'contatos'>('agendamentos');
     const [items, setItems] = useState<any[]>([]);
     const [totalAgendamentos, setTotalAgendamentos] = useState(0);
+    const [totalConcluidos, setTotalConcluidos] = useState(0);
     const [totalContatos, setTotalContatos] = useState(0);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -41,6 +42,7 @@ export default function AdminAgendamentosPage() {
             if (res.ok) {
                 setItems(data.items || []);
                 if (data.totalAgendamentos !== undefined) setTotalAgendamentos(data.totalAgendamentos);
+                if (data.totalConcluidos !== undefined) setTotalConcluidos(data.totalConcluidos);
                 if (data.totalContatos !== undefined) setTotalContatos(data.totalContatos);
             }
         } catch (e) {
@@ -178,7 +180,9 @@ export default function AdminAgendamentosPage() {
                     <p>
                         {activeTab === 'agendamentos'
                             ? 'Agendamentos oficiais enviados para a fila de instalação dos operadores.'
-                            : 'Cadastros e solicitações prévias enviadas através do formulário de contato dos moradores.'}
+                            : activeTab === 'concluidos'
+                                ? 'Agendamentos cujas instalações já foram concluídas pelos instaladores, para conferência.'
+                                : 'Cadastros e solicitações prévias enviadas através do formulário de contato dos moradores.'}
                     </p>
                 </div>
 
@@ -196,6 +200,19 @@ export default function AdminAgendamentosPage() {
                         </svg>
                         <span>Agendamentos</span>
                         {totalAgendamentos > 0 && <span className={styles.badgeCount}>{totalAgendamentos}</span>}
+                    </button>
+
+                    <button
+                        type="button"
+                        className={activeTab === 'concluidos' ? styles.tabBtnActive : styles.tabBtn}
+                        onClick={() => { setActiveTab('concluidos'); setSearch(''); }}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                            <polyline points="22 4 12 14.01 9 11.01" />
+                        </svg>
+                        <span>Concluídos</span>
+                        {totalConcluidos > 0 && <span className={styles.badgeCount}>{totalConcluidos}</span>}
                     </button>
 
                     <button
@@ -223,7 +240,7 @@ export default function AdminAgendamentosPage() {
                     </svg>
                     <input
                         type="text"
-                        placeholder={activeTab === 'agendamentos' ? 'Buscar por protocolo, morador, inscimob...' : 'Buscar por nome, telefone, endereço...'}
+                        placeholder={activeTab !== 'contatos' ? 'Buscar por protocolo, morador, inscimob...' : 'Buscar por nome, telefone, endereço...'}
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         className={styles.searchInput}
@@ -232,7 +249,7 @@ export default function AdminAgendamentosPage() {
             </div>
 
             <section className={styles.listCard}>
-                {activeTab === 'agendamentos' ? (
+                {activeTab !== 'contatos' ? (
                     <table className={styles.table}>
                         <thead>
                             <tr>
@@ -262,7 +279,9 @@ export default function AdminAgendamentosPage() {
                                                 <line x1="8" y1="2" x2="8" y2="6" />
                                                 <line x1="3" y1="10" x2="21" y2="10" />
                                             </svg>
-                                            <p style={{ margin: 0, fontWeight: 600 }}>Nenhum agendamento encontrado.</p>
+                                            <p style={{ margin: 0, fontWeight: 600 }}>
+                                                {activeTab === 'concluidos' ? 'Nenhum agendamento concluído ainda.' : 'Nenhum agendamento em aberto.'}
+                                            </p>
                                         </div>
                                     </td>
                                 </tr>
@@ -309,8 +328,15 @@ export default function AdminAgendamentosPage() {
                                             {ag.status === 'AGENDADO' ? 'Agendado' :
                                              ag.status === 'CONCLUIDO' ? 'Concluído' :
                                              ag.status === 'CANCELADO' ? 'Cancelado' :
+                                             ag.status === 'PENDENTE' ? 'Pendente' :
                                              ag.status === 'REAGENDAR' ? 'Reagendar' : ag.status}
                                         </span>
+                                        {ag.status === 'CONCLUIDO' && ag.imovel?.dataExecucao && (
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', lineHeight: 1.3 }}>
+                                                em {new Date(ag.imovel.dataExecucao).toLocaleDateString('pt-BR')} {new Date(ag.imovel.dataExecucao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                {ag.imovel.instaladorResp && <><br />por {ag.imovel.instaladorResp}</>}
+                                            </div>
+                                        )}
                                     </td>
                                     <td>
                                         <div className={styles.actionRow}>

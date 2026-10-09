@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 import { createAuditLog } from "@/lib/audit";
 import { getSessionUser } from "@/lib/auth";
+import { concluirAgendamentosDoImovel } from "@/lib/agendamentos";
 
 export async function PATCH(req: NextRequest) {
     try {
@@ -56,10 +57,16 @@ export async function PATCH(req: NextRequest) {
             await prisma.agendamento.update({
                 where: { protocolo },
                 data: {
-                    status: 'CONCLUIDO',
-                    inscimobVinculo: inscimob
+                    inscimobVinculo: inscimob,
+                    ...(status === 'PENDENTE' ? { status: 'PENDENTE' } : {})
                 }
             });
+        }
+
+        // 4. Imóvel concluído => concluir todos os agendamentos em aberto vinculados a ele
+        // (funciona mesmo quando o instalador acessa o imóvel pelo mapa/busca, sem protocolo)
+        if (imovel.status === 'CONCLUIDO') {
+            await concluirAgendamentosDoImovel(inscimob);
         }
 
         // Registrar Log de Auditoria

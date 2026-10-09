@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { createClient } from "@/utils/supabase/server";
+import { sincronizarAgendamentosConcluidos } from "@/lib/agendamentos";
 
 export async function GET(req: NextRequest) {
     try {
@@ -24,14 +25,16 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const filter = searchParams.get("filter") || "proximos"; // 'proximos' | 'hoje' | 'todos' | 'concluidos'
 
+        // Garante que agendamentos de imóveis já concluídos sejam marcados como CONCLUIDO
+        await sincronizarAgendamentosConcluidos();
+
         // Condição de status no banco
+        // Concluídos aparecem SOMENTE na aba 'concluidos'
         let statusCondition: any = {};
         if (filter === "concluidos") {
             statusCondition = { status: "CONCLUIDO" };
-        } else if (filter === "todos") {
-            statusCondition = { status: { not: "CANCELADO" } };
         } else {
-            // 'proximos' e 'hoje' pegam agendamentos que ainda precisam ser executados
+            // 'proximos', 'hoje' e 'todos' pegam agendamentos que ainda precisam ser executados
             statusCondition = { status: { notIn: ["CONCLUIDO", "CANCELADO"] } };
         }
 
@@ -90,6 +93,13 @@ export async function GET(req: NextRequest) {
         // 2. Agendamentos pendentes sem dataHora marcada (por ordem de solicitação)
         // 3. Concluídos por último (caso a visão seja 'todos' ou 'concluidos')
         results.sort((a, b) => {
+            // Na aba de concluídos, mostrar as conclusões mais recentes primeiro
+            if (filter === "concluidos") {
+                const aExec = a.imovel?.dataExecucao ? new Date(a.imovel.dataExecucao).getTime() : 0;
+                const bExec = b.imovel?.dataExecucao ? new Date(b.imovel.dataExecucao).getTime() : 0;
+                return bExec - aExec;
+            }
+
             const aDone = a.status === "CONCLUIDO";
             const bDone = b.status === "CONCLUIDO";
             if (aDone && !bDone) return 1;

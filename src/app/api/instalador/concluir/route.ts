@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
+import { concluirAgendamentosDoImovel } from "@/lib/agendamentos";
 
 export async function PATCH(req: NextRequest) {
     try {
@@ -28,10 +29,15 @@ export async function PATCH(req: NextRequest) {
             await prisma.agendamento.update({
                 where: { protocolo },
                 data: {
-                    status: 'CONCLUIDO',
-                    inscimobVinculo: inscimob
+                    inscimobVinculo: inscimob,
+                    ...(status === 'PENDENTE' ? { status: 'PENDENTE' } : {})
                 }
             });
+        }
+
+        // 3. Imóvel concluído => concluir todos os agendamentos em aberto vinculados a ele
+        if (imovel.status === 'CONCLUIDO') {
+            await concluirAgendamentosDoImovel(inscimob);
         }
 
         // Registrar Log de Auditoria

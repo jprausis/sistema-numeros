@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { sincronizarAgendamentosConcluidos } from "@/lib/agendamentos";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
-        const tipo = searchParams.get("tipo") || "agendamentos"; // "agendamentos" | "contatos"
+        const tipo = searchParams.get("tipo") || "agendamentos"; // "agendamentos" | "concluidos" | "contatos"
         const search = searchParams.get("q")?.trim();
+
+        // Garante que agendamentos de imóveis já concluídos sejam marcados como CONCLUIDO
+        await sincronizarAgendamentosConcluidos();
 
         // 1. Agendamentos Oficiais da Prefeitura / Para Instalação:
         // Protocolo começa com PREF- ou possui inscimobVinculo
@@ -25,9 +29,14 @@ export async function GET(req: NextRequest) {
             inscimobVinculo: null
         };
 
+        // 1.1 Em aberto (fila de instalação) x Concluídos (histórico para conferência)
+        const whereAbertos: any = { AND: [whereAgendamentos, { status: { not: "CONCLUIDO" } }] };
+        const whereConcluidos: any = { AND: [whereAgendamentos, { status: "CONCLUIDO" }] };
+
         // Contagens globais para exibição de abas e badges
-        const [totalAgendamentos, totalContatos] = await Promise.all([
-            prisma.agendamento.count({ where: whereAgendamentos }),
+        const [totalAgendamentos, totalConcluidos, totalContatos] = await Promise.all([
+            prisma.agendamento.count({ where: whereAbertos }),
+            prisma.agendamento.count({ where: whereConcluidos }),
             prisma.agendamento.count({ where: whereContatos })
         ]);
 
@@ -51,23 +60,23 @@ export async function GET(req: NextRequest) {
                 tipo: "contatos",
                 items: contatos,
                 totalAgendamentos,
+                totalConcluidos,
                 totalContatos
             });
         }
 
-        // Caso padrão: "agendamentos" (oficiais para instalação)
-        const whereCondition: any = { ...whereAgendamentos };
+        // "agendamentos" (em aberto) ou "concluidos" (oficiais para instalação)
+        const isConcluidos = tipo === "concluidos";
+        const whereCondition: any = { AND: [...(isConcluidos ? whereConcluidos.AND : whereAbertos.AND)] };
         if (search) {
-            whereCondition.AND = [
-                {
-                    OR: [
-                        { protocolo: { contains: search, mode: "insensitive" } },
-                        { nome: { contains: search, mode: "insensitive" } },
-                        { telefone: { contains: search, mode: "insensitive" } },
-                        { inscimobVinculo: { contains: search, mode: "insensitive" } }
-                    ]
-                }
-            ];
+            whereCondition.AND.push({
+                OR: [
+                    { protocolo: { contains: search, mode: "insensitive" } },
+                    { nome: { contains: search, mode: "insensitive" } },
+                    { telefone: { contains: search, mode: "insensitive" } },
+                    { inscimobVinculo: { contains: search, mode: "insensitive" } }
+                ]
+            });
         }
 
         const agendamentos = await prisma.agendamento.findMany({
@@ -115,10 +124,20 @@ export async function GET(req: NextRequest) {
             };
         });
 
+        // Concluídos: mais recentes (data de execução do imóvel) primeiro
+        if (isConcluidos) {
+            enriched.sort((a, b) => {
+                const aExec = a.imovel?.dataExecucao ? new Date(a.imovel.dataExecucao).getTime() : 0;
+                const bExec = b.imovel?.dataExecucao ? new Date(b.imovel.dataExecucao).getTime() : 0;
+                return bExec - aExec;
+            });
+        }
+
         return NextResponse.json({
-            tipo: "agendamentos",
+            tipo: isConcluidos ? "concluidos" : "agendamentos",
             items: enriched,
             totalAgendamentos,
+            totalConcluidos,
             totalContatos
         });
     } catch (error) {
