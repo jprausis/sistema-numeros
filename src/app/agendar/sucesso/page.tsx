@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import styles from '../page.module.css';
 
 function SucessoContent() {
@@ -10,36 +11,32 @@ function SucessoContent() {
     const protocolo = searchParams.get('protocolo');
 
     return (
-        <div className={styles.container} style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
-            <h1 className={styles.title}>Dados Recebidos!</h1>
-            <p className={styles.subtitle}>Sua solicitação foi registrada com sucesso.</p>
+        <div className={styles.page}>
+            <div className={`${styles.container} ${styles.success}`}>
+                <CheckCircle2 size={64} className={styles.successIcon} aria-hidden />
+                <h1 className={styles.title}>Solicitação recebida!</h1>
+                <p className={styles.subtitle}>Seus dados foram registrados com sucesso.</p>
 
-            <div style={{
-                background: 'var(--accent)',
-                padding: '2rem',
-                borderRadius: 'var(--radius)',
-                margin: '2rem 0',
-                border: '1px dashed var(--primary)'
-            }}>
-                <p style={{ fontSize: '0.9rem', color: 'var(--secondary)', marginBottom: '0.5rem' }}>Protocolo de Acompanhamento</p>
-                <h2 style={{ fontSize: '2rem', color: 'var(--primary)', letterSpacing: '2px' }}>{protocolo}</h2>
+                {protocolo && (
+                    <div className={styles.protocolBox}>
+                        <span>Protocolo de acompanhamento</span>
+                        <strong>{protocolo}</strong>
+                    </div>
+                )}
+
+                <p className={styles.subtitle}>
+                    Guarde este número. A equipe entrará em contato em breve para combinar os detalhes da instalação.
+                </p>
+
+                <Link href="/" className={styles.submitButton}>Voltar para o início</Link>
             </div>
-
-            <p style={{ color: 'var(--secondary)', marginBottom: '2rem' }}>
-                Nossa equipe entrará em contato em breve para combinar os detalhes da instalação do seu número.
-            </p>
-
-            <Link href="/" className={styles.submitButton} style={{ display: 'inline-block', textDecoration: 'none' }}>
-                Voltar para o Início
-            </Link>
         </div>
     );
 }
 
 export default function SucessoPage() {
     return (
-        <Suspense fallback={<div className="container text-center">Carregando...</div>}>
+        <Suspense fallback={<div className="page-loading">Carregando...</div>}>
             <SucessoContent />
         </Suspense>
     );

@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import styles from './page.module.css';
 import { createClient } from '@/utils/supabase/client';
-import { compressImage } from '@/utils/imageCompressor';
 import { utmToLatLng } from '@/utils/geo';
+import { statusLabel, whatsappLink } from '@/utils/status';
+import { toast } from '@/utils/toast';
+import { X } from 'lucide-react';
 
 // Importação dinâmica do mapa para evitar erros de SSR com Leaflet
 const InstallerMap = dynamic(() => import('@/components/InstallerMap'), {
@@ -146,8 +148,12 @@ export default function InstallerDashboard() {
         setProperties(data.imoveis || []);
     }
 
-    const handleGpsSearch = (silent = false) => {
-        if (!navigator.geolocation) return alert("GPS não suportado pelo navegador.");
+    // `radius` explícito evita usar o valor antigo do estado logo após trocar o raio
+    const handleGpsSearch = (silent = false, radius = searchRadius) => {
+        if (!navigator.geolocation) {
+            if (!silent) toast.error("GPS não suportado pelo navegador.");
+            return;
+        }
 
         setLoadingGps(true);
         if (!silent) setView('gps');
@@ -157,18 +163,23 @@ export default function InstallerDashboard() {
             setLocation({ lat: latitude, lon: longitude });
 
             try {
-                const res = await fetch(`/api/instalador/proximos?lat=${latitude}&lon=${longitude}&radius=${searchRadius}`);
+                const res = await fetch(`/api/instalador/proximos?lat=${latitude}&lon=${longitude}&radius=${radius}`);
                 const data = await res.json();
                 setCandidates(data.candidates || []);
             } catch (e) {
-                alert("Erro ao buscar imóveis próximos.");
+                if (!silent) toast.error("Erro ao buscar imóveis próximos.");
             } finally {
                 setLoadingGps(false);
             }
         }, (err) => {
-            alert("Erro ao obter localização: " + err.message);
+            // Na ativação automática (silenciosa) não incomoda o usuário com erro de GPS
+            if (!silent) {
+                toast.error(err.code === err.PERMISSION_DENIED
+                    ? "Permita o acesso à localização nas configurações do navegador."
+                    : "Não foi possível obter sua localização. Tente novamente.");
+            }
             setLoadingGps(false);
-        });
+        }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
     };
 
     const handleLogout = async () => {
@@ -193,7 +204,7 @@ export default function InstallerDashboard() {
             setMapFocus([property.x, property.y]);
             setView('map');
         } else {
-            alert("Este imóvel não possui coordenadas de mapa cadastradas.");
+            toast.error("Este imóvel não possui coordenadas de mapa cadastradas.");
         }
     };
 
@@ -203,9 +214,9 @@ export default function InstallerDashboard() {
                 <div className="flex justify-between items-center">
                     <div className="flex flex-col">
                         <h1>Painel do Instalador</h1>
-                        <p>{user?.email}</p>
+                        <p>{user?.user_metadata?.name || user?.email}</p>
                     </div>
-                    <button onClick={handleLogout} className={styles.logoutBtn}>
+                    <button onClick={handleLogout} className={styles.logoutBtn} aria-label="Sair" title="Sair">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
                         </svg>
@@ -293,7 +304,9 @@ export default function InstallerDashboard() {
                                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
                             </svg>
                             <input
-                                type="text"
+                                type="search"
+                                enterKeyHint="search"
+                                aria-label="Buscar imóvel por inscrição ou número"
                                 className={styles.searchInput}
                                 placeholder="Digite a inscrição (ex: 01.02.003...) ou número"
                                 value={searchQuery}
@@ -337,12 +350,7 @@ export default function InstallerDashboard() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
                                                 <span className={styles.inscBadge}>Insc: {imovel.inscimob}</span>
                                                 <span className={`${styles.statusPill} ${styles[imovel.status]}`}>
-                                                    {imovel.status === 'NAO_INICIADO' ? 'Não Iniciado' :
-                                                        imovel.status === 'LIBERADO' ? 'Liberado' :
-                                                            imovel.status === 'AUSENTE' ? 'Ausente' :
-                                                                imovel.status === 'PENDENTE' ? 'Pendente' :
-                                                                    imovel.status === 'CONCLUIDO' ? 'Concluído' :
-                                                                        imovel.status === 'AGENDADO' ? 'Agendado' : imovel.status}
+                                                    {statusLabel(imovel.status)}
                                                 </span>
                                                 {imovel.complementos && imovel.complementos.length > 0 && (
                                                     <span className={styles.complementoBadge}>
@@ -384,7 +392,7 @@ export default function InstallerDashboard() {
                                     <line x1="8" y1="12" x2="16" y2="12" />
                                 </svg>
                                 <h3>Nenhum imóvel encontrado</h3>
-                                <p>Não encontramos nenhum imóvel com a inscrição ou número "{searchQuery}". Verifique os dígitos e tente novamente.</p>
+                                <p>Não encontramos nenhum imóvel com a inscrição ou número &ldquo;{searchQuery}&rdquo;. Verifique os dígitos e tente novamente.</p>
                             </div>
                         ) : (
                             <p className={styles.loadingText}>Buscando imóvel...</p>
@@ -402,10 +410,10 @@ export default function InstallerDashboard() {
                                     <button
                                         key={r}
                                         className={searchRadius === r ? styles.activeRadius : styles.radiusBtn}
+                                        aria-pressed={searchRadius === r}
                                         onClick={() => {
                                             setSearchRadius(r);
-                                            // Disparar nova busca com o raio atualizado
-                                            setTimeout(() => handleGpsSearch(), 50);
+                                            handleGpsSearch(false, r);
                                         }}
                                     >
                                         {r >= 1000 ? (r / 1000) + 'km' : r + 'm'}
@@ -444,15 +452,10 @@ export default function InstallerDashboard() {
                                     <div key={candidate.inscimob} className={styles.candidateCard}>
                                         <div className={styles.candidateInfo}>
                                             <h3>Nº {candidate.numeroAInstalar}</h3>
-                                            <p>{candidate.bairro.nome} - ID: {candidate.inscimob}</p>
+                                            <p>{candidate.bairro?.nome} - ID: {candidate.inscimob}</p>
                                             <span className={styles.distance}>a {Math.round(candidate.distance)}m de você</span>
                                             <span className={`${styles.statusPill} ${styles[candidate.status]}`}>
-                                                {candidate.status === 'NAO_INICIADO' ? 'Não Iniciado' :
-                                                    candidate.status === 'LIBERADO' ? 'Liberado' :
-                                                        candidate.status === 'AUSENTE' ? 'Ausente' :
-                                                            candidate.status === 'PENDENTE' ? 'Pendente' :
-                                                                candidate.status === 'CONCLUIDO' ? 'Concluído' :
-                                                                    candidate.status === 'AGENDADO' ? 'Agendado' : candidate.status}
+                                                {statusLabel(candidate.status)}
                                             </span>
                                         </div>
                                         <button
@@ -547,6 +550,8 @@ export default function InstallerDashboard() {
                                     const targetImovel = ag.imovel;
                                     const { hour, dateStr, isHoje } = formatAgendaDate(ag.dataHora);
                                     const isDone = ag.status === 'CONCLUIDO';
+                                    const displayStatus = isDone ? 'CONCLUIDO' : (targetImovel?.status || ag.status);
+                                    const waLink = whatsappLink(ag.telefone);
 
                                     return (
                                         <div
@@ -584,11 +589,8 @@ export default function InstallerDashboard() {
                                                 <div className={styles.agendaCardBody}>
                                                     <div className={styles.agendaMetaRow}>
                                                         <span className={styles.protocolBadge}>{ag.protocolo}</span>
-                                                        <span className={`${styles.statusPill} ${styles[targetImovel?.status || ag.status]}`}>
-                                                            {targetImovel?.status === 'AGENDADO' || ag.status === 'AGENDADO' ? 'Agendado' :
-                                                                targetImovel?.status === 'CONCLUIDO' || ag.status === 'CONCLUIDO' ? 'Concluído' :
-                                                                    targetImovel?.status === 'PENDENTE' ? 'Pendente' :
-                                                                        targetImovel?.status === 'LIBERADO' ? 'Liberado' : 'Não Iniciado'}
+                                                        <span className={`${styles.statusPill} ${styles[displayStatus]}`}>
+                                                            {statusLabel(displayStatus)}
                                                         </span>
                                                         {(targetImovel?.inscimob || ag.inscimobVinculo) && (
                                                             <span className={styles.inscBadge}>
@@ -708,9 +710,9 @@ export default function InstallerDashboard() {
                                                     <span>Rota GPS</span>
                                                 </a>
 
-                                                {ag.telefone && (
+                                                {waLink && (
                                                     <a
-                                                        href={`https://wa.me/55${ag.telefone.replace(/\D/g, '')}`}
+                                                        href={waLink}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className={styles.agendaWhatsappBtn}
@@ -744,21 +746,9 @@ export default function InstallerDashboard() {
             </main>
 
             {fullScreenImage && (
-                <div
-                    style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}
-                    onClick={() => setFullScreenImage(null)}
-                >
-                    <img
-                        src={fullScreenImage}
-                        alt="Fullscreen"
-                        style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', borderRadius: '8px' }}
-                    />
-                    <div style={{ position: 'absolute', top: '20px', right: '20px', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', width: '40px', height: '40px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                    </div>
+                <div className="lightbox" role="dialog" aria-label="Foto em tela cheia" onClick={() => setFullScreenImage(null)}>
+                    <img src={fullScreenImage} alt="Foto de orientação da prefeitura" />
+                    <button type="button" className="lightbox-close" aria-label="Fechar foto"><X size={22} /></button>
                 </div>
             )}
         </div>

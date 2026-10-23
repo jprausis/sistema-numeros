@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
-import { getSessionUser } from "@/lib/auth";
+import { requireUser, getRequestMeta } from "@/lib/auth";
+import { concluirAgendamentosDoImovel } from "@/lib/agendamentos";
 
 export async function PATCH(req: NextRequest) {
-    try {
-        const user = await getSessionUser();
-        if (!user) {
-            return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-        }
+    const { user, response } = await requireUser(["ADMIN", "OPERATOR", "INSTALLER"]);
+    if (response) return response;
 
+    try {
         const body = await req.json();
         const { id, status, fotos, numeroPredial } = body;
 
@@ -42,26 +41,26 @@ export async function PATCH(req: NextRequest) {
             data: dataUpdate
         });
 
-        const actualInstaladorResp = user.name || user.email || "Instalador";
-
-        // Opcional: Atualizar status do imóvel pai se todos os complementos estiverem concluídos
-        const parentImovel = await prisma.imovel.findUnique({
-            where: { inscimob: complemento.inscimob },
-            include: { complementos: true }
-        });
-
-        if (parentImovel && parentImovel.complementos.every(c => c.status === "CONCLUIDO")) {
-            await prisma.imovel.update({
-                where: { inscimob: parentImovel.inscimob },
-                data: {
-                    status: "CONCLUIDO",
-                    dataExecucao: new Date(),
-                    instaladorResp: actualInstaladorResp
-                }
+        // Se todos os complementos estiverem concluídos, o imóvel pai também é concluído
+        if (status === "CONCLUIDO") {
+            const parentImovel = await prisma.imovel.findUnique({
+                where: { inscimob: complemento.inscimob },
+                include: { complementos: { select: { status: true } } }
             });
+
+            if (parentImovel && parentImovel.status !== "CONCLUIDO" && parentImovel.complementos.every(c => c.status === "CONCLUIDO")) {
+                await prisma.imovel.update({
+                    where: { inscimob: parentImovel.inscimob },
+                    data: {
+                        status: "CONCLUIDO",
+                        dataExecucao: new Date(),
+                        instaladorResp: user.name || user.email || "Instalador"
+                    }
+                });
+                await concluirAgendamentosDoImovel(parentImovel.inscimob);
+            }
         }
 
-        // Registrar Log de Auditoria
         await createAuditLog({
             userId: user.id,
             userEmail: user.email || "sem-email@projemix.com.br",
@@ -70,9 +69,11 @@ export async function PATCH(req: NextRequest) {
             resourceId: id,
             details: {
                 status,
+                statusAnterior: complementoAtual.status,
                 fotos,
                 inscimob: complemento.inscimob
-            }
+            },
+            ...getRequestMeta(req)
         });
 
         return NextResponse.json({ success: true, complemento });
@@ -81,4 +82,3 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: "Erro ao atualizar" }, { status: 500 });
     }
 }
-

@@ -2,6 +2,11 @@ import { createClient } from "../utils/supabase/server";
 import prisma from "./prisma";
 import { NextResponse } from "next/server";
 
+export type Role = "ADMIN" | "OPERATOR" | "PREFEITURA" | "INSTALLER";
+
+// Papéis com acesso ao painel administrativo / gestão da base
+export const STAFF_ROLES: Role[] = ["ADMIN", "OPERATOR", "PREFEITURA"];
+
 export async function getSessionUser() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -15,6 +20,23 @@ export async function getSessionUser() {
     return dbUser;
 }
 
+type SessionUser = NonNullable<Awaited<ReturnType<typeof getSessionUser>>>;
+
+/**
+ * Garante que existe um usuário autenticado (e, opcionalmente, com um dos papéis informados).
+ * Retorna `{ user }` em caso de sucesso ou `{ response }` com o erro HTTP a ser devolvido.
+ */
+export async function requireUser(roles?: Role[]): Promise<{ user: SessionUser; response?: never } | { user?: never; response: NextResponse }> {
+    const user = await getSessionUser();
+    if (!user) {
+        return { response: NextResponse.json({ error: "Não autenticado" }, { status: 401 }) };
+    }
+    if (roles && !roles.includes(user.role as Role)) {
+        return { response: NextResponse.json({ error: "Acesso negado." }, { status: 403 }) };
+    }
+    return { user };
+}
+
 export async function isAdmin() {
     const user = await getSessionUser();
     return user?.role === 'ADMIN';
@@ -26,4 +48,11 @@ export async function restrictToAdmin() {
         return NextResponse.json({ error: "Acesso negado. Apenas administradores podem realizar esta ação." }, { status: 403 });
     }
     return null;
+}
+
+export function getRequestMeta(req: Request) {
+    return {
+        ip: req.headers.get("x-forwarded-for")?.split(",")[0].trim() || undefined,
+        userAgent: req.headers.get("user-agent") || undefined,
+    };
 }

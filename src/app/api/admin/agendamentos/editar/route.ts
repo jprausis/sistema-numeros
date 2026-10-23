@@ -34,8 +34,8 @@ export async function POST(req: NextRequest) {
         }
 
         const updateAgendamentoData: any = {};
-        if (nome !== undefined) updateAgendamentoData.nome = nome.trim() || agendamento.nome;
-        if (telefone !== undefined) updateAgendamentoData.telefone = telefone.trim();
+        if (nome !== undefined) updateAgendamentoData.nome = String(nome).trim() || agendamento.nome;
+        if (telefone !== undefined) updateAgendamentoData.telefone = String(telefone).trim();
         if (dataHora !== undefined) updateAgendamentoData.dataHora = dataHora;
         if (status !== undefined) updateAgendamentoData.status = status;
 
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
         if (agendamento.inscimobVinculo) {
             const updateImovelData: any = {};
             if (observacao !== undefined) {
-                updateImovelData.obsPendente = observacao.trim() || null;
+                updateImovelData.obsPendente = String(observacao ?? "").trim() || null;
             }
 
             if (status === "CANCELADO") {

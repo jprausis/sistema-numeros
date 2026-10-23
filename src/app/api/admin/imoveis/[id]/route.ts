@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { restrictToAdmin, getSessionUser } from "@/lib/auth";
+import { requireUser, getRequestMeta } from "@/lib/auth";
+import { createAuditLog } from "@/lib/audit";
+import { concluirAgendamentosDoImovel } from "@/lib/agendamentos";
 
 export async function PATCH(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const { user, response } = await requireUser(["ADMIN", "OPERATOR", "PREFEITURA"]);
+    if (response) return response;
+
     const { id } = await params;
     const body = await req.json();
-    const { status, fotos, obsPendente, instaladorResp, usuarioAlt, numeroAInstalar } = body;
+    const { status, fotos, obsPendente, instaladorResp, numeroAInstalar } = body;
 
-    const user = await getSessionUser();
-    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-
-    // Restrição para OPERATOR: permite apenas alteração do número do imóvel (numeroAInstalar)
-    if (user.role === 'OPERATOR') {
+    // OPERATOR e PREFEITURA: permite apenas alteração do número do imóvel (numeroAInstalar)
+    if (user.role !== 'ADMIN') {
         if (status !== undefined || fotos !== undefined || obsPendente !== undefined || instaladorResp !== undefined) {
-            return NextResponse.json({ error: "Operadores não podem editar status, fotos ou observações diretamente." }, { status: 403 });
+            return NextResponse.json({ error: "Seu perfil não pode editar status, fotos ou observações diretamente." }, { status: 403 });
         }
         if (numeroAInstalar === undefined) {
             return NextResponse.json({ error: "Nenhum dado editável enviado." }, { status: 400 });
@@ -26,19 +28,26 @@ export async function PATCH(
     try {
         // Buscar estado anterior para o log
         const oldImovel = await prisma.imovel.findUnique({ where: { inscimob: id } });
-
-        const updateData: any = {
-            status,
-            fotos,
-            obsPendente,
-            usuarioAlt: user.email // Garante que registramos quem alterou
-        };
-
-        if (numeroAInstalar !== undefined) {
-            updateData.numeroAInstalar = String(numeroAInstalar).trim();
+        if (!oldImovel) {
+            return NextResponse.json({ error: "Imóvel não encontrado" }, { status: 404 });
         }
 
-        if (status === 'CONCLUIDO' || status === 'PENDENTE') {
+        const updateData: any = {
+            usuarioAlt: user.email // Garante que registramos quem alterou
+        };
+        if (status !== undefined) updateData.status = status;
+        if (fotos !== undefined) updateData.fotos = fotos;
+        if (obsPendente !== undefined) updateData.obsPendente = obsPendente ? String(obsPendente).trim() || null : null;
+
+        if (numeroAInstalar !== undefined) {
+            const numero = String(numeroAInstalar).trim();
+            if (!numero) {
+                return NextResponse.json({ error: "O número do imóvel não pode ficar vazio." }, { status: 400 });
+            }
+            updateData.numeroAInstalar = numero;
+        }
+
+        if ((status === 'CONCLUIDO' || status === 'PENDENTE') && status !== oldImovel.status) {
             updateData.dataExecucao = new Date();
             if (instaladorResp) updateData.instaladorResp = instaladorResp;
         }
@@ -48,22 +57,22 @@ export async function PATCH(
             data: updateData
         });
 
-        // Registrar Log de Auditoria
-        await prisma.auditLog.create({
-            data: {
-                userId: user.id,
-                userEmail: user.email || 'desconhecido',
-                action: "UPDATE_IMOVEL",
-                resource: "imovel",
-                resourceId: id,
-                details: {
-                    before: oldImovel,
-                    after: imovel,
-                    source: body
-                },
-                ip: req.headers.get('x-forwarded-for') || '127.0.0.1',
-                userAgent: req.headers.get('user-agent')
-            }
+        if (imovel.status === 'CONCLUIDO') {
+            await concluirAgendamentosDoImovel(id);
+        }
+
+        await createAuditLog({
+            userId: user.id,
+            userEmail: user.email || 'desconhecido',
+            action: "UPDATE_IMOVEL",
+            resource: "imovel",
+            resourceId: id,
+            details: {
+                before: oldImovel,
+                after: imovel,
+                source: body
+            },
+            ...getRequestMeta(req)
         });
 
         return NextResponse.json({ success: true, imovel });
@@ -72,4 +81,3 @@ export async function PATCH(
         return NextResponse.json({ error: "Erro ao atualizar imóvel" }, { status: 500 });
     }
 }
-

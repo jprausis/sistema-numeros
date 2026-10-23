@@ -6,6 +6,9 @@ import dynamic from 'next/dynamic';
 import styles from './page.module.css';
 import { createClient } from '@/utils/supabase/client';
 import { compressImage } from '@/utils/imageCompressor';
+import { statusLabel } from '@/utils/status';
+import { toast } from '@/utils/toast';
+import { Camera, Check, Filter, Loader2, LogOut, Navigation, Pencil, Plus, X } from 'lucide-react';
 
 const InstallerMap = dynamic(() => import('@/components/InstallerMap'), {
     ssr: false,
@@ -130,13 +133,17 @@ export default function PrefeituraPage() {
     useEffect(() => {
         const checkUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) router.push('/login');
+            if (!user) return router.push('/login');
             setUser(user);
+            // Instaladores não têm acesso às ações da prefeitura
+            const me = await fetch('/api/auth/me').then(r => r.ok ? r.json() : null).catch(() => null);
+            if (me?.user?.role === 'INSTALLER') router.replace('/instalador');
         };
         checkUser();
         fetchImoveis();
         fetchBairros();
-        handleGpsSearch(); // Ativa GPS automaticamente
+        handleGpsSearch(); // Ativa GPS automaticamente (silencioso em caso de erro)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const fetchBairros = async () => {
@@ -161,7 +168,7 @@ export default function PrefeituraPage() {
 
     const handleGetLocationForCreation = () => {
         if (!navigator.geolocation) {
-            alert("Geolocalização não é suportada por este navegador.");
+            toast.error("Geolocalização não é suportada por este navegador.");
             return;
         }
         navigator.geolocation.getCurrentPosition(
@@ -174,7 +181,7 @@ export default function PrefeituraPage() {
             },
             (error) => {
                 console.error("Erro ao obter localização:", error);
-                alert("Não foi possível obter a localização do dispositivo.");
+                toast.error("Não foi possível obter a localização. Verifique a permissão de GPS.");
             },
             { enableHighAccuracy: true }
         );
@@ -197,7 +204,7 @@ export default function PrefeituraPage() {
 
             const data = await res.json();
             if (res.ok) {
-                alert("Imóvel cadastrado com sucesso!");
+                toast.success("Imóvel cadastrado.");
                 setIsCreating(false);
                 setNewImovelData({
                     inscimob: '',
@@ -209,22 +216,23 @@ export default function PrefeituraPage() {
                 fetchImoveis();
                 handleGpsSearch();
             } else {
-                alert(data.error || "Erro ao cadastrar imóvel.");
+                toast.error(data.error || "Erro ao cadastrar imóvel.");
             }
         } catch (err) {
             console.error("Erro ao cadastrar imóvel:", err);
-            alert("Erro de conexão ao cadastrar imóvel.");
+            toast.error("Erro de conexão ao cadastrar imóvel.");
         }
     };
 
-    const handleGpsSearch = () => {
+    // `radius` explícito evita usar o valor antigo do estado logo após trocar o raio
+    const handleGpsSearch = (radius = searchRadius) => {
         if (!navigator.geolocation) return;
         setLoadingGps(true);
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const { latitude, longitude } = pos.coords;
             setLocation({ lat: latitude, lon: longitude });
             try {
-                const res = await fetch(`/api/instalador/proximos?lat=${latitude}&lon=${longitude}&radius=${searchRadius}`);
+                const res = await fetch(`/api/instalador/proximos?lat=${latitude}&lon=${longitude}&radius=${radius}`);
                 const data = await res.json();
                 setCandidates(data.candidates || []);
             } catch (e) {
@@ -232,11 +240,12 @@ export default function PrefeituraPage() {
             } finally {
                 setLoadingGps(false);
             }
-        }, () => setLoadingGps(false));
+        }, () => setLoadingGps(false), { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
     };
 
     const handleStatusUpdate = async (status: 'LIBERADO' | 'AUSENTE' | 'NAO_INICIADO') => {
         if (!selectedForProcess) return;
+        if (status === 'NAO_INICIADO' && !confirm('Resetar este imóvel para "Não Iniciado"? A foto de orientação será removida.')) return;
         setUploading(true);
         let fotoUrl: string | null = null;
 
@@ -266,30 +275,26 @@ export default function PrefeituraPage() {
                 body: JSON.stringify({
                     inscimob: selectedForProcess.inscimob,
                     status: status,
-                    fotoUrl: null, // Prefeitura não precisa de foto
-                    fotoLocalInstalacao: fotoUrl, // Envia a foto do local de instalação
-                    obs: status === 'NAO_INICIADO'
-                        ? `Resetado por Operador Prefeitura: ${user?.user_metadata?.name || user?.email}`
-                        : `Atualizado por Operador Prefeitura: ${user?.user_metadata?.name || user?.email}`,
-                    usuarioAlt: `Prefeitura: ${user?.user_metadata?.name || user?.email}`,
-                    userId: user?.id,
-                    userEmail: user?.email
+                    // Campos omitidos não são alterados: preserva fotos e observações existentes.
+                    // Foto de orientação só é enviada quando uma nova foi tirada; o reset a remove.
+                    ...(fotoUrl ? { fotoLocalInstalacao: fotoUrl } : {}),
+                    ...(status === 'NAO_INICIADO' ? { fotoLocalInstalacao: null } : {}),
                 })
             });
 
             if (res.ok) {
-                const msg = status === 'LIBERADO' ? 'Liberado' : (status === 'AUSENTE' ? 'Ausente' : 'Não Iniciado');
-                alert(`Imóvel marcado como ${msg}!`);
+                toast.success(`Imóvel marcado como ${statusLabel(status)}.`);
                 setSelectedForProcess(null);
                 setPhoto(null);
                 setPhotoPreview(null);
                 fetchImoveis();
                 handleGpsSearch();
             } else {
-                alert("Erro ao atualizar status.");
+                const data = await res.json().catch(() => ({}));
+                toast.error(data.error || "Erro ao atualizar status.");
             }
         } catch (e: any) {
-            alert("Erro ao processar requisição: " + (e.message || "Erro desconhecido"));
+            toast.error("Erro ao processar requisição: " + (e.message || "Erro desconhecido"));
         } finally {
             setUploading(false);
         }
@@ -326,18 +331,20 @@ export default function PrefeituraPage() {
                 body: JSON.stringify({
                     id: complementoId,
                     liberado,
-                    fotoLocalInstalacao: fotoUrl,
-                    userId: user?.id,
-                    userEmail: user?.email
+                    // Só envia a foto quando uma nova foi tirada (não apaga a existente)
+                    ...(fotoUrl ? { fotoLocalInstalacao: fotoUrl } : {})
                 })
             });
 
             if (res.ok) {
+                toast.success(liberado ? 'Unidade liberada para instalação.' : 'Unidade bloqueada.');
                 // Atualizar state local do selectedForProcess
                 setSelectedForProcess((prev: any) => ({
                     ...prev,
                     complementos: prev.complementos.map((c: any) =>
-                        c.id === complementoId ? { ...c, liberadoInstalacao: liberado, fotoLocalInstalacao: fotoUrl } : c
+                        c.id === complementoId
+                            ? { ...c, liberadoInstalacao: liberado, ...(fotoUrl ? { fotoLocalInstalacao: fotoUrl } : {}) }
+                            : c
                     )
                 }));
                 // Recarregar listas globais para manter sincronismo
@@ -346,10 +353,10 @@ export default function PrefeituraPage() {
                 setPhoto(null);
                 setPhotoPreview(null);
             } else {
-                alert("Erro ao liberar complemento.");
+                toast.error("Erro ao atualizar a unidade.");
             }
         } catch (e: any) {
-            alert("Erro ao liberar complemento: " + (e.message || "Erro desconhecido"));
+            toast.error("Erro ao atualizar a unidade: " + (e.message || "Erro desconhecido"));
         } finally {
             setUploading(false);
         }
@@ -364,24 +371,21 @@ export default function PrefeituraPage() {
             const res = await fetch(`/api/admin/imoveis/${selectedForProcess.inscimob}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    numeroAInstalar: editingNumero.trim(),
-                    usuarioAlt: `Prefeitura: ${user?.user_metadata?.name || user?.email}`
-                })
+                body: JSON.stringify({ numeroAInstalar: editingNumero.trim() })
             });
 
             if (res.ok) {
-                alert("Número do imóvel atualizado com sucesso!");
+                toast.success("Número do imóvel atualizado.");
                 setSelectedForProcess((prev: any) => prev ? { ...prev, numeroAInstalar: editingNumero.trim() } : null);
                 setIsEditingNumero(false);
                 fetchImoveis();
                 handleGpsSearch();
             } else {
                 const data = await res.json();
-                alert(data.error || "Erro ao atualizar o número.");
+                toast.error(data.error || "Erro ao atualizar o número.");
             }
         } catch (e: any) {
-            alert("Erro ao conectar ao servidor: " + (e.message || "Erro desconhecido"));
+            toast.error("Erro ao conectar ao servidor: " + (e.message || "Erro desconhecido"));
         } finally {
             setUploading(false);
         }
@@ -396,7 +400,7 @@ export default function PrefeituraPage() {
             setMapFocus([property.x, property.y]);
             setView('map');
         } else {
-            alert("Este imóvel não possui coordenadas de mapa cadastradas.");
+            toast.error("Este imóvel não possui coordenadas de mapa cadastradas.");
         }
     };
 
@@ -443,7 +447,7 @@ export default function PrefeituraPage() {
         e.preventDefault();
         if (!agendandoImovel) return;
         if (!agendamentoData || !agendamentoHorario) {
-            alert("Por favor, selecione data e horário para o agendamento.");
+            toast.error("Selecione data e horário para o agendamento.");
             return;
         }
 
@@ -475,11 +479,11 @@ export default function PrefeituraPage() {
                 }
                 fetchImoveis();
             } else {
-                alert(data.error || "Erro ao salvar agendamento.");
+                toast.error(data.error || "Erro ao salvar agendamento.");
             }
         } catch (err: any) {
             console.error("Erro ao agendar instalação:", err);
-            alert("Erro de conexão ao salvar agendamento.");
+            toast.error("Erro de conexão ao salvar agendamento.");
         } finally {
             setAgendandoLoading(false);
         }
@@ -503,32 +507,14 @@ export default function PrefeituraPage() {
             <header className={styles.header}>
                 <div className={styles.userInfo}>
                     <h1>Operador Prefeitura</h1>
-                    <p>{user?.email}</p>
+                    <p>{user?.user_metadata?.name || user?.email}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                    <button 
-                        onClick={() => setIsCreating(true)} 
-                        style={{
-                            padding: '0.6rem 1rem',
-                            borderRadius: '8px',
-                            background: '#22c55e',
-                            color: 'white',
-                            border: 'none',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontSize: '0.85rem',
-                            boxShadow: '0 4px 10px rgba(34, 197, 94, 0.2)'
-                        }}
-                    >
-                        ➕ Novo Imóvel
+                    <button onClick={() => setIsCreating(true)} className={styles.newImovelBtn}>
+                        <Plus size={18} /> <span>Novo Imóvel</span>
                     </button>
-                    <button onClick={handleLogout} className={styles.logoutBtn}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
-                        </svg>
+                    <button onClick={handleLogout} className={styles.logoutBtn} aria-label="Sair" title="Sair">
+                        <LogOut size={22} />
                     </button>
                 </div>
             </header>
@@ -547,6 +533,7 @@ export default function PrefeituraPage() {
                 <button
                     className={`${styles.navBtn} ${view === 'gps' ? styles.activeNav : ''}`}
                     onClick={() => { setView('gps'); handleGpsSearch(); }}
+                    aria-pressed={view === 'gps'}
                 >
                     <svg width="18" height="18" style={{ marginRight: '6px', verticalAlign: 'middle' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="3" />
@@ -567,35 +554,12 @@ export default function PrefeituraPage() {
             </nav>
             
             {selectedBairroId && (
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '8px 12px',
-                    margin: '0 1rem 1rem 1rem',
-                    background: '#f0fdf4',
-                    border: '1px solid #bbf7d0',
-                    borderRadius: '12px',
-                    fontSize: '0.85rem',
-                    boxShadow: '0 2px 5px rgba(22, 163, 74, 0.05)'
-                }}>
-                    <span style={{ color: '#166534', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        🔍 Filtrado por: {bairros.find(b => b.id === selectedBairroId)?.nome || 'Bairro'}
+                <div className={styles.filterChip} role="status">
+                    <span>
+                        <Filter size={14} aria-hidden /> Bairro: <strong>{bairros.find(b => b.id === selectedBairroId)?.nome || '—'}</strong>
                     </span>
-                    <button
-                        onClick={() => setSelectedBairroId(null)}
-                        style={{
-                            background: '#dcfce7',
-                            border: 'none',
-                            color: '#166534',
-                            padding: '4px 8px',
-                            borderRadius: '6px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            fontSize: '0.8rem'
-                        }}
-                    >
-                        ❌ Limpar
+                    <button onClick={() => setSelectedBairroId(null)} aria-label="Remover filtro de bairro">
+                        <X size={14} /> Limpar
                     </button>
                 </div>
             )}
@@ -627,7 +591,9 @@ export default function PrefeituraPage() {
                                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
                             </svg>
                             <input
-                                type="text"
+                                type="search"
+                                enterKeyHint="search"
+                                aria-label="Buscar imóvel por inscrição ou número"
                                 className={styles.searchInput}
                                 placeholder="Digite a inscrição (ex: 01.02.003...) ou número"
                                 value={searchQuery}
@@ -671,12 +637,7 @@ export default function PrefeituraPage() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
                                                 <span className={styles.inscBadge}>Insc: {imovel.inscimob}</span>
                                                 <span className={`${styles.statusPill} ${styles[imovel.status]}`}>
-                                                    {imovel.status === 'NAO_INICIADO' ? 'Não Iniciado' :
-                                                        imovel.status === 'LIBERADO' ? 'Liberado' :
-                                                            imovel.status === 'AUSENTE' ? 'Ausente' :
-                                                                imovel.status === 'PENDENTE' ? 'Pendente' :
-                                                                    imovel.status === 'CONCLUIDO' ? 'Concluído' :
-                                                                        imovel.status === 'AGENDADO' ? 'Agendado' : imovel.status}
+                                                    {statusLabel(imovel.status)}
                                                 </span>
                                                 {imovel.complementos && imovel.complementos.length > 0 && (
                                                     <span className={styles.complementoBadge}>
@@ -737,7 +698,7 @@ export default function PrefeituraPage() {
                                     <line x1="8" y1="12" x2="16" y2="12" />
                                 </svg>
                                 <h3>Nenhum imóvel encontrado</h3>
-                                <p>Não encontramos nenhum imóvel com a inscrição ou número "{searchQuery}". Verifique os dígitos e tente novamente.</p>
+                                <p>Não encontramos nenhum imóvel com a inscrição ou número &ldquo;{searchQuery}&rdquo;. Verifique os dígitos e tente novamente.</p>
                             </div>
                         ) : (
                             <p className={styles.loadingText}>Buscando imóvel...</p>
@@ -755,7 +716,8 @@ export default function PrefeituraPage() {
                                     <button
                                         key={r}
                                         className={searchRadius === r ? styles.activeRadius : styles.radiusBtn}
-                                        onClick={() => { setSearchRadius(r); setTimeout(() => handleGpsSearch(), 50); }}
+                                        aria-pressed={searchRadius === r}
+                                        onClick={() => { setSearchRadius(r); handleGpsSearch(r); }}
                                     >
                                         {r >= 1000 ? (r / 1000) + 'km' : r + 'm'}
                                     </button>
@@ -764,7 +726,7 @@ export default function PrefeituraPage() {
                         </div>
 
                         {loadingGps ? (
-                            <p className={styles.loadingText}>📡 Buscando localização...</p>
+                            <p className={styles.loadingText}><Loader2 size={18} className="spin" /> Buscando sua localização...</p>
                         ) : filteredCandidates.length > 0 ? (
                             <div className={styles.candidateList}>
                                 {filteredCandidates.map(candidate => (
@@ -774,12 +736,7 @@ export default function PrefeituraPage() {
                                             <p>{candidate.bairro?.nome} - ID: {candidate.inscimob}</p>
                                             <span className={styles.distance}>a {Math.round(candidate.distance)}m</span>
                                             <span className={`${styles.statusPill} ${styles[candidate.status]}`}>
-                                                {candidate.status === 'NAO_INICIADO' ? 'Não Iniciado' :
-                                                    candidate.status === 'LIBERADO' ? 'Liberado' :
-                                                        candidate.status === 'AUSENTE' ? 'Ausente' :
-                                                            candidate.status === 'PENDENTE' ? 'Pendente' :
-                                                                candidate.status === 'CONCLUIDO' ? 'Concluído' :
-                                                                    candidate.status === 'AGENDADO' ? 'Agendado' : candidate.status}
+                                                {statusLabel(candidate.status)}
                                             </span>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
@@ -834,7 +791,7 @@ export default function PrefeituraPage() {
 
             {selectedForProcess && (
                 <div className={styles.modalOverlay}>
-                    <div className={styles.modal}>
+                    <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="process-title">
                         {uploading && (
                             <div className={styles.loadingOverlay}>
                                 <div className={styles.spinner}></div>
@@ -842,8 +799,11 @@ export default function PrefeituraPage() {
                             </div>
                         )}
                         <div className={styles.modalHeader}>
-                            <h3>Imóvel {selectedForProcess.numeroAInstalar}</h3>
-                            <button className={styles.closeBtn} onClick={() => { setSelectedForProcess(null); setPhoto(null); setPhotoPreview(null); }}>×</button>
+                            <div>
+                                <h3 id="process-title">Imóvel Nº {selectedForProcess.numeroAInstalar}</h3>
+                                <span className={`${styles.statusPill} ${styles[selectedForProcess.status]}`}>{statusLabel(selectedForProcess.status)}</span>
+                            </div>
+                            <button className={styles.closeBtn} aria-label="Fechar" onClick={() => { setSelectedForProcess(null); setPhoto(null); setPhotoPreview(null); }}><X size={20} /></button>
                         </div>
 
                         <div className={styles.prefeituraActions}>
@@ -851,38 +811,23 @@ export default function PrefeituraPage() {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ fontWeight: '700', fontSize: '0.9rem', color: '#334155' }}>Nº Principal a Instalar:</span>
                                     {!isEditingNumero && (
-                                        <button 
-                                            onClick={() => setIsEditingNumero(true)} 
+                                        <button
+                                            onClick={() => setIsEditingNumero(true)}
                                             title="Editar número"
-                                            style={{ 
-                                                background: '#eff6ff', 
-                                                border: 'none', 
-                                                color: '#2563eb', 
-                                                cursor: 'pointer', 
-                                                padding: '8px', 
-                                                borderRadius: '10px', 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                justifyContent: 'center',
-                                                transition: 'all 0.2s',
-                                                width: '42px',
-                                                height: '42px'
-                                            }}
-                                            onMouseEnter={(e) => { e.currentTarget.style.background = '#dbeafe'; }}
-                                            onMouseLeave={(e) => { e.currentTarget.style.background = '#eff6ff'; }}
+                                            aria-label="Editar número do imóvel"
+                                            className={styles.editNumeroBtn}
                                         >
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                                <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                            </svg>
+                                            <Pencil size={18} />
                                         </button>
                                     )}
                                 </div>
                                 {isEditingNumero ? (
                                     <form onSubmit={handleUpdateNumero} style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                                        <input 
-                                            type="text" 
-                                            value={editingNumero} 
+                                        <input
+                                            type="text"
+                                            aria-label="Novo número do imóvel"
+                                            autoFocus
+                                            value={editingNumero}
                                             onChange={e => setEditingNumero(e.target.value)} 
                                             required
                                             style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
@@ -906,15 +851,12 @@ export default function PrefeituraPage() {
                                     <div className={styles.previewContainer} style={{ position: 'relative', textAlign: 'center' }}>
                                         <img src={photoPreview} alt="Preview" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px' }} />
                                         <button onClick={() => { setPhotoPreview(null); setPhoto(null); }} style={{ marginTop: '10px', width: '100%', padding: '10px', backgroundColor: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Excluir e tirar outra foto</button>
-                                        <span style={{ fontSize: '12px', color: '#666', marginTop: '5px', display: 'block' }}>ℹ️ A foto será anexada ao item que você liberar.</span>
+                                        <span style={{ fontSize: '12px', color: '#64748b', marginTop: '5px', display: 'block' }}>A foto será anexada ao item que você liberar.</span>
                                     </div>
                                 ) : (
                                     <label className={styles.captureBtnHuge} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', backgroundColor: '#f8fafc', border: '2px dashed #cbd5e1', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s' }}>
-                                        <span className={styles.cameraIcon} style={{ color: '#4f46e5', marginBottom: '10px' }}>
-                                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                                                <circle cx="12" cy="13" r="4" />
-                                            </svg>
+                                        <span className={styles.cameraIcon} style={{ color: 'var(--primary)', marginBottom: '10px' }}>
+                                            <Camera size={36} />
                                         </span>
                                         <span style={{ fontWeight: 'bold', color: '#1e293b' }}>Tirar Foto de Orientação</span>
                                         <p style={{ fontSize: '12px', color: '#64748b', margin: '5px 0 0 0' }}>Opcional para instruir o instalador</p>
@@ -989,13 +931,15 @@ export default function PrefeituraPage() {
                                                 <span>Unidade: {c.unidade}</span>
                                             </div>
                                             <div className={styles.complementStatusPill}>
-                                                {c.status === 'CONCLUIDO' ? '✅ Concluído' :
-                                                    c.status === 'PENDENTE' ? '⚠️ Pendente' : '⏳ Aguardando'}
+                                                {c.status === 'CONCLUIDO' ? 'Concluído' :
+                                                    c.status === 'PENDENTE' ? 'Pendente' : 'Aguardando'}
                                             </div>
                                             <button
                                                 className={c.liberadoInstalacao ? styles.liberadoBtn : styles.bloqueadoBtn}
                                                 onClick={() => handleLiberarComplemento(c.id, !c.liberadoInstalacao)}
                                                 disabled={uploading}
+                                                aria-pressed={!!c.liberadoInstalacao}
+                                                title={c.liberadoInstalacao ? 'Toque para bloquear' : 'Toque para liberar'}
                                             >
                                                 {c.liberadoInstalacao ? 'Liberado' : 'Bloqueado'}
                                             </button>
@@ -1010,10 +954,11 @@ export default function PrefeituraPage() {
 
             {isCreating && (
                 <div className={styles.modalOverlay}>
-                    <div className={styles.modal} style={{ maxWidth: '550px' }}>
-                        <h3 style={{ marginBottom: '1.2rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem', fontWeight: 800 }}>
-                            ➕ Cadastrar Novo Imóvel
-                        </h3>
+                    <div className={styles.modal} style={{ maxWidth: '550px' }} role="dialog" aria-modal="true" aria-labelledby="create-title">
+                        <div className={styles.modalHeader}>
+                            <h3 id="create-title">Cadastrar Novo Imóvel</h3>
+                            <button type="button" className={styles.closeBtn} aria-label="Fechar" onClick={() => setIsCreating(false)}><X size={20} /></button>
+                        </div>
                         
                         <form onSubmit={handleCreateImovel} className={styles.form}>
                             <div className={styles.formGrid}>
@@ -1063,7 +1008,7 @@ export default function PrefeituraPage() {
                                             onClick={handleGetLocationForCreation}
                                             className={styles.geoButton}
                                         >
-                                            📡 Capturar Localização GPS Atual
+                                            <Navigation size={14} /> Usar minha localização (GPS)
                                         </button>
                                     </div>
                                     <div style={{ display: 'flex', gap: '1rem' }}>
@@ -1074,7 +1019,8 @@ export default function PrefeituraPage() {
                                                 className={styles.formInput}
                                                 value={newImovelData.x}
                                                 onChange={e => setNewImovelData({ ...newImovelData, x: e.target.value })}
-                                                placeholder="Eixo X (Ex: -25.263884)"
+                                                aria-label="Latitude ou coordenada X"
+                                                placeholder="Latitude / X (ex: -25.263884)"
                                                 required
                                             />
                                         </div>
@@ -1085,7 +1031,8 @@ export default function PrefeituraPage() {
                                                 className={styles.formInput}
                                                 value={newImovelData.y}
                                                 onChange={e => setNewImovelData({ ...newImovelData, y: e.target.value })}
-                                                placeholder="Eixo Y (Ex: -49.208394)"
+                                                aria-label="Longitude ou coordenada Y"
+                                                placeholder="Longitude / Y (ex: -49.208394)"
                                                 required
                                             />
                                         </div>
@@ -1107,7 +1054,7 @@ export default function PrefeituraPage() {
                     <div className={styles.modal} style={{ maxWidth: '400px', display: 'flex', flexDirection: 'column' }}>
                         <div className={styles.modalHeader}>
                             <h3>Filtrar por Bairro</h3>
-                            <button className={styles.closeBtn} onClick={() => setIsFilterModalOpen(false)}>×</button>
+                            <button className={styles.closeBtn} aria-label="Fechar" onClick={() => setIsFilterModalOpen(false)}><X size={20} /></button>
                         </div>
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px', marginTop: '10px', marginBottom: '15px' }}>
@@ -1132,7 +1079,7 @@ export default function PrefeituraPage() {
                                 }}
                             >
                                 <span>Todos os Bairros (Sem Filtro)</span>
-                                {!selectedBairroId && <span>✓</span>}
+                                {!selectedBairroId && <Check size={18} />}
                             </button>
 
                             {bairros.map(b => (
@@ -1158,7 +1105,7 @@ export default function PrefeituraPage() {
                                     }}
                                 >
                                     <span>{b.nome}</span>
-                                    {selectedBairroId === b.id && <span>✓</span>}
+                                    {selectedBairroId === b.id && <Check size={18} />}
                                 </button>
                             ))}
                         </div>
@@ -1197,9 +1144,10 @@ export default function PrefeituraPage() {
                             </div>
                             <button
                                 className={styles.closeBtn}
+                                aria-label="Fechar"
                                 onClick={() => { setAgendandoImovel(null); setAgendamentoSuccessProtocolo(null); setAgendamentoProtocolo(null); }}
                             >
-                                ✕
+                                <X size={20} />
                             </button>
                         </div>
 
@@ -1264,6 +1212,8 @@ export default function PrefeituraPage() {
                                         <input
                                             type="date"
                                             required
+                                            aria-label="Data do agendamento"
+                                            min={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })}
                                             value={agendamentoData}
                                             onChange={e => setAgendamentoData(e.target.value)}
                                             className={styles.formInput}

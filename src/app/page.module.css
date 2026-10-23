@@ -278,9 +278,11 @@
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    font-size: 0.82rem;
-    color: #64748b;
-    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #475569;
+    min-height: 44px;
+    padding: 0 1rem;
     border-radius: var(--radius-sm);
     background: #f1f5f9;
     transition: all 0.2s ease;

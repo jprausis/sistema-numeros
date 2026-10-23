@@ -3,8 +3,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import styles from './page.module.css';
-import { createClient } from '@/utils/supabase/client';
 import { compressImage } from '@/utils/imageCompressor';
+import { parseFotos } from '@/utils/fotos';
+import { toast } from '@/utils/toast';
+import { Loader2, X } from 'lucide-react';
 
 export default function ImovelDetalhesPage() {
     const { id } = useParams();
@@ -13,9 +15,10 @@ export default function ImovelDetalhesPage() {
     const agendamento = searchParams.get('agendamento');
     const nomeMorador = searchParams.get('nome');
 
-    const supabase = createClient();
     const [imovel, setImovel] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [savingStep, setSavingStep] = useState('');
 
     // Status e Foto do Número Principal
     const [statusMain, setStatusMain] = useState<'CONCLUIDO' | 'PENDENTE'>('CONCLUIDO');
@@ -79,30 +82,14 @@ export default function ImovelDetalhesPage() {
         }
     };
 
-    const [user, setUser] = useState<any>(null);
     const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
-
-    const parseFotos = (fotosStr: any): string | null => {
-        if (!fotosStr) return null;
-        try {
-            if (typeof fotosStr === 'string' && (fotosStr.startsWith('[') || fotosStr.startsWith('{'))) {
-                const parsed = JSON.parse(fotosStr);
-                return Array.isArray(parsed) ? parsed[0] : parsed;
-            }
-            return fotosStr;
-        } catch (e) {
-            return fotosStr;
-        }
-    };
 
     useEffect(() => {
         async function loadData() {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
-                setUser(user);
-
                 const res = await fetch(`/api/instalador/imovel/${id}`);
                 const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Erro ao carregar imóvel');
 
                 setImovel(data.imovel);
 
@@ -137,8 +124,9 @@ export default function ImovelDetalhesPage() {
                 setCompIncluded(initialCompIncluded);
                 setCompNumeroPredial(initialCompNumeroPredial);
 
-            } catch (e) {
+            } catch (e: any) {
                 console.error("Erro ao carregar dados", e);
+                toast.error(e.message || 'Erro ao carregar o imóvel.');
             } finally {
                 setLoading(false);
             }
@@ -148,6 +136,8 @@ export default function ImovelDetalhesPage() {
 
     const handleMainPhotoChange = (file: File | null) => {
         setPhotoMain(file);
+        // Libera a URL da prévia anterior para não acumular memória no celular
+        if (photoMainPreview) URL.revokeObjectURL(photoMainPreview);
         if (file) {
             setPhotoMainPreview(URL.createObjectURL(file));
             setStatusMain('CONCLUIDO');
@@ -169,7 +159,7 @@ export default function ImovelDetalhesPage() {
 
     const uploadFile = async (file: File | Blob, folder: string, prefix: string) => {
         const formData = new FormData();
-        const fileName = `${id}_${prefix}_${Date.now()}.webp`;
+        const fileName = `${id}_${prefix}_${Date.now()}.jpg`; // compressImage gera JPEG
         formData.append("file", file, fileName);
         formData.append("folder", folder);
 
@@ -207,24 +197,30 @@ export default function ImovelDetalhesPage() {
                 );
                 if (!confirmarApenasComplementos) return;
             } else {
-                alert("Você deve tirar a foto do Número Principal para concluir a instalação principal.");
+                toast.error("Tire a foto do número principal para concluir a instalação.");
                 return;
             }
         }
 
-        // Se o número principal já estava concluído e nenhuma alteração foi feita:
-        if (isMainAlreadyCompleted && !photoMain && compsToUpdate.length === 0 && (!obs || obs === imovel.obsPendente)) {
-            alert("Nenhuma alteração ou nova foto foi selecionada.");
+        if (!isMainAlreadyCompleted && statusMain === 'PENDENTE' && !obs.trim()) {
+            toast.error("Informe o motivo da pendência.");
             return;
         }
 
-        setLoading(true);
+        // Se o número principal já estava concluído e nenhuma alteração foi feita:
+        if (isMainAlreadyCompleted && !photoMain && compsToUpdate.length === 0) {
+            toast.info("Nenhuma alteração ou nova foto foi selecionada.");
+            return;
+        }
+
+        setSaving(true);
         const folder = imovel.bairro?.nome || 'geral';
 
         try {
             // 1. Upload da foto do principal se uma nova foi selecionada
             let fotos: string[] = [];
             if (photoMain) {
+                setSavingStep('Enviando foto principal...');
                 const compressedMain = await compressImage(photoMain);
                 const url = await uploadFile(compressedMain, folder, 'principal');
                 fotos = [url];
@@ -238,6 +234,7 @@ export default function ImovelDetalhesPage() {
                 const cStatus = compStatuses[comp.id] || comp.status || 'CONCLUIDO';
 
                 if (cFile) {
+                    setSavingStep(`Enviando foto da unidade ${compNumeroPredial[comp.id] || comp.numeroPredial}...`);
                     const compressedComp = await compressImage(cFile);
                     const url = await uploadFile(compressedComp, folder, comp.unidade || comp.numeroPredial || 'comp');
                     compFotos = [url];
@@ -256,6 +253,7 @@ export default function ImovelDetalhesPage() {
                 ? 'CONCLUIDO'
                 : (photoMain ? statusMain : (compsToUpdate.length > 0 ? imovel.status : statusMain));
 
+            setSavingStep('Salvando instalação...');
             const res = await fetch('/api/instalador/atualizar', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -265,28 +263,30 @@ export default function ImovelDetalhesPage() {
                     obsPendente: statusToSave === 'PENDENTE' ? obs : null,
                     fotos,
                     complementosData,
-                    protocolo: agendamento,
-                    instaladorResp: user?.user_metadata?.name || user?.email || "Instalador",
-                    userId: user?.id,
-                    userEmail: user?.email
+                    protocolo: agendamento
                 })
             });
 
-            if (res.ok) {
-                alert("Instalação atualizada com sucesso!");
-                router.push('/instalador');
-            } else {
-                throw new Error("Erro ao atualizar dados no servidor.");
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || "Erro ao atualizar dados no servidor.");
             }
+            toast.success(statusToSave === 'PENDENTE' ? "Pendência registrada." : "Instalação salva com sucesso!");
+            router.push('/instalador');
         } catch (e: any) {
-            alert(e.message || "Erro ao atualizar status.");
-        } finally {
-            setLoading(false);
+            toast.error(e.message || "Erro ao salvar. Verifique a conexão e tente novamente.");
+            setSaving(false);
+            setSavingStep('');
         }
     };
 
-    if (loading) return <div className="container text-center py-20" style={{ padding: '3rem', textAlign: 'center' }}>Carregando dados...</div>;
-    if (!imovel) return <div className="container text-center py-20" style={{ padding: '3rem', textAlign: 'center' }}>Imóvel não encontrado.</div>;
+    if (loading) return <div className="page-loading" style={{ minHeight: '100dvh' }}><Loader2 size={28} className="spin" />Carregando imóvel...</div>;
+    if (!imovel) return (
+        <div className="page-loading" style={{ minHeight: '100dvh' }}>
+            Imóvel não encontrado.
+            <button type="button" className={styles.backButton} onClick={() => router.push('/instalador')}>Voltar ao painel</button>
+        </div>
+    );
 
     const existingMainPhoto = parseFotos(imovel.fotos);
     const existingOrientationPhoto = parseFotos(imovel.fotoLocalInstalacao);
@@ -462,7 +462,8 @@ export default function ImovelDetalhesPage() {
                         </div>
                     )}
 
-                    {/* Status do Principal */}
+                    {/* Status do Principal (não editável depois de concluído) */}
+                    {imovel.status !== 'CONCLUIDO' && (
                     <div className={styles.formGroup} style={{ marginTop: '0.85rem' }}>
                         <label className={styles.label}>Status da Instalação Principal</label>
                         <div className={styles.statusButtons}>
@@ -490,20 +491,29 @@ export default function ImovelDetalhesPage() {
                             </button>
                         </div>
                     </div>
+                    )}
 
-                    {/* Campo de Observação (se pendente ou nota adicional) */}
-                    <div className={styles.formGroup}>
-                        <label className={styles.label}>
-                            {statusMain === 'PENDENTE' ? 'Motivo da Pendência *' : 'Observações (Opcional)'}
-                        </label>
-                        <textarea
-                            className={styles.textarea}
-                            value={obs}
-                            onChange={e => setObs(e.target.value)}
-                            placeholder={statusMain === 'PENDENTE' ? "Informe o motivo (Ex: Portão trancado, morador ausente...)" : "Notas adicionais sobre a instalação..."}
-                            required={statusMain === 'PENDENTE'}
-                        />
-                    </div>
+                    {/* Motivo da pendência (a observação só é salva para imóveis pendentes) */}
+                    {statusMain === 'PENDENTE' && (
+                        <div className={styles.formGroup}>
+                            <label className={styles.label} htmlFor="obs-pendencia">Motivo da Pendência *</label>
+                            <textarea
+                                id="obs-pendencia"
+                                className={styles.textarea}
+                                value={obs}
+                                onChange={e => setObs(e.target.value)}
+                                placeholder="Ex: Portão trancado, morador ausente, muro sem condição de fixação..."
+                                required
+                            />
+                        </div>
+                    )}
+
+                    {imovel.obsPendente && statusMain !== 'PENDENTE' && (
+                        <div className={styles.orientationBox}>
+                            <div className={styles.orientationLabel}>Observação registrada:</div>
+                            <p style={{ fontSize: '0.9rem', color: '#334155' }}>{imovel.obsPendente}</p>
+                        </div>
+                    )}
                 </div>
 
                 {/* ======================================================== */}
@@ -801,12 +811,15 @@ export default function ImovelDetalhesPage() {
                 <button
                     type="submit"
                     className={styles.submitButton}
-                    disabled={loading}
+                    disabled={saving}
+                    aria-busy={saving}
                 >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                    {loading ? "Salvando Alterações..." : "Salvar Instalação"}
+                    {saving ? <Loader2 size={20} className="spin" /> : (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    )}
+                    {saving ? (savingStep || "Salvando...") : (statusMain === 'PENDENTE' && imovel.status !== 'CONCLUIDO' ? "Registrar Pendência" : "Salvar Instalação")}
                 </button>
             </form>
 
@@ -814,54 +827,9 @@ export default function ImovelDetalhesPage() {
 
             {/* Modal de Zoom da Foto em Tela Cheia */}
             {fullScreenImage && (
-                <div
-                    style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        width: '100vw',
-                        height: '100vh',
-                        backgroundColor: 'rgba(0,0,0,0.92)',
-                        zIndex: 99999,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'zoom-out'
-                    }}
-                    onClick={() => setFullScreenImage(null)}
-                >
-                    <img
-                        src={fullScreenImage}
-                        alt="Zoom"
-                        style={{
-                            maxWidth: '96%',
-                            maxHeight: '92%',
-                            objectFit: 'contain',
-                            borderRadius: '8px',
-                            boxShadow: '0 8px 30px rgba(0,0,0,0.5)'
-                        }}
-                    />
-                    <div
-                        style={{
-                            position: 'absolute',
-                            top: '20px',
-                            right: '20px',
-                            backgroundColor: 'rgba(255,255,255,0.2)',
-                            color: 'white',
-                            width: '42px',
-                            height: '42px',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </div>
+                <div className="lightbox" role="dialog" aria-label="Foto em tela cheia" onClick={() => setFullScreenImage(null)}>
+                    <img src={fullScreenImage} alt="Foto ampliada" />
+                    <button type="button" className="lightbox-close" aria-label="Fechar foto"><X size={22} /></button>
                 </div>
             )}
 

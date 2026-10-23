@@ -4,19 +4,15 @@ import { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, GeoJSON } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import 'leaflet.markercluster/dist/MarkerCluster.css';
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import { Crosshair, Filter, Layers, List } from 'lucide-react';
 import styles from './map.module.css';
 import { utmToLatLng } from '@/utils/geo';
+import { parseFotos, fotoDestaque } from '@/utils/fotos';
+import { STATUS_COLORS, statusLabel } from '@/utils/status';
 
-// Corrigir ícones do Leaflet
+// Ícones dos pinos (cor = status do imóvel principal)
 const getIcon = (status: string, isSelected: boolean = false) => {
-    let color = '#ef4444'; // NAO_INICIADO (Vermelho)
-    if (status === 'LIBERADO') color = '#3b82f6'; // Azul
-    if (status === 'AUSENTE') color = '#f97316'; // Laranja
-    if (status === 'PENDENTE') color = '#eab308'; // Amarelo
-    if (status === 'CONCLUIDO') color = '#22c55e'; // Verde
-    if (status === 'AGENDADO') color = '#9333ea'; // Roxo (Agendado) - destaque visual alto
+    const color = STATUS_COLORS[status] || STATUS_COLORS.NAO_INICIADO;
 
     const size = isSelected ? 18 : 14;
     const border = isSelected ? '3px solid #000' : '2px solid #fff';
@@ -29,18 +25,14 @@ const getIcon = (status: string, isSelected: boolean = false) => {
     });
 };
 
-const parseFotos = (fotosStr: any): string | null => {
-    if (!fotosStr) return null;
-    try {
-        if (typeof fotosStr === 'string' && (fotosStr.startsWith('[') || fotosStr.startsWith('{'))) {
-            const parsed = JSON.parse(fotosStr);
-            return Array.isArray(parsed) ? parsed[0] : parsed;
-        }
-        return fotosStr;
-    } catch (e) {
-        return fotosStr;
-    }
-};
+const userLocationIcon = L.divIcon({
+    className: '',
+    html: `<div class="${styles.userDot}"><span></span></div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11]
+});
+
+const LEGEND = ['NAO_INICIADO', 'LIBERADO', 'AGENDADO', 'AUSENTE', 'PENDENTE', 'CONCLUIDO'];
 
 // Componente para controlar posicionamento e redimensionamento do Leaflet
 function MapEffect({ focusOn, userLocation, layerType }: { focusOn?: [number, number] | null, userLocation?: { lat: number, lon: number } | null, layerType: string }) {
@@ -115,6 +107,7 @@ export default function InstallerMap({
     const [layerType, setLayerType] = useState<'street' | 'satellite'>('street');
     const [mapRef, setMapRef] = useState<L.Map | null>(null);
     const [selectedInsc, setSelectedInsc] = useState<string | null>(null);
+    const [showLegend, setShowLegend] = useState(false);
     const markerRefs = useRef<Map<string, L.Marker>>(new Map());
 
     useEffect(() => {
@@ -124,12 +117,9 @@ export default function InstallerMap({
     // Sincronizar selectedInsc quando focusOn for fornecido
     useEffect(() => {
         if (focusOn && properties.length > 0) {
-            const target = properties.find(p =>
-                typeof p.x === 'number' &&
-                typeof p.y === 'number' &&
-                Math.abs(p.x - focusOn[0]) < 0.5 &&
-                Math.abs(p.y - focusOn[1]) < 0.5
-            );
+            // focusOn vem exatamente de property.x/y; comparação por tolerância selecionava
+            // o imóvel errado quando as coordenadas estão em graus (lat/lng)
+            const target = properties.find(p => p.x === focusOn[0] && p.y === focusOn[1]);
             if (target) {
                 setSelectedInsc(target.inscimob);
             }
@@ -163,56 +153,63 @@ export default function InstallerMap({
         <div className={styles.mapWrapper} style={{ flex: 1, minHeight: '500px', height: '100%', position: 'relative' }}>
             {/* Botão de Alternância - Fora do MapContainer para evitar erros de renderização */}
             <div className={styles.mapControls}>
-                <div
-                    className={styles.controlBtn}
-                    onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setLayerType(prev => prev === 'street' ? 'satellite' : 'street');
-                    }}
-                    title="Alternar Camada"
+                <button
+                    type="button"
+                    className={`${styles.controlBtn} ${layerType === 'satellite' ? styles.controlActive : ''}`}
+                    onClick={() => setLayerType(prev => prev === 'street' ? 'satellite' : 'street')}
+                    title={layerType === 'street' ? 'Ver satélite' : 'Ver mapa de ruas'}
+                    aria-label={layerType === 'street' ? 'Ver satélite' : 'Ver mapa de ruas'}
                 >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                    </svg>
-                </div>
+                    <Layers size={20} />
+                </button>
 
                 {userLocation && (
-                    <div
+                    <button
+                        type="button"
                         className={styles.controlBtn}
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (mapRef) {
-                                mapRef.setView([userLocation.lat, userLocation.lon], 18);
-                            }
-                        }}
-                        title="Minha Localização"
+                        onClick={() => mapRef?.setView([userLocation.lat, userLocation.lon], 18)}
+                        title="Minha localização"
+                        aria-label="Centralizar na minha localização"
                     >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="3" />
-                            <path d="M12 2v3m0 14v3m-7-10H2m17 0h3" />
-                        </svg>
-                    </div>
+                        <Crosshair size={20} />
+                    </button>
                 )}
-                
+
                 {onFilterClick && (
-                    <div
-                        className={styles.controlBtn}
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onFilterClick();
-                        }}
-                        title="Filtrar por Bairro"
-                        style={filterActive ? { borderColor: '#16a34a', color: '#16a34a', background: '#f0fdf4' } : {}}
+                    <button
+                        type="button"
+                        className={`${styles.controlBtn} ${filterActive ? styles.controlActive : ''}`}
+                        onClick={onFilterClick}
+                        title="Filtrar por bairro"
+                        aria-label="Filtrar por bairro"
+                        aria-pressed={!!filterActive}
                     >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-                        </svg>
-                    </div>
+                        <Filter size={20} />
+                    </button>
                 )}
+
+                <button
+                    type="button"
+                    className={`${styles.controlBtn} ${showLegend ? styles.controlActive : ''}`}
+                    onClick={() => setShowLegend(v => !v)}
+                    title="Legenda de cores"
+                    aria-label="Legenda de cores"
+                    aria-expanded={showLegend}
+                >
+                    <List size={20} />
+                </button>
             </div>
+
+            {showLegend && (
+                <ul className={styles.legend} aria-label="Legenda de status">
+                    {LEGEND.map(status => (
+                        <li key={status}>
+                            <span style={{ background: STATUS_COLORS[status] }} />
+                            {statusLabel(status)}
+                        </li>
+                    ))}
+                </ul>
+            )}
 
             <MapContainer
                 center={mapCenter}
@@ -238,28 +235,8 @@ export default function InstallerMap({
                 {userLocation && (
                     <Marker
                         position={[userLocation.lat, userLocation.lon]}
-                        icon={L.divIcon({
-                            className: '',
-                            html: `
-                                <div style="
-                                    width: 24px; 
-                                    height: 24px; 
-                                    background-color: #3b82f6; 
-                                    border: 2px solid white; 
-                                    border-radius: 50%;
-                                    box-shadow: 0 0 10px rgba(0,0,0,0.5);
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                ">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white" style="transform: rotate(-45deg); margin-top: -2px; margin-right: -2px;">
-                                        <path d="M2 21l21-9L2 3v7l15 2-15 2v7z" />
-                                    </svg>
-                                </div>
-                            `,
-                            iconSize: [24, 24],
-                            iconAnchor: [12, 12]
-                        })}
+                        icon={userLocationIcon}
+                        zIndexOffset={1000}
                     >
                         <Popup>Você está aqui</Popup>
                     </Marker>
@@ -287,16 +264,14 @@ export default function InstallerMap({
 
                     const [lat, lng] = utmToLatLng(prop.x, prop.y);
 
-                    let pinStatus = prop.status;
-                    // Como complementos são opcionais (só instala se quiser), o status do imóvel principal 
-                    // NÃO deve ser "puxado" para pendente se já estiver concluído.
-                    // O mapa refletirá a exata realidade do imóvel principal.
+                    // O pino reflete o status do imóvel principal (complementos são opcionais)
+                    const destaque = fotoDestaque(prop);
 
                     return (
                         <Marker
                             key={`${prop.inscimob}-${prop.status}`}
                             position={[lat, lng]}
-                            icon={getIcon(pinStatus, selectedInsc === prop.inscimob)}
+                            icon={getIcon(prop.status, selectedInsc === prop.inscimob)}
                             ref={(ref) => {
                                 if (ref) {
                                     markerRefs.current.set(prop.inscimob, ref);
@@ -318,35 +293,22 @@ export default function InstallerMap({
                                     <h3>Nº {prop.numeroAInstalar}</h3>
                                     <p><strong>Insc:</strong> {prop.inscimob}</p>
                                     <p><strong>Bairro:</strong> {prop.bairro?.nome}</p>
-                                    <p><strong>Status:</strong> {
-                                        prop.status === 'NAO_INICIADO' ? 'Não Iniciado' :
-                                        prop.status === 'LIBERADO' ? 'Liberado' :
-                                        prop.status === 'AUSENTE' ? 'Ausente' :
-                                        prop.status === 'PENDENTE' ? 'Pendente' :
-                                        prop.status === 'CONCLUIDO' ? 'Concluído' :
-                                        prop.status === 'AGENDADO' ? 'Agendado' : prop.status
-                                    }</p>
+                                    <p className={styles.popupStatus}>
+                                        <span style={{ background: STATUS_COLORS[prop.status] || '#94a3b8' }} />
+                                        {statusLabel(prop.status)}
+                                    </p>
                                     {prop.complementos && prop.complementos.length > 0 && (
-                                        <p style={{ color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                                                <line x1="12" y1="9" x2="12" y2="13" />
-                                                <line x1="12" y1="17" x2="12.01" y2="17" />
-                                            </svg>
-                                            Possui {prop.complementos.length} complementos
+                                        <p className={styles.popupComp}>
+                                            + {prop.complementos.length} complemento{prop.complementos.length > 1 ? 's' : ''} ({prop.complementos.filter(c => c.status === 'CONCLUIDO').length} instalado{prop.complementos.filter(c => c.status === 'CONCLUIDO').length === 1 ? '' : 's'})
                                         </p>
                                     )}
 
-                                    {(prop.status === 'CONCLUIDO' ? parseFotos(prop.fotos) : (parseFotos(prop.fotoLocalInstalacao) || parseFotos(prop.fotos))) && (
+                                    {destaque && (
                                         <div className={styles.photoThumb}>
-                                            <span style={{ fontSize: '10px', fontWeight: 'bold', backgroundColor: '#e5e7eb', padding: '2px 6px', borderRadius: '4px', marginBottom: '4px', display: 'inline-block' }}>
-                                                {prop.status === 'CONCLUIDO' || (!prop.fotoLocalInstalacao && prop.fotos) ? 'Foto Instalação' : 'Foto Orientação'}
-                                            </span>
-                                            <img 
-                                                src={(prop.status === 'CONCLUIDO' ? parseFotos(prop.fotos) : (parseFotos(prop.fotoLocalInstalacao) || parseFotos(prop.fotos))) || ''} 
-                                                alt="Foto imovel" 
-                                                onClick={() => window.open((prop.status === 'CONCLUIDO' ? parseFotos(prop.fotos) : (parseFotos(prop.fotoLocalInstalacao) || parseFotos(prop.fotos))) || '', '_blank')} 
-                                            />
+                                            <span className={styles.photoTag}>Foto de {destaque.tipo.toLowerCase()}</span>
+                                            <a href={destaque.url} target="_blank" rel="noopener noreferrer">
+                                                <img src={destaque.url} alt={`Foto de ${destaque.tipo.toLowerCase()}`} loading="lazy" />
+                                            </a>
                                         </div>
                                     )}
 
@@ -374,6 +336,7 @@ export default function InstallerMap({
                                         <a
                                             href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
                                             target="_blank"
+                                            rel="noopener noreferrer"
                                             className={styles.button}
                                         >
                                             Abrir no Maps

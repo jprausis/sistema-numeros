@@ -1,15 +1,31 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, MapPin } from 'lucide-react';
 import styles from './page.module.css';
 import { createClient } from '@/utils/supabase/client';
 
+const ROLE_HOME: Record<string, string> = {
+    ADMIN: '/admin',
+    OPERATOR: '/admin',
+    PREFEITURA: '/prefeitura',
+    INSTALLER: '/instalador',
+};
+
+function traduzirErro(message: string) {
+    if (/invalid login credentials/i.test(message)) return 'E-mail ou senha incorretos.';
+    if (/email not confirmed/i.test(message)) return 'E-mail ainda não confirmado.';
+    if (/network|fetch/i.test(message)) return 'Sem conexão com o servidor. Verifique sua internet.';
+    return message;
+}
+
 export default function LoginPage() {
     const router = useRouter();
-    const supabase = createClient();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -18,68 +34,99 @@ export default function LoginPage() {
         setLoading(true);
         setError(null);
 
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
+        try {
+            const supabase = createClient();
+            const { error: authError } = await supabase.auth.signInWithPassword({
+                email: email.trim(),
+                password,
+            });
 
-        if (authError) {
-            setError(authError.message);
+            if (authError) {
+                setError(traduzirErro(authError.message));
+                setLoading(false);
+                return;
+            }
+
+            // Perfil (papel) do usuário logado no nosso banco
+            const response = await fetch('/api/auth/me');
+            if (!response.ok) {
+                await supabase.auth.signOut();
+                setError('Seu acesso ainda não foi configurado. Fale com o administrador.');
+                setLoading(false);
+                return;
+            }
+            const { user } = await response.json();
+            router.replace(ROLE_HOME[user?.role] || '/instalador');
+        } catch (err: any) {
+            setError(traduzirErro(err?.message || 'Erro inesperado ao entrar.'));
             setLoading(false);
-            return;
-        }
-
-        // Busca o perfil do usuário no nosso banco de dados (Prisma)
-        const response = await fetch(`/api/auth/profile?email=${email}`);
-        const profile = await response.json();
-
-        if (profile?.role === 'ADMIN' || profile?.role === 'OPERATOR') {
-            router.push('/admin');
-        } else if (profile?.role === 'PREFEITURA') {
-            router.push('/prefeitura');
-        } else {
-            router.push('/instalador');
         }
     };
 
     return (
         <div className={styles.container}>
-            <form onSubmit={handleLogin} className={styles.card}>
+            <form onSubmit={handleLogin} className={styles.card} noValidate={false}>
+                <div className={styles.brand}>
+                    <span className={styles.brandIcon}><MapPin size={22} /></span>
+                    <span>Rio Branco do Sul <strong>tem endereço</strong></span>
+                </div>
+
                 <h1 className={styles.title}>Acesso Restrito</h1>
-                <p className={styles.subtitle}>Entre com suas credenciais de operador.</p>
+                <p className={styles.subtitle}>Entre com as credenciais fornecidas pela coordenação.</p>
 
                 <div className={styles.formGroup}>
-                    <label>Email</label>
-                    <input
-                        type="email"
-                        className={styles.input}
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
-                        required
-                    />
+                    <label htmlFor="email">E-mail</label>
+                    <div className={styles.inputWrapper}>
+                        <Mail size={18} className={styles.inputIcon} aria-hidden />
+                        <input
+                            id="email"
+                            type="email"
+                            inputMode="email"
+                            autoComplete="username"
+                            className={styles.input}
+                            value={email}
+                            onChange={e => setEmail(e.target.value)}
+                            placeholder="seu@email.com"
+                            required
+                            autoFocus
+                        />
+                    </div>
                 </div>
 
                 <div className={styles.formGroup}>
-                    <label>Senha</label>
-                    <input
-                        type="password"
-                        className={styles.input}
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        required
-                    />
+                    <label htmlFor="password">Senha</label>
+                    <div className={styles.inputWrapper}>
+                        <Lock size={18} className={styles.inputIcon} aria-hidden />
+                        <input
+                            id="password"
+                            type={showPassword ? 'text' : 'password'}
+                            autoComplete="current-password"
+                            className={styles.input}
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                            placeholder="••••••••"
+                            required
+                        />
+                        <button
+                            type="button"
+                            className={styles.togglePassword}
+                            onClick={() => setShowPassword(v => !v)}
+                            aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                        >
+                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                    </div>
                 </div>
 
-                {error && <p className={styles.error}>{error}</p>}
+                {error && <p className={styles.error} role="alert">{error}</p>}
 
                 <button type="submit" className={styles.button} disabled={loading}>
-                    {loading ? 'Entrando...' : 'Entrar'}
+                    {loading ? <><Loader2 size={18} className={styles.spin} /> Entrando...</> : 'Entrar'}
                 </button>
 
-
-                <button type="button" onClick={() => router.back()} className={styles.backButton}>
-                    Voltar ao Início
-                </button>
+                <Link href="/" className={styles.backButton}>
+                    <ArrowLeft size={16} /> Voltar ao início
+                </Link>
             </form>
         </div>
     );

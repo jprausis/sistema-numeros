@@ -1,79 +1,83 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireUser } from "@/lib/auth";
+import { formatBrazil, todayBrazil } from "@/lib/timezone";
+import { limparLinksImagens, temFotosReais } from "@/utils/fotos";
 
 export const dynamic = "force-dynamic";
 
-function limparLinksImagens(fotosStr: string | null | undefined): string {
-    if (!fotosStr) return "";
-    try {
-        const trimmed = fotosStr.trim();
-        if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
-            const parsed = JSON.parse(trimmed);
-            if (Array.isArray(parsed)) {
-                return parsed.map((item: any) => String(item).trim()).join(", ");
-            }
-            return String(parsed).trim();
-        }
-        let cleanStr = trimmed;
-        if (cleanStr.startsWith("[") && cleanStr.endsWith("]")) {
-            cleanStr = cleanStr.slice(1, -1);
-            return cleanStr.split(",").map((s: string) => s.replace(/["']/g, "").trim()).join(", ");
-        }
-        return cleanStr;
-    } catch (e) {
-        return fotosStr.trim();
-    }
+// Escapa um valor para CSV separado por ";" (aspas, quebras de linha e o próprio separador)
+function csvCell(value: unknown): string {
+    const str = value === null || value === undefined ? "" : String(value);
+    return /[";\n\r]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 
 export async function GET(req: NextRequest) {
+    const { response } = await requireUser(["ADMIN", "OPERATOR"]);
+    if (response) return response;
+
     try {
         const { searchParams } = new URL(req.url);
         const bairroId = searchParams.get("bairroId") || undefined;
-        
+
         const where = bairroId ? { bairroId } : {};
 
         const imoveis = await prisma.imovel.findMany({
             where,
-            include: { 
+            select: {
+                inscimob: true,
+                numeroAInstalar: true,
+                status: true,
+                dataExecucao: true,
+                instaladorResp: true,
+                fotos: true,
                 bairro: { select: { nome: true } },
                 complementos: {
+                    select: { inscimob: true, numeroPredial: true, status: true, dataExecucao: true, fotos: true },
                     orderBy: { unidade: 'asc' }
                 }
-            }
+            },
+            orderBy: { inscimob: 'asc' }
         });
 
-        const header = "Inscimob;Bairro;Numero;Status;DataExecucao;Instalador;Fotos;Tipo\n";
-        const rows: string[] = [];
-
-        const temFotosReais = (fotosStr: string | null | undefined): boolean => {
-            if (!fotosStr) return false;
-            const trimmed = fotosStr.trim();
-            return trimmed !== "" && trimmed !== "null" && trimmed !== "[]";
-        };
+        const header = ["Inscimob", "Bairro", "Numero", "Status", "DataExecucao", "Instalador", "Fotos", "Tipo"];
+        const rows: string[] = [header.join(";")];
 
         for (const i of imoveis) {
-            const dataStr = i.dataExecucao ? new Date(i.dataExecucao).toLocaleDateString() : "";
-            const fotosLimpas = limparLinksImagens(i.fotos);
-            rows.push(`${i.inscimob};${i.bairro.nome};${i.numeroAInstalar};${i.status};${dataStr};${i.instaladorResp || ""};${fotosLimpas};Principal`);
+            rows.push([
+                i.inscimob,
+                i.bairro.nome,
+                i.numeroAInstalar,
+                i.status,
+                formatBrazil(i.dataExecucao),
+                i.instaladorResp || "",
+                limparLinksImagens(i.fotos),
+                "Principal"
+            ].map(csvCell).join(";"));
 
-            if (i.complementos && i.complementos.length > 0) {
-                for (const c of i.complementos) {
-                    const cDataStr = c.dataExecucao ? new Date(c.dataExecucao).toLocaleDateString() : "";
-                    const cConcluido = c.status === "CONCLUIDO" && temFotosReais(c.fotos);
-                    const statusText = cConcluido ? "CONCLUIDO" : (c.status === "CONCLUIDO" ? "PENDENTE" : c.status);
-                    const instalador = cConcluido ? (i.instaladorResp || "") : "";
-                    const cFotosLimpas = limparLinksImagens(c.fotos);
-                    rows.push(`${c.inscimob};${i.bairro.nome};${i.numeroAInstalar} - ${c.numeroPredial};${statusText};${cDataStr};${instalador};${cFotosLimpas};Complemento`);
-                }
+            for (const c of i.complementos) {
+                const cConcluido = c.status === "CONCLUIDO" && temFotosReais(c.fotos);
+                const statusText = cConcluido ? "CONCLUIDO" : (c.status === "CONCLUIDO" ? "PENDENTE" : c.status);
+                rows.push([
+                    c.inscimob,
+                    i.bairro.nome,
+                    `${i.numeroAInstalar} - ${c.numeroPredial}`,
+                    statusText,
+                    formatBrazil(c.dataExecucao),
+                    cConcluido ? (i.instaladorResp || "") : "",
+                    limparLinksImagens(c.fotos),
+                    "Complemento"
+                ].map(csvCell).join(";"));
             }
         }
 
-        const csvContent = header + rows.join("\n");
+        // BOM para o Excel reconhecer acentos (UTF-8)
+        const csvContent = "﻿" + rows.join("\r\n");
 
         return new Response(csvContent, {
             headers: {
-                "Content-Type": "text/csv",
-                "Content-Disposition": `attachment; filename="relatorio_instalacoes_${new Date().toISOString().split('T')[0]}.csv"`
+                "Content-Type": "text/csv; charset=utf-8",
+                "Content-Disposition": `attachment; filename="relatorio_instalacoes_${todayBrazil()}.csv"`
             }
         });
     } catch (error) {

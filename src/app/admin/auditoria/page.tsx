@@ -1,178 +1,141 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, ChevronRight, Filter, Loader2, ShieldCheck } from 'lucide-react';
+import ui from '../admin.module.css';
 import styles from './page.module.css';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBrazil } from '@/lib/timezone';
+import { toast } from '@/utils/toast';
+
+// Rótulos legíveis para as ações registradas
+const ACTION_LABELS: Record<string, string> = {
+    UPDATE_IMOVEL: 'Imóvel editado',
+    CREATE_IMOVEL: 'Imóvel cadastrado',
+    UPDATE_IMOVEL_LOTE: 'Instalação registrada',
+    UPDATE_COMPLEMENTO: 'Complemento atualizado',
+    RELEASE_COMPLEMENTO: 'Complemento liberado',
+    BLOCK_COMPLEMENTO: 'Complemento bloqueado',
+    UPDATE_AGENDAMENTO: 'Agendamento editado',
+    DELETE_AGENDAMENTO: 'Agendamento excluído',
+    CADASTRAR_AGENDAMENTO: 'Agendamento criado',
+    EDITAR_AGENDAMENTO: 'Agendamento alterado',
+    VINCULAR_AGENDAMENTO: 'Agendamento vinculado',
+    DELETE_BAIRRO: 'Bairro excluído',
+    CREATE_USER: 'Usuário criado',
+    UPDATE_USER: 'Usuário editado',
+    DELETE_USER: 'Usuário excluído',
+};
+const actionLabel = (action: string) =>
+    ACTION_LABELS[action] || (action.startsWith('CONCLUIR_IMOVEL_') ? `Status → ${action.replace('CONCLUIR_IMOVEL_', '')}` : action);
 
 export default function AuditoriaPage() {
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [pagination, setPagination] = useState<any>({
-        totalCount: 0,
-        totalPages: 1,
-        currentPage: 1,
-        limit: 50
-    });
+    const [pagination, setPagination] = useState({ totalCount: 0, totalPages: 1, currentPage: 1, limit: 50 });
+    const [filters, setFilters] = useState({ userEmail: '', startDate: '', endDate: '', sortOrder: 'desc' });
 
-    const [filters, setFilters] = useState({
-        userEmail: '',
-        startDate: '',
-        endDate: '',
-        sortOrder: 'desc'
-    });
-
-    const fetchLogs = (page = 1) => {
+    const fetchLogs = useCallback((page = 1, currentFilters = filters) => {
         setLoading(true);
-        const params = new URLSearchParams({
-            page: page.toString(),
-            userEmail: filters.userEmail,
-            startDate: filters.startDate,
-            endDate: filters.endDate,
-            sortOrder: filters.sortOrder
-        });
-
+        const params = new URLSearchParams({ page: page.toString(), ...currentFilters });
         fetch(`/api/admin/auditoria?${params.toString()}`)
             .then(res => res.json())
             .then(data => {
                 setLogs(data.logs || []);
-                setPagination(data.pagination || { totalCount: 0, totalPages: 1, currentPage: 1, limit: 50 });
-                setLoading(false);
+                if (data.pagination) setPagination(data.pagination);
             })
-            .catch(() => setLoading(false));
-    };
+            .catch(() => toast.error('Erro ao carregar o histórico.'))
+            .finally(() => setLoading(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         fetchLogs(1);
-    }, []);
+    }, [fetchLogs]);
 
     const handleFilter = (e: React.FormEvent) => {
         e.preventDefault();
-        fetchLogs(1);
-    };
-
-    const formatDetails = (details: any) => {
-        try {
-            return JSON.stringify(details, null, 2);
-        } catch (e) {
-            return "Dados ilegíveis";
-        }
+        fetchLogs(1, filters);
     };
 
     return (
-        <div className={styles.container}>
-            <header className={styles.header}>
+        <div className={ui.container}>
+            <header className={ui.header}>
                 <div>
-                    <h1>Log de Auditoria</h1>
-                    <p>Histórico completo de alterações realizadas no sistema por administradores e operadores.</p>
+                    <h1>Auditoria</h1>
+                    <p>Histórico de alterações realizadas no sistema por todos os usuários.</p>
                 </div>
             </header>
 
-            <form className={styles.filterBar} onSubmit={handleFilter}>
-                <div className={styles.filterGroup}>
-                    <label>E-mail do Usuário</label>
-                    <input 
-                        type="text" 
-                        placeholder="Ex: joao@email.com" 
-                        value={filters.userEmail}
-                        onChange={e => setFilters({...filters, userEmail: e.target.value})}
-                    />
+            <form className={`${ui.cardPadded} ${styles.filterBar}`} onSubmit={handleFilter}>
+                <div className={ui.field}>
+                    <label htmlFor="f-email">E-mail do usuário</label>
+                    <input id="f-email" type="search" placeholder="Ex: joao@email.com" value={filters.userEmail} onChange={e => setFilters({ ...filters, userEmail: e.target.value })} />
                 </div>
-                <div className={styles.filterGroup}>
-                    <label>Data Início</label>
-                    <input 
-                        type="date" 
-                        value={filters.startDate}
-                        onChange={e => setFilters({...filters, startDate: e.target.value})}
-                    />
+                <div className={ui.field}>
+                    <label htmlFor="f-start">De</label>
+                    <input id="f-start" type="date" value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} />
                 </div>
-                <div className={styles.filterGroup}>
-                    <label>Data Fim</label>
-                    <input 
-                        type="date" 
-                        value={filters.endDate}
-                        onChange={e => setFilters({...filters, endDate: e.target.value})}
-                    />
+                <div className={ui.field}>
+                    <label htmlFor="f-end">Até</label>
+                    <input id="f-end" type="date" value={filters.endDate} min={filters.startDate || undefined} onChange={e => setFilters({ ...filters, endDate: e.target.value })} />
                 </div>
-                <div className={styles.filterGroup}>
-                    <label>Ordenação</label>
-                    <select 
-                        value={filters.sortOrder}
-                        onChange={e => setFilters({...filters, sortOrder: e.target.value})}
-                        style={{
-                            padding: '0.6rem 1rem',
-                            borderRadius: '6px',
-                            border: '1px solid var(--card-border)',
-                            background: 'var(--background)',
-                            color: 'var(--foreground)',
-                            fontSize: '0.9rem'
-                        }}
-                    >
+                <div className={ui.field}>
+                    <label htmlFor="f-order">Ordem</label>
+                    <select id="f-order" value={filters.sortOrder} onChange={e => setFilters({ ...filters, sortOrder: e.target.value })}>
                         <option value="desc">Mais recentes primeiro</option>
                         <option value="asc">Mais antigos primeiro</option>
                     </select>
                 </div>
-                <div className={styles.filterGroup}>
-                    <button type="submit">Filtrar</button>
-                </div>
+                <button type="submit" className={ui.btnPrimary}><Filter size={16} /> Filtrar</button>
             </form>
 
-            <section className={styles.listCard}>
-                <table className={styles.table}>
-                    <thead>
-                        <tr>
-                            <th>Data/Hora</th>
-                            <th>Usuário</th>
-                            <th>Ação</th>
-                            <th>IP</th>
-                            <th>Detalhes</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr><td colSpan={5}>Carregando logs...</td></tr>
-                        ) : logs.length === 0 ? (
-                            <tr><td colSpan={5}>Nenhum registro encontrado.</td></tr>
-                        ) : logs.map((log: any) => (
-                            <tr key={log.id}>
-                                <td className={styles.dateCol}>
-                                    {format(new Date(log.createdAt), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
-                                </td>
-                                <td>
-                                    <strong>{log.userEmail}</strong>
-                                    <br />
-                                    <small>{log.userId}</small>
-                                </td>
-                                <td>
-                                    <span className={styles.badge}>{log.action}</span>
-                                    <br />
-                                    <small>{log.resource}: {log.resourceId}</small>
-                                </td>
-                                <td>{log.ip}</td>
-                                <td className={styles.detailsCol}>
-                                    <pre>{formatDetails(log.details)}</pre>
-                                </td>
+            <section className={ui.card}>
+                <div className={ui.tableWrap}>
+                    <table className={ui.table}>
+                        <thead>
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Usuário</th>
+                                <th>Ação</th>
+                                <th>Detalhes</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr><td colSpan={4}><div className={ui.emptyState}><Loader2 className="spin" /> Carregando registros...</div></td></tr>
+                            ) : logs.length === 0 ? (
+                                <tr><td colSpan={4}><div className={ui.emptyState}><ShieldCheck size={40} /><strong>Nenhum registro encontrado</strong></div></td></tr>
+                            ) : logs.map((log: any) => (
+                                <tr key={log.id}>
+                                    <td className={styles.dateCol}>{formatBrazil(log.createdAt, true)}</td>
+                                    <td>
+                                        <strong>{log.userEmail}</strong>
+                                        {log.ip && <span className={ui.cellSub}>IP {log.ip}</span>}
+                                    </td>
+                                    <td>
+                                        <span className={styles.actionBadge}>{actionLabel(log.action)}</span>
+                                        <span className={ui.cellSub}>{log.resource}{log.resourceId ? `: ${log.resourceId}` : ''}</span>
+                                    </td>
+                                    <td className={styles.detailsCol}>
+                                        <details>
+                                            <summary>Ver dados</summary>
+                                            <pre>{JSON.stringify(log.details, null, 2)}</pre>
+                                        </details>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
 
                 {pagination.totalPages > 1 && (
-                    <div className={styles.pagination}>
-                        <button 
-                            className={styles.pageBtn} 
-                            disabled={pagination.currentPage === 1}
-                            onClick={() => fetchLogs(pagination.currentPage - 1)}
-                        >
-                            Anterior
+                    <div className={ui.pagination}>
+                        <button className={ui.btnSecondary} disabled={pagination.currentPage <= 1 || loading} onClick={() => fetchLogs(pagination.currentPage - 1, filters)}>
+                            <ChevronLeft size={16} /> Anterior
                         </button>
-                        <span>Página {pagination.currentPage} de {pagination.totalPages}</span>
-                        <button 
-                            className={styles.pageBtn} 
-                            disabled={pagination.currentPage === pagination.totalPages}
-                            onClick={() => fetchLogs(pagination.currentPage + 1)}
-                        >
-                            Próxima
+                        <span>Página {pagination.currentPage} de {pagination.totalPages} • {pagination.totalCount.toLocaleString('pt-BR')} registros</span>
+                        <button className={ui.btnSecondary} disabled={pagination.currentPage >= pagination.totalPages || loading} onClick={() => fetchLogs(pagination.currentPage + 1, filters)}>
+                            Próxima <ChevronRight size={16} />
                         </button>
                     </div>
                 )}

@@ -1,26 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
+import { requireUser, getRequestMeta, STAFF_ROLES } from "@/lib/auth";
+import { createAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-    const user = await getSessionUser();
-    if (!user) {
-        return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
-
-    const hasAccess = user.role === 'ADMIN' || user.role === 'OPERATOR' || user.role === 'PREFEITURA';
-    if (!hasAccess) {
-        return NextResponse.json({ error: "Acesso negado. Apenas administradores, operadores ou prefeitura podem cadastrar imóveis." }, { status: 403 });
-    }
+    const { user, response } = await requireUser(STAFF_ROLES);
+    if (response) return response;
 
     try {
         const body = await req.json();
-        const { inscimob, x, y, numeroAInstalar, bairroId, endereco } = body;
+        const { x, y, numeroAInstalar, bairroId, endereco } = body;
+        const inscimob = String(body.inscimob || "").trim();
+        const xNum = parseFloat(x);
+        const yNum = parseFloat(y);
 
-        if (!inscimob || !x || !y || !numeroAInstalar || !bairroId) {
-            return NextResponse.json({ error: "Parâmetros obrigatórios ausentes (inscimob, x, y, numeroAInstalar, bairroId)." }, { status: 400 });
+        if (!inscimob || !numeroAInstalar || !bairroId || isNaN(xNum) || isNaN(yNum)) {
+            return NextResponse.json({ error: "Parâmetros obrigatórios ausentes ou inválidos (inscimob, x, y, numeroAInstalar, bairroId)." }, { status: 400 });
         }
 
         // Verificar se imóvel já existe
@@ -32,33 +29,35 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Imóvel com INSCIMOB ${inscimob} já está cadastrado.` }, { status: 400 });
         }
 
-        // Criar imóvel
-        const imovel = await prisma.imovel.create({
-            data: {
-                inscimob: String(inscimob).trim(),
-                x: parseFloat(x),
-                y: parseFloat(y),
-                numeroAInstalar: String(numeroAInstalar).trim(),
-                bairroId,
-                endereco: endereco ? String(endereco).trim() : null,
-                status: "NAO_INICIADO"
-            }
+        const imovel = await prisma.$transaction(async (tx) => {
+            const created = await tx.imovel.create({
+                data: {
+                    inscimob,
+                    x: xNum,
+                    y: yNum,
+                    numeroAInstalar: String(numeroAInstalar).trim(),
+                    bairroId,
+                    endereco: endereco ? String(endereco).trim() : null,
+                    status: "NAO_INICIADO",
+                    usuarioAlt: user.email
+                }
+            });
+            // Mantém o contador do bairro coerente com a base
+            await tx.bairro.update({
+                where: { id: bairroId },
+                data: { totalImoveis: { increment: 1 } }
+            });
+            return created;
         });
 
-        // Registrar Log de Auditoria
-        await prisma.auditLog.create({
-            data: {
-                userId: user.id,
-                userEmail: user.email || 'desconhecido',
-                action: "CREATE_IMOVEL",
-                resource: "imovel",
-                resourceId: imovel.inscimob,
-                details: {
-                    after: imovel
-                },
-                ip: req.headers.get('x-forwarded-for') || '127.0.0.1',
-                userAgent: req.headers.get('user-agent')
-            }
+        await createAuditLog({
+            userId: user.id,
+            userEmail: user.email || 'desconhecido',
+            action: "CREATE_IMOVEL",
+            resource: "imovel",
+            resourceId: imovel.inscimob,
+            details: { after: imovel },
+            ...getRequestMeta(req)
         });
 
         return NextResponse.json({ success: true, imovel });
@@ -68,22 +67,15 @@ export async function POST(req: NextRequest) {
     }
 }
 
-export async function GET(req: NextRequest) {
-    const user = await getSessionUser();
-    if (!user) {
-        return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
-
-    const hasAccess = user.role === 'ADMIN' || user.role === 'OPERATOR' || user.role === 'PREFEITURA';
-    if (!hasAccess) {
-        return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
-    }
+export async function GET() {
+    const { response } = await requireUser(STAFF_ROLES);
+    if (response) return response;
 
     try {
         const imoveis = await prisma.imovel.findMany({
             include: {
                 bairro: { select: { nome: true } },
-                complementos: true
+                complementos: { orderBy: { unidade: 'asc' } }
             }
         });
         return NextResponse.json({ imoveis });

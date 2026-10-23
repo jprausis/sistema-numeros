@@ -14,10 +14,10 @@ export async function POST(req: NextRequest) {
     try {
         const formData = await req.formData();
         const file = formData.get("file") as File;
-        const bairroNome = formData.get("bairro") as string;
+        const bairroNome = String(formData.get("bairro") || "").trim();
         const tipo = formData.get("tipo") as string || "IMOVEIS"; // IMOVEIS, MALHA, COMPLEMENTOS, COMPLEMENTOS_GEOJSON
 
-        if (!file) {
+        if (!file || typeof file === "string" || file.size === 0) {
             return NextResponse.json({ error: "Arquivo é obrigatório" }, { status: 400 });
         }
 
@@ -50,6 +50,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(result);
     } catch (error: any) {
         console.error("Erro na importação:", error);
-        return NextResponse.json({ error: error.message || "Erro interno no servidor" }, { status: 500 });
+        const message = error instanceof SyntaxError
+            ? "Arquivo GeoJSON inválido (JSON malformado)."
+            : error.message || "Erro interno no servidor";
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

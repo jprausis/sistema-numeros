@@ -1,29 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
-import { createClient } from "@/utils/supabase/server";
-import { generateProtocol } from "@/lib/scheduling";
+import { requireUser, getRequestMeta, STAFF_ROLES } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
+import { generateUniqueProtocol } from "@/lib/agendamentos";
 import { buildBrazilDate } from "@/lib/timezone";
 
 export async function POST(req: NextRequest) {
-    try {
-        let dbUser = await getSessionUser();
-        let userEmail = dbUser?.email;
-        let userName = dbUser?.name;
-        let userId = dbUser?.id;
+    const { user, response } = await requireUser(STAFF_ROLES);
+    if (response) return response;
+    const userEmail = user.email;
+    const userName = user.name;
+    const userId = user.id;
 
-        if (!dbUser) {
-            const supabase = await createClient();
-            const { data: { user: sbUser } } = await supabase.auth.getUser();
-            if (!sbUser) {
-                return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-            }
-            userId = sbUser.id;
-            userEmail = sbUser.email || "prefeitura@projemix.com.br";
-            userName = sbUser.user_metadata?.name || sbUser.email || "Operador Prefeitura";
-        }
+    try {
 
         const body = await req.json();
         const { inscimob, data, horario, nome, telefone, observacao, protocolo: existingProtocolo } = body;
@@ -63,8 +53,8 @@ export async function POST(req: NextRequest) {
         if (imovel.bairro?.nome) enderecoParts.push(imovel.bairro.nome);
         const enderecoCompleto = enderecoParts.join(" - ");
 
-        const contactName = nome?.trim() || "Morador / Prefeitura";
-        const contactPhone = telefone?.trim() || "";
+        const contactName = String(nome ?? "").trim() || "Morador / Prefeitura";
+        const contactPhone = String(telefone ?? "").trim();
 
         let targetProtocolo = existingProtocolo;
         if (!targetProtocolo) {
@@ -97,8 +87,7 @@ export async function POST(req: NextRequest) {
                 }
             });
         } else {
-            const random = Math.floor(100000 + Math.random() * 900000);
-            targetProtocolo = `PREF-${random}`;
+            targetProtocolo = await generateUniqueProtocol("PREF");
             agendamento = await prisma.agendamento.create({
                 data: {
                     protocolo: targetProtocolo,
@@ -114,7 +103,7 @@ export async function POST(req: NextRequest) {
 
         // 2. Atualizar o imóvel com status AGENDADO
         const obsNote = observacao !== undefined
-            ? (observacao?.trim() || null)
+            ? (String(observacao ?? "").trim() || null)
             : imovel.obsPendente;
 
         const updatedImovel = await prisma.imovel.update({
@@ -144,9 +133,10 @@ export async function POST(req: NextRequest) {
                 dataHora: dataHora.toISOString(),
                 nome: contactName,
                 telefone: contactPhone,
-                observacao: observacao?.trim() || null,
+                observacao: obsNote,
                 isEdit
-            }
+            },
+            ...getRequestMeta(req)
         });
 
         return NextResponse.json({
@@ -158,6 +148,6 @@ export async function POST(req: NextRequest) {
         });
     } catch (error: any) {
         console.error("Erro ao cadastrar agendamento pela prefeitura:", error);
-        return NextResponse.json({ error: error.message || "Erro interno ao cadastrar agendamento" }, { status: 500 });
+        return NextResponse.json({ error: "Erro interno ao cadastrar agendamento" }, { status: 500 });
     }
 }

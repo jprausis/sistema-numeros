@@ -2,6 +2,17 @@ import prisma from "@/lib/prisma";
 
 const STATUS_FINALIZADOS = ["CONCLUIDO", "CANCELADO"];
 
+/** Gera um protocolo (ex: AG-123456, PREF-123456) garantindo que ainda não existe no banco. */
+export async function generateUniqueProtocol(prefix: "AG" | "PREF"): Promise<string> {
+    for (let attempt = 0; attempt < 10; attempt++) {
+        const protocolo = `${prefix}-${Math.floor(100000 + Math.random() * 900000)}`;
+        const exists = await prisma.agendamento.findUnique({ where: { protocolo }, select: { protocolo: true } });
+        if (!exists) return protocolo;
+    }
+    // Improvável: fallback com sufixo de tempo para evitar colisão
+    return `${prefix}-${Date.now().toString().slice(-8)}`;
+}
+
 /**
  * Conclui todos os agendamentos em aberto vinculados a um imóvel.
  * Deve ser chamado sempre que o imóvel for marcado como CONCLUIDO,

@@ -1,10 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import styles from './page.module.css';
 import * as XLSX from 'xlsx';
-import { createClient } from '@/utils/supabase/client';
+import { Download, Loader2, MapPin, Navigation, Plus, Search, Trash2, X } from 'lucide-react';
+import { toast } from '@/utils/toast';
+import { parseFotos, limparLinksImagens, temFotosReais, fotoDestaque } from '@/utils/fotos';
+import { statusLabel } from '@/utils/status';
+import { formatBrazil, todayBrazil } from '@/lib/timezone';
+
+const PAGE_SIZE = 100;
 
 const InstallerMap = dynamic(() => import('@/components/InstallerMap'), {
     ssr: false,
@@ -12,12 +18,13 @@ const InstallerMap = dynamic(() => import('@/components/InstallerMap'), {
 });
 
 export default function AdminImoveisPage() {
-    const supabase = createClient();
     const [imoveis, setImoveis] = useState<any[]>([]);
     const [user, setUser] = useState<any>(null);
     const [role, setRole] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+    const [saving, setSaving] = useState(false);
     const [view, setView] = useState<'table' | 'map'>('table');
     const [selectedImovel, setSelectedImovel] = useState<any | null>(null);
     const [editMode, setEditMode] = useState(false);
@@ -34,46 +41,6 @@ export default function AdminImoveisPage() {
         endereco: ''
     });
 
-    const parseFotos = (fotosStr: any): string | null => {
-        if (!fotosStr) return null;
-        try {
-            if (typeof fotosStr === 'string' && (fotosStr.startsWith('[') || fotosStr.startsWith('{'))) {
-                const parsed = JSON.parse(fotosStr);
-                return Array.isArray(parsed) ? parsed[0] : parsed;
-            }
-            return fotosStr;
-        } catch (e) {
-            return fotosStr;
-        }
-    };
-
-    const limparLinksImagens = (fotosStr: any): string => {
-        if (!fotosStr) return '';
-        try {
-            if (typeof fotosStr === 'string' && (fotosStr.startsWith('[') || fotosStr.startsWith('{'))) {
-                const parsed = JSON.parse(fotosStr);
-                if (Array.isArray(parsed)) {
-                    return parsed.map((item: any) => String(item).trim()).join(', ');
-                }
-                return String(parsed).trim();
-            }
-            let cleanStr = String(fotosStr).trim();
-            if (cleanStr.startsWith('[') && cleanStr.endsWith(']')) {
-                cleanStr = cleanStr.slice(1, -1);
-                return cleanStr.split(',').map((s: string) => s.replace(/["']/g, '').trim()).join(', ');
-            }
-            return cleanStr;
-        } catch (e) {
-            return String(fotosStr).trim();
-        }
-    };
-
-    const temFotosReais = (fotosStr: any): boolean => {
-        if (!fotosStr) return false;
-        const trimmed = String(fotosStr).trim();
-        return trimmed !== '' && trimmed !== 'null' && trimmed !== '[]';
-    };
-
     const [bairros, setBairros] = useState<any[]>([]);
     const [bairroFilter, setBairroFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
@@ -87,11 +54,12 @@ export default function AdminImoveisPage() {
 
             const dataImoveis = await resImoveis.json();
             const dataBairros = await resBairros.json();
+            if (!resImoveis.ok) throw new Error(dataImoveis.error);
 
             setImoveis(dataImoveis.imoveis || []);
             setBairros(dataBairros.bairros || []);
-        } catch (e) {
-            console.error("Erro ao buscar dados");
+        } catch (e: any) {
+            toast.error(e?.message || "Erro ao carregar os imóveis.");
         } finally {
             setLoading(false);
         }
@@ -103,12 +71,8 @@ export default function AdminImoveisPage() {
                 const resProfile = await fetch('/api/auth/me');
                 if (resProfile.ok) {
                     const profileData = await resProfile.json();
-                    setRole(profileData.user?.role || 'INSTALLER');
+                    setRole(profileData.user?.role || null);
                     setUser(profileData.user);
-                } else {
-                    const { data: { user } } = await supabase.auth.getUser();
-                    setUser(user);
-                    setRole(user?.user_metadata?.role || 'INSTALLER');
                 }
             } catch (error) {
                 console.error("Erro ao verificar usuário:", error);
@@ -133,18 +97,15 @@ export default function AdminImoveisPage() {
             const res = await fetch(`/api/admin/imoveis/${selectedImovel.inscimob}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    fotos: null,
-                    usuarioAlt: `Foto excluída por: ${user?.user_metadata?.name || user?.email}`
-                })
+                body: JSON.stringify({ fotos: null })
             });
 
-            if (res.ok) {
-                setSelectedImovel({ ...selectedImovel, fotos: null });
-                fetchImoveis();
-            }
+            if (!res.ok) throw new Error();
+            setSelectedImovel({ ...selectedImovel, fotos: null });
+            toast.success("Foto excluída.");
+            fetchImoveis();
         } catch (e) {
-            alert("Erro ao excluir foto.");
+            toast.error("Erro ao excluir foto.");
         }
     };
 
@@ -155,12 +116,7 @@ export default function AdminImoveisPage() {
             const res = await fetch('/api/instalador/complemento/atualizar', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: compId,
-                    fotos: null,
-                    userId: user?.id,
-                    userEmail: user?.email
-                })
+                body: JSON.stringify({ id: compId, fotos: null })
             });
 
             if (res.ok) {
@@ -173,10 +129,10 @@ export default function AdminImoveisPage() {
                 setSelectedImovel({ ...selectedImovel, complementos: updatedComps });
                 fetchImoveis();
             } else {
-                alert("Erro ao excluir foto do complemento.");
+                toast.error("Erro ao excluir foto do complemento.");
             }
         } catch (e) {
-            alert("Erro ao excluir foto do complemento.");
+            toast.error("Erro ao excluir foto do complemento.");
         }
     };
 
@@ -195,6 +151,7 @@ export default function AdminImoveisPage() {
             });
 
             if (!uploadRes.ok) throw new Error("Falha no upload");
+            toast.info("Foto enviada, salvando...");
 
             const uploadData = await uploadRes.json();
             const photoUrl = uploadData.url;
@@ -202,12 +159,7 @@ export default function AdminImoveisPage() {
             const res = await fetch('/api/instalador/complemento/atualizar', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: compId,
-                    fotos: [photoUrl],
-                    userId: user?.id,
-                    userEmail: user?.email
-                })
+                body: JSON.stringify({ id: compId, fotos: [photoUrl] })
             });
 
             if (res.ok) {
@@ -220,10 +172,10 @@ export default function AdminImoveisPage() {
                 setSelectedImovel({ ...selectedImovel, complementos: updatedComps });
                 fetchImoveis();
             } else {
-                alert("Erro ao enviar foto do complemento.");
+                toast.error("Erro ao enviar foto do complemento.");
             }
         } catch (err) {
-            alert("Erro ao enviar foto do complemento.");
+            toast.error("Erro ao enviar foto do complemento.");
         }
     };
 
@@ -234,12 +186,7 @@ export default function AdminImoveisPage() {
             const res = await fetch('/api/instalador/complemento/atualizar', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: compId,
-                    status: newStatus,
-                    userId: user?.id,
-                    userEmail: user?.email
-                })
+                body: JSON.stringify({ id: compId, status: newStatus })
             });
 
             if (res.ok) {
@@ -252,10 +199,10 @@ export default function AdminImoveisPage() {
                 setSelectedImovel({ ...selectedImovel, complementos: updatedComps });
                 fetchImoveis();
             } else {
-                alert("Erro ao atualizar status do complemento.");
+                toast.error("Erro ao atualizar status do complemento.");
             }
         } catch (e) {
-            alert("Erro ao atualizar status do complemento.");
+            toast.error("Erro ao atualizar status do complemento.");
         }
     };
 
@@ -263,32 +210,34 @@ export default function AdminImoveisPage() {
         e.preventDefault();
         if (!selectedImovel) return;
 
+        setSaving(true);
         try {
             const res = await fetch(`/api/admin/imoveis/${selectedImovel.inscimob}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     status: selectedImovel.status,
-                    fotos: selectedImovel.fotos,
                     obsPendente: selectedImovel.obsPendente,
                     numeroAInstalar: selectedImovel.numeroAInstalar,
-                    usuarioAlt: `Admin: ${user?.user_metadata?.name || user?.email}`
+                    instaladorResp: user?.name || user?.email
                 })
             });
 
-            if (res.ok) {
-                alert("Imóvel atualizado com sucesso!");
-                setEditMode(false);
-                fetchImoveis();
-            }
-        } catch (e) {
-            alert("Erro ao atualizar.");
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Erro ao atualizar.");
+            toast.success("Imóvel atualizado.");
+            setEditMode(false);
+            fetchImoveis();
+        } catch (e: any) {
+            toast.error(e.message || "Erro ao atualizar.");
+        } finally {
+            setSaving(false);
         }
     };
 
     const handleGetLocation = () => {
         if (!navigator.geolocation) {
-            alert("Geolocalização não é suportada por este navegador.");
+            toast.error("Geolocalização não é suportada por este navegador.");
             return;
         }
         navigator.geolocation.getCurrentPosition(
@@ -301,7 +250,7 @@ export default function AdminImoveisPage() {
             },
             (error) => {
                 console.error("Erro ao obter localização:", error);
-                alert("Não foi possível obter a localização do dispositivo.");
+                toast.error("Não foi possível obter a localização. Verifique a permissão de GPS.");
             },
             { enableHighAccuracy: true }
         );
@@ -325,7 +274,7 @@ export default function AdminImoveisPage() {
 
             const data = await res.json();
             if (res.ok) {
-                alert("Imóvel cadastrado com sucesso!");
+                toast.success("Imóvel cadastrado.");
                 setIsCreating(false);
                 setNewImovelData({
                     inscimob: '',
@@ -337,11 +286,11 @@ export default function AdminImoveisPage() {
                 });
                 fetchImoveis();
             } else {
-                alert(data.error || "Erro ao cadastrar imóvel.");
+                toast.error(data.error || "Erro ao cadastrar imóvel.");
             }
         } catch (err) {
             console.error("Erro ao cadastrar imóvel:", err);
-            alert("Erro de conexão ao cadastrar imóvel.");
+            toast.error("Erro de conexão ao cadastrar imóvel.");
         }
     };
 
@@ -359,7 +308,7 @@ export default function AdminImoveisPage() {
                 'Foto Orientação': limparLinksImagens(i.fotoLocalInstalacao) || 'Nenhuma',
                 'Foto Instalação': limparLinksImagens(i.fotos) || 'Nenhuma',
                 'Observações': i.obsPendente || '',
-                'Data Execução': i.dataExecucao ? new Date(i.dataExecucao).toLocaleDateString() : 'N/A',
+                'Data Execução': i.dataExecucao ? formatBrazil(i.dataExecucao) : 'N/A',
                 'Tipo': 'Principal'
             });
 
@@ -378,7 +327,7 @@ export default function AdminImoveisPage() {
                         'Foto Orientação': limparLinksImagens(c.fotoLocalInstalacao) || 'Nenhuma',
                         'Foto Instalação': limparLinksImagens(c.fotos) || 'Nenhuma',
                         'Observações': '',
-                        'Data Execução': c.dataExecucao ? new Date(c.dataExecucao).toLocaleDateString() : 'N/A',
+                        'Data Execução': c.dataExecucao ? formatBrazil(c.dataExecucao) : 'N/A',
                         'Tipo': 'Complemento'
                     });
                 });
@@ -388,15 +337,23 @@ export default function AdminImoveisPage() {
         const ws = XLSX.utils.json_to_sheet(dataToExport);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Imoveis");
-        XLSX.writeFile(wb, `Relatorio_Instalacoes_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.writeFile(wb, `Relatorio_Instalacoes_${todayBrazil()}.xlsx`);
     };
 
-    const filtered = imoveis.filter(i => {
-        const matchesSearch = i.inscimob.includes(search) || i.numeroAInstalar?.includes(search);
-        const matchesBairro = bairroFilter === '' || i.bairroId === bairroFilter;
-        const matchesStatus = statusFilter === '' || i.status === statusFilter;
-        return matchesSearch && matchesBairro && matchesStatus;
-    });
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return imoveis.filter(i => {
+            const matchesSearch = !q || i.inscimob.toLowerCase().includes(q) || i.numeroAInstalar?.toLowerCase().includes(q) || i.endereco?.toLowerCase().includes(q);
+            const matchesBairro = bairroFilter === '' || i.bairroId === bairroFilter;
+            const matchesStatus = statusFilter === '' || i.status === statusFilter;
+            return matchesSearch && matchesBairro && matchesStatus;
+        });
+    }, [imoveis, search, bairroFilter, statusFilter]);
+
+    // Volta para a primeira "página" quando os filtros mudam
+    useEffect(() => {
+        setVisibleCount(PAGE_SIZE);
+    }, [search, bairroFilter, statusFilter]);
 
     return (
         <div className={styles.container}>
@@ -407,16 +364,17 @@ export default function AdminImoveisPage() {
                 </div>
                 <div className={styles.headerActions}>
                     {(role === 'ADMIN' || role === 'OPERATOR' || role === 'PREFEITURA') && (
-                        <button onClick={() => setIsCreating(true)} className={styles.exportBtn} style={{ backgroundColor: 'var(--primary)' }}>
-                            ➕ Novo Imóvel
+                        <button onClick={() => setIsCreating(true)} className={styles.primaryBtn}>
+                            <Plus size={18} /> Novo Imóvel
                         </button>
                     )}
-                    <button onClick={handleExport} className={styles.exportBtn}>
-                        📥 Exportar Excel
+                    <button onClick={handleExport} className={styles.exportBtn} disabled={filtered.length === 0}>
+                        <Download size={16} /> Exportar Excel
                     </button>
 
                     <select
                         className={styles.filterSelect}
+                        aria-label="Filtrar por bairro"
                         value={bairroFilter}
                         onChange={e => setBairroFilter(e.target.value)}
                     >
@@ -428,6 +386,7 @@ export default function AdminImoveisPage() {
 
                     <select
                         className={styles.filterSelect}
+                        aria-label="Filtrar por status"
                         value={statusFilter}
                         onChange={e => setStatusFilter(e.target.value)}
                     >
@@ -458,13 +417,16 @@ export default function AdminImoveisPage() {
             </header>
 
             <div className={styles.searchWrapper}>
+                <Search size={18} className={styles.searchIcon} aria-hidden />
                 <input
-                    type="text"
-                    placeholder="Buscar por inscimob ou Nº de casa..."
+                    type="search"
+                    aria-label="Buscar imóveis"
+                    placeholder="Buscar por inscrição, número ou endereço..."
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     className={styles.searchBar}
                 />
+                <span className={styles.resultCount}>{loading ? '' : `${filtered.length.toLocaleString('pt-BR')} imóveis`}</span>
             </div>
 
             {view === 'map' ? (
@@ -496,17 +458,19 @@ export default function AdminImoveisPage() {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan={7}>Carregando...</td></tr>
+                                <tr><td colSpan={7} className={styles.emptyCell}><Loader2 size={20} className="spin" /> Carregando imóveis...</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={7}>Nenhum imóvel encontrado.</td></tr>
-                            ) : filtered.map(i => (
+                                <tr><td colSpan={7} className={styles.emptyCell}>Nenhum imóvel encontrado com os filtros atuais.</td></tr>
+                            ) : filtered.slice(0, visibleCount).map(i => {
+                                const destaque = fotoDestaque(i);
+                                return (
                                 <tr key={i.inscimob}>
                                     <td>
-                                        {((i.status === 'CONCLUIDO' ? parseFotos(i.fotos) : (parseFotos(i.fotoLocalInstalacao) || parseFotos(i.fotos)))) ? (
-                                            <div className={styles.tableThumb} onClick={() => window.open((i.status === 'CONCLUIDO' ? parseFotos(i.fotos) : (parseFotos(i.fotoLocalInstalacao) || parseFotos(i.fotos))) || '', '_blank')}>
-                                                <img src={(i.status === 'CONCLUIDO' ? parseFotos(i.fotos) : (parseFotos(i.fotoLocalInstalacao) || parseFotos(i.fotos))) || ''} alt="Foto do Imóvel" />
-                                                <span className={styles.photoBadge}>{i.status === 'CONCLUIDO' || (!i.fotoLocalInstalacao && i.fotos) ? 'Instalação' : 'Orientação'}</span>
-                                            </div>
+                                        {destaque ? (
+                                            <a className={styles.tableThumb} href={destaque.url} target="_blank" rel="noopener noreferrer" title={`Abrir foto de ${destaque.tipo.toLowerCase()}`}>
+                                                <img src={destaque.url} alt={`Foto de ${destaque.tipo.toLowerCase()} do imóvel ${i.numeroAInstalar}`} loading="lazy" />
+                                                <span className={styles.photoBadge}>{destaque.tipo}</span>
+                                            </a>
                                         ) : (
                                             <span className={styles.noPhoto}>Sem foto</span>
                                         )}
@@ -521,7 +485,7 @@ export default function AdminImoveisPage() {
                                     </td>
                                     <td>
                                         <span className={`${styles.badge} ${styles[i.status]}`}>
-                                            {i.status}
+                                            {statusLabel(i.status)}
                                         </span>
                                     </td>
                                     <td>
@@ -529,15 +493,13 @@ export default function AdminImoveisPage() {
                                             <button
                                                 className={styles.locateBtn}
                                                 title="Ver no Mapa"
+                                                aria-label={`Ver imóvel ${i.numeroAInstalar} no mapa`}
                                                 onClick={() => {
                                                     setMapFocus([i.x, i.y]);
                                                     setView('map');
                                                 }}
                                             >
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
-                                                    <circle cx="12" cy="10" r="3" />
-                                                </svg>
+                                                <MapPin size={18} />
                                             </button>
                                             {isAdmin && (
                                                 <button
@@ -553,17 +515,31 @@ export default function AdminImoveisPage() {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
+                    {!loading && filtered.length > visibleCount && (
+                        <div className={styles.loadMore}>
+                            <span>Exibindo {visibleCount.toLocaleString('pt-BR')} de {filtered.length.toLocaleString('pt-BR')}</span>
+                            <button type="button" className={styles.exportBtn} onClick={() => setVisibleCount(c => c + PAGE_SIZE * 2)}>
+                                Carregar mais
+                            </button>
+                        </div>
+                    )}
                 </section>
             )}
 
             {editMode && selectedImovel && (
-                <div className={styles.modalOverlay}>
-                    <div className={styles.modal}>
-                        <h3>Editar Imóvel: {selectedImovel.numeroAInstalar}</h3>
-                        <p>ID: {selectedImovel.inscimob}</p>
+                <div className={styles.modalOverlay} onClick={() => !saving && setEditMode(false)}>
+                    <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="edit-imovel-title" onClick={e => e.stopPropagation()}>
+                        <div className={styles.modalHead}>
+                            <div>
+                                <h3 id="edit-imovel-title">Editar Imóvel Nº {selectedImovel.numeroAInstalar}</h3>
+                                <p>Inscrição {selectedImovel.inscimob} • {selectedImovel.bairro?.nome}</p>
+                            </div>
+                            <button type="button" className={styles.modalClose} onClick={() => setEditMode(false)} aria-label="Fechar"><X size={18} /></button>
+                        </div>
 
                         <form onSubmit={handleUpdate} className={styles.form}>
                             {selectedImovel.fotos && (
@@ -576,18 +552,21 @@ export default function AdminImoveisPage() {
                                                 className={styles.deletePhotoBtn}
                                                 onClick={handleDeletePhoto}
                                             >
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                                <Trash2 size={16} style={{ marginRight: '6px' }} />
                                                 Excluir Foto
                                             </button>
                                         )}
                                     </div>
-                                    <img src={parseFotos(selectedImovel.fotos) || ''} alt="Foto" className={styles.modalImg} onClick={() => window.open(parseFotos(selectedImovel.fotos) || '', '_blank')} />
+                                    <a href={parseFotos(selectedImovel.fotos) || ''} target="_blank" rel="noopener noreferrer">
+                                        <img src={parseFotos(selectedImovel.fotos) || ''} alt="Foto da instalação" className={styles.modalImg} />
+                                    </a>
                                 </div>
                             )}
 
                             <div className={styles.formGroup}>
-                                <label>Número do Imóvel</label>
+                                <label htmlFor="edit-numero">Número do Imóvel</label>
                                 <input
+                                    id="edit-numero"
                                     type="text"
                                     className={styles.formInput}
                                     value={selectedImovel.numeroAInstalar || ''}
@@ -597,8 +576,9 @@ export default function AdminImoveisPage() {
                             </div>
 
                             <div className={styles.formGroup}>
-                                <label>Status</label>
+                                <label htmlFor="edit-status">Status</label>
                                 <select
+                                    id="edit-status"
                                     value={selectedImovel.status}
                                     onChange={e => setSelectedImovel({ ...selectedImovel, status: e.target.value })}
                                 >
@@ -606,6 +586,7 @@ export default function AdminImoveisPage() {
                                     <option value="LIBERADO">Liberado</option>
                                     <option value="AUSENTE">Ausente</option>
                                     <option value="PENDENTE">Pendente</option>
+                                    <option value="AGENDADO">Agendado</option>
                                     <option value="CONCLUIDO">Concluído</option>
                                 </select>
                             </div>
@@ -619,7 +600,7 @@ export default function AdminImoveisPage() {
                                             if (c.status === 'CONCLUIDO') statusClass = styles.compDone;
                                             else if (c.liberadoInstalacao) statusClass = styles.compReleased;
 
-                                            const foto = c.fotos && c.fotos !== 'null' && c.fotos !== '[]' ? JSON.parse(c.fotos)[0] : null;
+                                            const foto = parseFotos(c.fotos);
 
                                             return (
                                                 <div key={c.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', padding: '8px', border: '1px solid #e2e8f0', borderRadius: '8px', backgroundColor: 'white', minWidth: '120px' }}>
@@ -627,6 +608,7 @@ export default function AdminImoveisPage() {
                                                         {c.numeroPredial}
                                                     </div>
                                                     <select
+                                                        aria-label={`Status da unidade ${c.numeroPredial}`}
                                                         value={c.status}
                                                         onChange={(e) => handleUpdateCompStatus(c.id, e.target.value)}
                                                         style={{ padding: '2px 4px', fontSize: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', width: '100%', cursor: 'pointer', fontWeight: '600' }}
@@ -678,8 +660,9 @@ export default function AdminImoveisPage() {
                             )}
 
                             <div className={styles.formGroup}>
-                                <label>Observações</label>
+                                <label htmlFor="edit-obs">Observações</label>
                                 <textarea
+                                    id="edit-obs"
                                     value={selectedImovel.obsPendente || ''}
                                     placeholder="Ex: Portão trancado, número incorreto..."
                                     onChange={e => setSelectedImovel({ ...selectedImovel, obsPendente: e.target.value })}
@@ -687,8 +670,10 @@ export default function AdminImoveisPage() {
                             </div>
 
                             <div className={styles.modalActions}>
-                                <button type="button" onClick={() => setEditMode(false)} className={styles.cancelBtn}>Cancelar</button>
-                                <button type="submit" className={styles.saveBtn}>Salvar</button>
+                                <button type="button" onClick={() => setEditMode(false)} className={styles.cancelBtn} disabled={saving}>Cancelar</button>
+                                <button type="submit" className={styles.saveBtn} disabled={saving}>
+                                    {saving && <Loader2 size={16} className="spin" />} Salvar
+                                </button>
                             </div>
                         </form>
                     </div>
@@ -696,11 +681,15 @@ export default function AdminImoveisPage() {
             )}
 
             {isCreating && (
-                <div className={styles.modalOverlay}>
-                    <div className={styles.modal} style={{ maxWidth: '600px' }}>
-                        <h3 style={{ marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem', fontWeight: 800 }}>
-                            ➕ Cadastrar Novo Imóvel
-                        </h3>
+                <div className={styles.modalOverlay} onClick={() => setIsCreating(false)}>
+                    <div className={styles.modal} style={{ maxWidth: '600px' }} role="dialog" aria-modal="true" aria-labelledby="create-imovel-title" onClick={e => e.stopPropagation()}>
+                        <div className={styles.modalHead}>
+                            <div>
+                                <h3 id="create-imovel-title">Cadastrar Novo Imóvel</h3>
+                                <p>Use o GPS no local ou informe as coordenadas manualmente.</p>
+                            </div>
+                            <button type="button" className={styles.modalClose} onClick={() => setIsCreating(false)} aria-label="Fechar"><X size={18} /></button>
+                        </div>
                         
                         <form onSubmit={handleCreateImovel} className={styles.form}>
                             <div className={styles.formGrid}>
@@ -750,7 +739,7 @@ export default function AdminImoveisPage() {
                                             onClick={handleGetLocation}
                                             className={styles.geoButton}
                                         >
-                                            📡 Capturar Localização GPS Atual
+                                            <Navigation size={14} /> Usar minha localização (GPS)
                                         </button>
                                     </div>
                                     <div style={{ display: 'flex', gap: '1rem' }}>
@@ -761,7 +750,8 @@ export default function AdminImoveisPage() {
                                                 className={styles.formInput}
                                                 value={newImovelData.x}
                                                 onChange={e => setNewImovelData({ ...newImovelData, x: e.target.value })}
-                                                placeholder="Eixo X (Ex: -25.263884)"
+                                                aria-label="Latitude ou coordenada X"
+                                                placeholder="Latitude / X (ex: -25.263884)"
                                                 required
                                             />
                                         </div>
@@ -772,7 +762,8 @@ export default function AdminImoveisPage() {
                                                 className={styles.formInput}
                                                 value={newImovelData.y}
                                                 onChange={e => setNewImovelData({ ...newImovelData, y: e.target.value })}
-                                                placeholder="Eixo Y (Ex: -49.208394)"
+                                                aria-label="Longitude ou coordenada Y"
+                                                placeholder="Longitude / Y (ex: -49.208394)"
                                                 required
                                             />
                                         </div>

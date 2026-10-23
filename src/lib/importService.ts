@@ -16,11 +16,11 @@ export async function processExcelImport(buffer: Buffer, bairroNome: string) {
     const data = XLSX.utils.sheet_to_json(worksheet) as any[];
 
     const validatedData: PropertyImportData[] = data.map((row: any) => ({
-        inscimob: String(row.inscimob || row.INSCIMOB || ''),
-        x: parseFloat(row.x || row.X || '0'),
-        y: parseFloat(row.y || row.Y || '0'),
-        numero: String(row.Número || row.NUMERO || row.numero || '')
-    })).filter(item => item.inscimob && !isNaN(item.x) && !isNaN(item.y));
+        inscimob: String(row.inscimob ?? row.INSCIMOB ?? '').trim(),
+        x: parseFloat(String(row.x ?? row.X ?? '').replace(',', '.')),
+        y: parseFloat(String(row.y ?? row.Y ?? '').replace(',', '.')),
+        numero: String(row.Número ?? row.NUMERO ?? row.numero ?? '').trim()
+    })).filter(item => item.inscimob && Number.isFinite(item.x) && Number.isFinite(item.y) && item.x !== 0 && item.y !== 0);
 
     if (validatedData.length === 0) {
         throw new Error("Nenhum dado válido encontrado na planilha.");
@@ -77,7 +77,7 @@ export async function processGeoJSONImport(buffer: Buffer) {
     const content = buffer.toString('utf-8');
     const geojson = JSON.parse(content);
 
-    if (geojson.type !== 'FeatureCollection') {
+    if (geojson.type !== 'FeatureCollection' || !Array.isArray(geojson.features)) {
         throw new Error("O arquivo não é uma FeatureCollection GeoJSON válida.");
     }
 
@@ -159,9 +159,9 @@ export async function processComplementoImport(buffer: Buffer) {
     const data = XLSX.utils.sheet_to_json(worksheet) as any[];
 
     const validatedData: ComplementoImportData[] = data.map((row: any) => ({
-        unidade: String(row.unidade || row.UNIDADE || ''),
-        indicacaof: String(row.indicacaof || row.INDICACAOF || row.inscimob || ''),
-        numeroPredial: String(row['número predial'] || row.NUMERO_PREDIAL || row.numero_predial || '')
+        unidade: String(row.unidade ?? row.UNIDADE ?? '').trim(),
+        indicacaof: String(row.indicacaof ?? row.INDICACAOF ?? row.inscimob ?? '').trim(),
+        numeroPredial: String(row['número predial'] ?? row.NUMERO_PREDIAL ?? row.numero_predial ?? '').trim()
     })).filter(item => item.unidade && item.indicacaof);
 
     if (validatedData.length === 0) {
@@ -217,7 +217,7 @@ export async function processComplementoGeoJSONImport(buffer: Buffer) {
     const content = buffer.toString('utf-8');
     const geojson = JSON.parse(content);
 
-    if (geojson.type !== 'FeatureCollection') {
+    if (geojson.type !== 'FeatureCollection' || !Array.isArray(geojson.features)) {
         throw new Error("O arquivo não é uma FeatureCollection GeoJSON válida.");
     }
 
@@ -225,12 +225,12 @@ export async function processComplementoGeoJSONImport(buffer: Buffer) {
     let notFoundCount = 0;
 
     for (const feature of geojson.features) {
-        const inscimob = String(feature.properties?.indicacaof || feature.properties?.inscimob || '');
-        const unidade = String(feature.properties?.unidade || '');
+        const inscimob = String(feature.properties?.indicacaof || feature.properties?.inscimob || '').trim();
+        const unidade = String(feature.properties?.unidade || '').trim();
 
         if (!inscimob || !unidade) continue;
 
-        const coords = feature.geometry.type === 'Point' ? feature.geometry.coordinates : null;
+        const coords = feature.geometry?.type === 'Point' ? feature.geometry.coordinates : null;
         if (!coords) continue;
 
         try {

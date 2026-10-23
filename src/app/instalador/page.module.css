@@ -2,7 +2,9 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
+    padding-top: env(safe-area-inset-top);
 }
 
 .header {
@@ -37,7 +39,8 @@
 }
 
 .nav button {
-    padding: 0.75rem 0.25rem;
+    min-height: 48px;
+    padding: 0.5rem 0.25rem;
     border-radius: 12px;
     border: 1px solid #e2e8f0;
     background: #f8fafc;
@@ -55,7 +58,7 @@
     background: var(--primary) !important;
     color: white !important;
     border-color: var(--primary) !important;
-    box-shadow: 0 4px 12px rgba(0, 71, 187, 0.2);
+    box-shadow: 0 4px 12px rgb(21 128 61 / 0.25);
 }
 
 .content {
@@ -63,6 +66,7 @@
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom);
     background: transparent;
 }
 
@@ -94,8 +98,9 @@
 }
 
 .openButton {
-    background: var(--accent);
-    color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+    min-height: 44px;
     padding: 0.6rem 1rem;
     border-radius: var(--radius-sm);
     font-weight: 700;
@@ -104,8 +109,10 @@
 
 .logoutBtn {
     background: #fee2e2;
-    color: #ef4444;
+    color: #b91c1c;
     border: none;
+    width: 44px;
+    height: 44px;
     padding: 0.6rem;
     border-radius: 12px;
     display: flex;
@@ -116,33 +123,32 @@
 /* Nova Tela de Processo */
 .NAO_INICIADO {
     background: #fee2e2;
-    color: #ef4444;
+    color: #b91c1c;
 }
 
 .PENDENTE {
     background: #fef9c3;
-    color: #eab308;
+    color: #a16207;
 }
 
 .AUSENTE {
     background: #ffedd5;
-    color: #f97316;
+    color: #c2410c;
 }
 
 .LIBERADO {
     background: #dbeafe;
-    color: #3b82f6;
+    color: #1d4ed8;
 }
 
 .CONCLUIDO {
     background: #dcfce7;
-    color: #22c55e;
+    color: #15803d;
 }
 
 .AGENDADO {
     background: #f3e8ff;
     color: #7e22ce;
-    border: 1px solid #d8b4fe;
 }
 
 .processContainer {
@@ -906,4 +912,20 @@
 .agendaWhatsappBtn:hover {
     background: #dcfce7;
 }
-
+
+
+/* Alvos de toque mínimos para uso em campo (luvas, sol, uma mão) */
+.radiusBtn,
+.activeRadius,
+.agendaTab,
+.mapSmallButton,
+.agendaIconBtn,
+.agendaPrimaryBtn,
+.agendaWhatsappBtn {
+    min-height: 44px;
+}
+
+.clearSearchBtn {
+    min-width: 44px;
+    min-height: 44px;
+}

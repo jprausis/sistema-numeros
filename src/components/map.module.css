@@ -42,8 +42,98 @@
 
 .photoThumb img {
     width: 100%;
-    height: 100px;
+    height: 110px;
     object-fit: cover;
+    border-radius: 8px;
+    display: block;
+}
+
+.photoTag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    background: #f1f5f9;
+    color: #475569;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+.popupStatus {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+}
+
+.popupStatus span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.popupComp {
+    color: var(--primary) !important;
+    font-weight: 600;
+}
+
+.userDot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgb(59 130 246 / 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: pulse 2s ease-out infinite;
+}
+
+.userDot span {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #2563eb;
+    border: 3px solid #fff;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgb(59 130 246 / 0.45); }
+    70% { box-shadow: 0 0 0 14px rgb(59 130 246 / 0); }
+    100% { box-shadow: 0 0 0 0 rgb(59 130 246 / 0); }
+}
+
+.legend {
+    position: absolute;
+    right: 70px;
+    top: 15px;
+    z-index: 1000;
+    list-style: none;
+    background: #fff;
+    border-radius: 12px;
+    padding: 0.6rem 0.8rem;
+    box-shadow: 0 4px 15px rgb(0 0 0 / 0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.legend span {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgb(15 23 42 / 0.15);
 }
 
 .actions {
@@ -56,6 +146,10 @@
 .button {
     background: var(--primary);
     color: #ffffff !important;
+    min-height: 40px;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
     padding: 0.5rem;
     text-align: center;
     border-radius: var(--radius-sm);
@@ -68,6 +162,7 @@
 .buttonSecondary {
     background: var(--accent);
     color: var(--primary);
+    min-height: 40px;
     padding: 0.5rem;
     border: 1px solid var(--primary);
     border-radius: var(--radius-sm);
@@ -97,15 +192,20 @@
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
     cursor: pointer;
-    font-size: 1.4rem;
-    color: var(--primary);
+    color: #334155;
     border: 2px solid white;
-    transition: all 0.2s;
+    transition: border-color 0.18s, color 0.18s, transform 0.1s;
 }
 
 .controlBtn:hover {
-    transform: scale(1.1);
     border-color: var(--primary);
+    color: var(--primary);
+}
+
+.controlActive {
+    background: var(--accent);
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 .controlBtn:active {

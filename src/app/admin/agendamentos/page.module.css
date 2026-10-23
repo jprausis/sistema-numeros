@@ -33,12 +33,16 @@
     border-radius: 10px;
     border: 1px solid #e2e8f0;
     gap: 4px;
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 .tabBtn {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    min-height: 40px;
+    white-space: nowrap;
     padding: 8px 16px;
     border-radius: 8px;
     border: none;
@@ -59,6 +63,8 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    min-height: 40px;
+    white-space: nowrap;
     padding: 8px 16px;
     border-radius: 8px;
     border: none;
@@ -80,7 +86,7 @@
 }
 
 .tabBtnActive .badgeCount {
-    background: #9333ea;
+    background: var(--primary);
     color: #ffffff;
 }
 
@@ -98,9 +104,10 @@
     gap: 8px;
     background: #ffffff;
     border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    padding: 6px 12px;
-    width: 340px;
+    border-radius: 10px;
+    padding: 0 12px;
+    min-height: 44px;
+    width: 420px;
     max-width: 100%;
 }
 
@@ -109,7 +116,13 @@
     flex-shrink: 0;
 }
 
+.searchBox:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgb(21 128 61 / 0.2);
+}
+
 .searchInput {
+    min-height: 40px;
     border: none;
     outline: none;
     width: 100%;
@@ -514,4 +527,28 @@
 .emptyState svg {
     margin-bottom: 0.75rem;
     color: #cbd5e1;
+}
+.searchInput:focus-visible {
+    box-shadow: none !important;
+}
+
+@media (max-width: 640px) {
+    .headerRow h1 {
+        font-size: 1.45rem;
+    }
+
+    .tabGroup {
+        width: 100%;
+    }
+
+    .modalOverlay {
+        align-items: flex-end !important;
+        padding: 0 !important;
+    }
+
+    .modal {
+        border-radius: 18px 18px 0 0 !important;
+        max-height: 92dvh;
+        overflow-y: auto;
+    }
 }

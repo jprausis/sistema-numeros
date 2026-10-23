@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const lat = parseFloat(searchParams.get("lat") || "0");
         const lon = parseFloat(searchParams.get("lon") || "0");
-        const radius = parseFloat(searchParams.get("radius") || "50");
+        // Limita o raio para evitar respostas gigantes
+        const radius = Math.min(Math.max(parseFloat(searchParams.get("radius") || "50") || 50, 10), 5000);
 
         if (!lat || !lon) {
             return NextResponse.json({ error: "Coordenadas são obrigatórias" }, { status: 400 });

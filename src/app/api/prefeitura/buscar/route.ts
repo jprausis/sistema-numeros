@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
+import { requireUser, STAFF_ROLES } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-    try {
-        const user = await getSessionUser();
-        if (!user) {
-            return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-        }
+    const { response } = await requireUser(STAFF_ROLES);
+    if (response) return response;
 
+    try {
         const { searchParams } = new URL(req.url);
         const query = searchParams.get("q")?.trim() || "";
         const bairroId = searchParams.get("bairroId")?.trim() || "";

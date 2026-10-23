@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sincronizarAgendamentosConcluidos } from "@/lib/agendamentos";
+import { requireUser } from "@/lib/auth";
+import { splitBrazilDate } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+    const { response } = await requireUser(["ADMIN", "OPERATOR"]);
+    if (response) return response;
+
     try {
         const { searchParams } = new URL(req.url);
         const tipo = searchParams.get("tipo") || "agendamentos"; // "agendamentos" | "concluidos" | "contatos"
@@ -105,14 +110,10 @@ export async function GET(req: NextRequest) {
             let dataStr = "";
             let horarioStr = "09:00";
             if (ag.dataHora) {
-                const d = new Date(ag.dataHora);
-                const yyyy = d.getFullYear();
-                const mm = String(d.getMonth() + 1).padStart(2, "0");
-                const dd = String(d.getDate()).padStart(2, "0");
-                dataStr = `${yyyy}-${mm}-${dd}`;
-                const hh = String(d.getHours()).padStart(2, "0");
-                const min = String(d.getMinutes()).padStart(2, "0");
-                horarioStr = `${hh}:${min}`;
+                // Sempre no horário de Brasília (o servidor roda em UTC)
+                const { data, horario } = splitBrazilDate(new Date(ag.dataHora));
+                dataStr = data;
+                horarioStr = horario;
             }
 
             return {

@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireUser } from "@/lib/auth";
+import { temFotosReais } from "@/utils/fotos";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+    const { response } = await requireUser(["ADMIN", "OPERATOR"]);
+    if (response) return response;
+
     try {
         const { searchParams } = new URL(req.url);
         const bairroId = searchParams.get("bairroId") || undefined;
@@ -11,66 +16,53 @@ export async function GET(req: NextRequest) {
         const whereImovel = bairroId ? { bairroId } : {};
         const whereComplemento = bairroId ? { imovel: { bairroId } } : {};
 
-        const totalImoveis = await prisma.imovel.count({ where: whereImovel });
-        const concluidos = await prisma.imovel.count({ where: { ...whereImovel, status: "CONCLUIDO" } });
-        const liberados = await prisma.imovel.count({ where: { ...whereImovel, status: "LIBERADO" } });
-        const ausentes = await prisma.imovel.count({ where: { ...whereImovel, status: "AUSENTE" } });
+        const [imoveisData, complementosData] = await Promise.all([
+            prisma.imovel.findMany({
+                where: whereImovel,
+                select: { numeroAInstalar: true, status: true }
+            }),
+            prisma.complemento.findMany({
+                where: whereComplemento,
+                select: { numeroPredial: true, status: true, fotos: true, liberadoInstalacao: true }
+            })
+        ]);
 
-        const complementosData = await prisma.complemento.findMany({
-            where: whereComplemento,
-            select: { numeroPredial: true, status: true, fotos: true }
-        });
-
-        const temFotosReais = (fotosStr: string | null | undefined): boolean => {
-            if (!fotosStr) return false;
-            const trimmed = fotosStr.trim();
-            return trimmed !== "" && trimmed !== "null" && trimmed !== "[]";
-        };
-
-        let complementosInstalados = 0;
-        let algarismosComplementosInstalados = 0;
-
-        complementosData.forEach(c => {
-            if (c.status === "CONCLUIDO" && temFotosReais(c.fotos)) {
-                complementosInstalados++;
-                const numStr = c.numeroPredial || "";
-                algarismosComplementosInstalados += numStr.length;
-            }
-        });
-
-        const totalComplementos = complementosData.length;
-        const complementosLiberados = await prisma.complemento.count({ where: { ...whereComplemento, liberadoInstalacao: true } });
-
-        const imoveisData = await prisma.imovel.findMany({
-            where: whereImovel,
-            select: { numeroAInstalar: true, status: true }
-        });
-
+        const porStatus: Record<string, number> = {};
         let totalDigitos = 0;
         let digitosInstalados = 0;
 
-        imoveisData.forEach(im => {
-            const numStr = im.numeroAInstalar || "";
-            const len = numStr.length;
+        for (const im of imoveisData) {
+            porStatus[im.status] = (porStatus[im.status] || 0) + 1;
+            const len = (im.numeroAInstalar || "").length;
             totalDigitos += len;
+            if (im.status === "CONCLUIDO") digitosInstalados += len;
+        }
 
-            if (im.status === "CONCLUIDO") {
-                digitosInstalados += len;
+        let complementosInstalados = 0;
+        let algarismosComplementosInstalados = 0;
+        let complementosLiberados = 0;
+
+        for (const c of complementosData) {
+            if (c.liberadoInstalacao) complementosLiberados++;
+            if (c.status === "CONCLUIDO" && temFotosReais(c.fotos)) {
+                complementosInstalados++;
+                algarismosComplementosInstalados += (c.numeroPredial || "").length;
             }
-        });
-
-        const totalGeralAlgarismosInstalados = digitosInstalados + algarismosComplementosInstalados;
+        }
 
         return NextResponse.json({
-            totalImoveis,
-            concluidos,
-            liberados,
-            ausentes,
-            totalComplementos,
+            totalImoveis: imoveisData.length,
+            concluidos: porStatus.CONCLUIDO || 0,
+            liberados: porStatus.LIBERADO || 0,
+            ausentes: porStatus.AUSENTE || 0,
+            agendados: porStatus.AGENDADO || 0,
+            pendentes: porStatus.PENDENTE || 0,
+            naoIniciados: porStatus.NAO_INICIADO || 0,
+            totalComplementos: complementosData.length,
             complementosLiberados,
             complementosInstalados,
             algarismosComplementosInstalados,
-            totalGeralAlgarismosInstalados,
+            totalGeralAlgarismosInstalados: digitosInstalados + algarismosComplementosInstalados,
             digitos: {
                 totalNecessario: totalDigitos,
                 totalInstalado: digitosInstalados
@@ -81,4 +73,3 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Erro ao carregar estatísticas" }, { status: 500 });
     }
 }
-

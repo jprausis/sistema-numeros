@@ -1,27 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
-import { createClient } from "@/utils/supabase/server";
+import { requireUser } from "@/lib/auth";
 import { sincronizarAgendamentosConcluidos } from "@/lib/agendamentos";
+import { brazilDayRange, todayBrazil } from "@/lib/timezone";
 
 export async function GET(req: NextRequest) {
-    try {
-        let user = await getSessionUser();
-        if (!user) {
-            const supabase = await createClient();
-            const { data: { user: sbUser } } = await supabase.auth.getUser();
-            if (!sbUser) {
-                return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-            }
-            user = {
-                id: sbUser.id,
-                name: sbUser.user_metadata?.name || sbUser.email,
-                email: sbUser.email,
-                role: "INSTALLER"
-            } as any;
-        }
+    const { response } = await requireUser();
+    if (response) return response;
 
+    try {
         const { searchParams } = new URL(req.url);
         const filter = searchParams.get("filter") || "proximos"; // 'proximos' | 'hoje' | 'todos' | 'concluidos'
 
@@ -63,9 +51,9 @@ export async function GET(req: NextRequest) {
         });
         const imovelMap = new Map(imoveis.map(i => [i.inscimob, i]));
 
+        // "Hoje" no horário de Brasília (o servidor roda em UTC)
         const now = new Date();
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        const { gte: startOfToday, lte: endOfToday } = brazilDayRange(todayBrazil())!;
 
         // Enriquecer os agendamentos com os dados completos do imóvel e flags
         const enriched = agendamentos.map(ag => {

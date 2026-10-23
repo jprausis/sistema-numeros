@@ -2,6 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import styles from './page.module.css';
+import { toast } from '@/utils/toast';
+import { splitBrazilDate, BR_TIMEZONE } from '@/lib/timezone';
+import { statusLabel } from '@/utils/status';
+
+const fmtData = (d: string | Date) => new Date(d).toLocaleDateString('pt-BR', { timeZone: BR_TIMEZONE });
+const fmtHora = (d: string | Date) => new Date(d).toLocaleTimeString('pt-BR', { timeZone: BR_TIMEZONE, hour: '2-digit', minute: '2-digit' });
 
 export default function AdminAgendamentosPage() {
     const [activeTab, setActiveTab] = useState<'agendamentos' | 'concluidos' | 'contatos'>('agendamentos');
@@ -39,14 +45,13 @@ export default function AdminAgendamentosPage() {
             }
             const res = await fetch(`/api/agendamentos/listar?${params.toString()}`);
             const data = await res.json();
-            if (res.ok) {
-                setItems(data.items || []);
-                if (data.totalAgendamentos !== undefined) setTotalAgendamentos(data.totalAgendamentos);
-                if (data.totalConcluidos !== undefined) setTotalConcluidos(data.totalConcluidos);
-                if (data.totalContatos !== undefined) setTotalContatos(data.totalContatos);
-            }
-        } catch (e) {
-            console.error("Erro ao buscar dados:", e);
+            if (!res.ok) throw new Error(data.error || 'Erro ao buscar agendamentos');
+            setItems(data.items || []);
+            if (data.totalAgendamentos !== undefined) setTotalAgendamentos(data.totalAgendamentos);
+            if (data.totalConcluidos !== undefined) setTotalConcluidos(data.totalConcluidos);
+            if (data.totalContatos !== undefined) setTotalContatos(data.totalContatos);
+        } catch (e: any) {
+            toast.error(e.message || 'Erro ao buscar agendamentos.');
         } finally {
             setLoading(false);
         }
@@ -64,31 +69,14 @@ export default function AdminAgendamentosPage() {
         setEditStatus(item.status || 'AGENDADO');
         setEditObservacao(item.observacao || item.imovel?.obsPendente || '');
 
-        if (item.dataStr) {
-            setEditData(item.dataStr);
-        } else if (item.dataHora) {
-            const d = new Date(item.dataHora);
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            setEditData(`${yyyy}-${mm}-${dd}`);
+        // Data/hora sempre no fuso de Brasília
+        if (item.dataHora) {
+            const { data, horario } = splitBrazilDate(new Date(item.dataHora));
+            setEditData(item.dataStr || data);
+            setEditHorario(item.horarioStr || horario);
         } else {
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            const yyyy = tomorrow.getFullYear();
-            const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
-            const dd = String(tomorrow.getDate()).padStart(2, '0');
-            setEditData(`${yyyy}-${mm}-${dd}`);
-        }
-
-        if (item.horarioStr) {
-            setEditHorario(item.horarioStr);
-        } else if (item.dataHora) {
-            const d = new Date(item.dataHora);
-            const hh = String(d.getHours()).padStart(2, '0');
-            const min = String(d.getMinutes()).padStart(2, '0');
-            setEditHorario(`${hh}:${min}`);
-        } else {
+            const { data } = splitBrazilDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
+            setEditData(data);
             setEditHorario('09:00');
         }
     };
@@ -115,21 +103,21 @@ export default function AdminAgendamentosPage() {
 
             const data = await res.json();
             if (res.ok && data.success) {
-                alert("Agendamento atualizado com sucesso!");
+                toast.success("Agendamento atualizado.");
                 setEditingItem(null);
                 fetchData();
             } else {
-                alert(data.error || "Erro ao salvar alterações");
+                toast.error(data.error || "Erro ao salvar alterações");
             }
         } catch (e: any) {
-            alert("Erro ao conectar ao servidor: " + (e.message || ""));
+            toast.error("Erro ao conectar ao servidor. " + (e.message || ""));
         } finally {
             setSavingEdit(false);
         }
     };
 
     const handleVincular = async (protocolo: string) => {
-        if (!inscimobInput.trim()) return alert("Informe a inscrição imobiliária (inscimob).");
+        if (!inscimobInput.trim()) return toast.error("Informe a inscrição imobiliária (inscimob).");
 
         try {
             const res = await fetch('/api/admin/agendamentos/vincular', {
@@ -139,36 +127,36 @@ export default function AdminAgendamentosPage() {
             });
 
             if (res.ok) {
-                alert("Vínculo realizado com sucesso!");
+                toast.success("Vínculo realizado. O agendamento foi para a fila de instalação.");
                 setVinculando(null);
                 setInscimobInput('');
                 fetchData();
             } else {
                 const data = await res.json();
-                alert(data.error || "Erro ao vincular");
+                toast.error(data.error || "Erro ao vincular");
             }
         } catch (e) {
-            alert("Erro na conexão");
+            toast.error("Erro na conexão");
         }
     };
 
     const handleExcluir = async (protocolo: string) => {
-        if (!confirm(`Tem certeza que deseja excluir o agendamento ${protocolo}?`)) return;
+        if (!confirm(`Excluir o registro ${protocolo}? Esta ação não pode ser desfeita.`)) return;
 
         try {
-            const res = await fetch(`/api/admin/agendamentos/excluir?protocolo=${protocolo}`, {
+            const res = await fetch(`/api/admin/agendamentos/excluir?protocolo=${encodeURIComponent(protocolo)}`, {
                 method: 'DELETE'
             });
 
             if (res.ok) {
-                alert("Registro excluído com sucesso!");
+                toast.success("Registro excluído.");
                 fetchData();
             } else {
                 const data = await res.json();
-                alert(data.error || "Erro ao excluir");
+                toast.error(data.error || "Erro ao excluir");
             }
         } catch (e) {
-            alert("Erro na conexão");
+            toast.error("Erro na conexão");
         }
     };
 
@@ -239,8 +227,9 @@ export default function AdminAgendamentosPage() {
                         <line x1="21" y1="21" x2="16.65" y2="16.65" />
                     </svg>
                     <input
-                        type="text"
-                        placeholder={activeTab !== 'contatos' ? 'Buscar por protocolo, morador, inscimob...' : 'Buscar por nome, telefone, endereço...'}
+                        type="search"
+                        aria-label="Buscar agendamentos"
+                        placeholder={activeTab !== 'contatos' ? 'Buscar por protocolo, morador, inscimob... (Enter)' : 'Buscar por nome, telefone, endereço... (Enter)'}
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         className={styles.searchInput}
@@ -307,10 +296,10 @@ export default function AdminAgendamentosPage() {
                                     <td>
                                         <div className={styles.dateTimeCell}>
                                             <span className={styles.dateBold}>
-                                                {ag.dataHora ? new Date(ag.dataHora).toLocaleDateString('pt-BR') : '—'}
+                                                {ag.dataHora ? fmtData(ag.dataHora) : '—'}
                                             </span>
                                             <span className={styles.timeSub}>
-                                                {ag.dataHora ? `${new Date(ag.dataHora).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                                                {ag.dataHora ? fmtHora(ag.dataHora) : ''}
                                             </span>
                                         </div>
                                     </td>
@@ -325,15 +314,11 @@ export default function AdminAgendamentosPage() {
                                     </td>
                                     <td>
                                         <span className={`${styles.statusPill} ${styles['status' + (ag.status || 'AGENDADO')] || styles.statusAGENDADO}`}>
-                                            {ag.status === 'AGENDADO' ? 'Agendado' :
-                                             ag.status === 'CONCLUIDO' ? 'Concluído' :
-                                             ag.status === 'CANCELADO' ? 'Cancelado' :
-                                             ag.status === 'PENDENTE' ? 'Pendente' :
-                                             ag.status === 'REAGENDAR' ? 'Reagendar' : ag.status}
+                                            {statusLabel(ag.status)}
                                         </span>
                                         {ag.status === 'CONCLUIDO' && ag.imovel?.dataExecucao && (
                                             <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', lineHeight: 1.3 }}>
-                                                em {new Date(ag.imovel.dataExecucao).toLocaleDateString('pt-BR')} {new Date(ag.imovel.dataExecucao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                em {fmtData(ag.imovel.dataExecucao)} {fmtHora(ag.imovel.dataExecucao)}
                                                 {ag.imovel.instaladorResp && <><br />por {ag.imovel.instaladorResp}</>}
                                             </div>
                                         )}
@@ -415,7 +400,7 @@ export default function AdminAgendamentosPage() {
                                     </td>
                                     <td>
                                         <span style={{ fontSize: '0.85rem', color: '#475569' }}>
-                                            {new Date(ct.createdAt).toLocaleDateString('pt-BR')} às {new Date(ct.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {fmtData(ct.createdAt)} às {fmtHora(ct.createdAt)}
                                         </span>
                                     </td>
                                     <td>
@@ -433,14 +418,16 @@ export default function AdminAgendamentosPage() {
                                                 <div className={styles.vincularForm}>
                                                     <input
                                                         type="text"
+                                                        aria-label="Inscrição imobiliária para vincular"
+                                                        onKeyDown={e => { if (e.key === 'Enter') handleVincular(ct.protocolo); if (e.key === 'Escape') setVinculando(null); }}
                                                         placeholder="Inscimob"
                                                         value={inscimobInput}
                                                         onChange={e => setInscimobInput(e.target.value)}
                                                         className={styles.miniInput}
                                                         autoFocus
                                                     />
-                                                    <button onClick={() => handleVincular(ct.protocolo)} className={styles.vincBtn}>OK</button>
-                                                    <button onClick={() => setVinculando(null)} className={styles.cancelMiniBtn}>X</button>
+                                                    <button onClick={() => handleVincular(ct.protocolo)} className={styles.vincBtn}>Vincular</button>
+                                                    <button onClick={() => setVinculando(null)} className={styles.cancelMiniBtn} aria-label="Cancelar vínculo">✕</button>
                                                 </div>
                                             ) : (
                                                 <>
@@ -496,8 +483,8 @@ export default function AdminAgendamentosPage() {
 
             {/* Modal de Edição de Agendamento / Contato */}
             {editingItem && (
-                <div className={styles.modalOverlay}>
-                    <div className={styles.modal}>
+                <div className={styles.modalOverlay} onClick={() => !savingEdit && setEditingItem(null)}>
+                    <div className={styles.modal} role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
                         <div className={styles.modalHeader}>
                             <div>
                                 <h3>
@@ -516,6 +503,7 @@ export default function AdminAgendamentosPage() {
                             <button
                                 type="button"
                                 className={styles.closeBtn}
+                                aria-label="Fechar"
                                 onClick={() => setEditingItem(null)}
                             >
                                 ✕

@@ -47,12 +47,12 @@ export function utmToLatLng(x: number, y: number): [number, number] {
     const r1 = cgl_a * (1 - e2) / Math.pow(1 - e2 * Math.pow(Math.sin(phi1), 2), 1.5);
     const d = x_val / (n1 * k0);
 
-    let lat = phi1 - (n1 * Math.tan(phi1) / r1) * (
+    const lat = phi1 - (n1 * Math.tan(phi1) / r1) * (
         Math.pow(d, 2) / 2 - (5 + 3 * t1 + 10 * c1 - 4 * Math.pow(c1, 2) - 9 * ep2) * Math.pow(d, 4) / 24
         + (61 + 90 * t1 + 298 * c1 + 45 * Math.pow(t1, 2) - 252 * ep2 - 3 * Math.pow(c1, 2)) * Math.pow(d, 6) / 720
     );
 
-    let lon = utmCentralMeridian + (d - (1 + 2 * t1 + c1) * Math.pow(d, 3) / 6
+    const lon = utmCentralMeridian + (d - (1 + 2 * t1 + c1) * Math.pow(d, 3) / 6
         + (5 - 2 * c1 + 28 * t1 - 3 * Math.pow(c1, 2) + 8 * ep2 + 24 * Math.pow(t1, 2)) * Math.pow(d, 5) / 120) / Math.cos(phi1);
 
     return [lat * (180 / Math.PI), lon * (180 / Math.PI)];

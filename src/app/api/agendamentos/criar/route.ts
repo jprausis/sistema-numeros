@@ -1,28 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
-export const dynamic = "force-dynamic";
 import prisma from "@/lib/prisma";
-import { generateProtocol } from "@/lib/scheduling";
-import { parseISO } from "date-fns";
+import { generateUniqueProtocol } from "@/lib/agendamentos";
 
+export const dynamic = "force-dynamic";
+
+// Formulário público (/agendar): registra o contato do morador para a equipe retornar.
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { nome, telefone, rua, numero, bairro } = body;
+        const clean = (v: unknown, max: number) => String(v ?? "").trim().slice(0, max);
+        const nome = clean(body.nome, 120);
+        const telefone = clean(body.telefone, 30);
+        const rua = clean(body.rua, 150);
+        const numero = clean(body.numero, 20);
+        const bairro = clean(body.bairro, 80);
 
         if (!nome || !telefone || !rua || !numero || !bairro) {
             return NextResponse.json({ error: "Todos os campos são obrigatórios" }, { status: 400 });
         }
+        if (telefone.replace(/\D/g, "").length < 10) {
+            return NextResponse.json({ error: "Informe um telefone válido com DDD." }, { status: 400 });
+        }
 
-        const protocolo = generateProtocol();
-        const enderecoCompleto = `${rua}, ${numero} - ${bairro}`;
+        const protocolo = await generateUniqueProtocol("AG");
 
         const agendamento = await prisma.agendamento.create({
             data: {
                 protocolo,
                 nome,
                 telefone,
-                enderecoCompleto,
-                dataHora: new Date(), // Adicionado para evitar erro caso o BD exija a data
+                enderecoCompleto: `${rua}, ${numero} - ${bairro}`,
+                dataHora: new Date(), // Data do pedido; a data da instalação é definida depois pela equipe
                 status: "AGENDADO",
             },
         });

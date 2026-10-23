@@ -35,3 +35,29 @@ export function splitBrazilDate(date: Date): { data: string; horario: string } {
         horario: `${get("hour")}:${get("minute")}`,
     };
 }
+
+/** Intervalo [início, fim] de um dia "YYYY-MM-DD" no horário de Brasília. */
+export function brazilDayRange(data: string): { gte: Date; lte: Date } | null {
+    const start = buildBrazilDate(data, "00:00");
+    if (!start) return null;
+    return { gte: start, lte: new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1) };
+}
+
+/** Data de hoje ("YYYY-MM-DD") no horário de Brasília. */
+export function todayBrazil(): string {
+    return splitBrazilDate(new Date()).data;
+}
+
+/** Formata data (e opcionalmente hora) em pt-BR no fuso de Brasília. */
+export function formatBrazil(date: Date | string | null | undefined, withTime = false): string {
+    if (!date) return "";
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleString("pt-BR", {
+        timeZone: BR_TIMEZONE,
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
+    });
+}

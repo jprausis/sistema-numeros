@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Rio Branco do Sul tem endereço
 
-## Getting Started
+Sistema de gestão da instalação da numeração predial (Next.js + Prisma/PostgreSQL + Supabase Auth/Storage).
 
-First, run the development server:
+## Perfis
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+| Papel | Acesso |
+|-------|--------|
+| `ADMIN` | Painel completo: dashboard, imóveis, agendamentos, importação, usuários e auditoria |
+| `OPERATOR` | Painel sem funções administrativas (sem importar, usuários ou auditoria) |
+| `PREFEITURA` | Tela `/prefeitura`: libera imóveis/complementos, fotos de orientação e agendamentos |
+| `INSTALLER` | Tela `/instalador`: mapa, agenda, busca por GPS e registro das instalações com foto |
+
+Páginas públicas: `/` (informações ao morador) e `/agendar` (formulário de contato, vai para a aba "Lista de Contatos" dos agendamentos).
+
+## Variáveis de ambiente (`.env`)
+
+```env
+DATABASE_URL=postgresql://...
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...   # usado só no servidor (criação de usuários e upload)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+As fotos ficam no bucket público `fotos-imoveis` do Supabase Storage.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Desenvolvimento
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm run dev
+```
 
-## Learn More
+Usuários são criados pelo painel em **Usuários** (Supabase Auth + tabela `User` com o mesmo ID).
 
-To learn more about Next.js, take a look at the following resources:
+## Importação de dados (Admin → Importar Dados)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Planilha de imóveis (`inscimob`, `x`, `y`, `Número`) — cria o bairro/lote
+2. Malha GeoJSON dos lotes (vinculada por `inscimob`)
+3. Planilha de complementos (`unidade`, `indicacaof`, `número predial`)
+4. GeoJSON com a posição dos complementos
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Coordenadas em UTM (zona 22S) são convertidas automaticamente para latitude/longitude.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Todas as datas e horários são tratados no fuso de Brasília (`src/lib/timezone.ts`).

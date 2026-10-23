@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { startOfDay, endOfDay } from "date-fns";
 import { restrictToAdmin } from "@/lib/auth";
+import { brazilDayRange } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +15,10 @@ export async function GET(req: NextRequest) {
         const bairroId = searchParams.get("bairroId") || undefined;
 
         // Construção do filtro de data de execução
-        let dateFilter: any = undefined;
-        if (dataParam) {
-            const date = new Date(`${dataParam}T12:00:00`);
-            dateFilter = {
-                gte: startOfDay(date),
-                lte: endOfDay(date)
-            };
+        // O dia é interpretado no horário de Brasília (o servidor roda em UTC)
+        const dateFilter = dataParam ? brazilDayRange(dataParam) : null;
+        if (dataParam && !dateFilter) {
+            return NextResponse.json({ error: "Data inválida" }, { status: 400 });
         }
 
         // Filtro base para imóveis concluídos

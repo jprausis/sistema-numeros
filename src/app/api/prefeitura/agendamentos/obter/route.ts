@@ -1,21 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
-import { createClient } from "@/utils/supabase/server";
+import { requireUser, STAFF_ROLES } from "@/lib/auth";
 import { splitBrazilDate } from "@/lib/timezone";
 
 export async function GET(req: NextRequest) {
-    try {
-        let dbUser = await getSessionUser();
-        if (!dbUser) {
-            const supabase = await createClient();
-            const { data: { user: sbUser } } = await supabase.auth.getUser();
-            if (!sbUser) {
-                return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-            }
-        }
+    const { response } = await requireUser(STAFF_ROLES);
+    if (response) return response;
 
+    try {
         const { searchParams } = new URL(req.url);
         const inscimob = searchParams.get("inscimob")?.trim();
         const protocolo = searchParams.get("protocolo")?.trim();
@@ -28,8 +21,10 @@ export async function GET(req: NextRequest) {
         if (protocolo) {
             whereCondition.protocolo = protocolo;
         } else if (inscimob) {
+            // Só agendamentos em aberto: concluídos/cancelados ficam no histórico
+            // e um novo agendamento é criado para o imóvel.
             whereCondition.inscimobVinculo = inscimob;
-            whereCondition.status = { not: "CANCELADO" };
+            whereCondition.status = { notIn: ["CONCLUIDO", "CANCELADO"] };
         }
 
         const agendamento = await prisma.agendamento.findFirst({
