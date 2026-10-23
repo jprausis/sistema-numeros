@@ -101,7 +101,7 @@ model AuditLog {
 
 // Estoque de caracteres físicos das placas (0-9, C e S)
 model EstoqueItem {
-  caractere  String   @id // "0".."9", "C", "S"
+  caractere  String   @id // "0".."8", "6/9" (mesma peça), "C", "S"
   quantidade Int      @default(0)
   updatedAt  DateTime @default(now()) @updatedAt
 }

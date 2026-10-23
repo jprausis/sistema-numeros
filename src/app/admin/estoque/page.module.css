@@ -92,9 +92,11 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
+    min-width: 36px;
     height: 36px;
+    padding: 0 0.45rem;
     border-radius: 8px;
+    white-space: nowrap;
     background: #0f172a;
     color: #fff;
     font-weight: 800;
@@ -103,8 +105,9 @@
 }
 
 .charChipSm {
-    width: 28px;
+    min-width: 28px;
     height: 28px;
+    padding: 0 0.35rem;
     font-size: 0.85rem;
     border-radius: 6px;
 }

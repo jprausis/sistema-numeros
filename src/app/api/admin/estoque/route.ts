@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireUser, getRequestMeta } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
-import { CARACTERES, Caractere, Contagem, contagemVazia, contarCaracteres, totalContagem } from "@/utils/estoque";
+import { CARACTERES, Caractere, Contagem, contagemVazia, contarCaracteres, itemDoCaractere, totalContagem } from "@/utils/estoque";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +43,9 @@ export async function GET() {
 
         const estoque = contagemVazia();
         for (const item of itens) {
-            if (item.caractere in estoque) estoque[item.caractere as Caractere] = item.quantidade;
+            // itemDoCaractere também incorpora registros antigos de "6" e "9" no item "6/9"
+            const chave = item.caractere in estoque ? item.caractere as Caractere : itemDoCaractere(item.caractere);
+            if (chave) estoque[chave] += item.quantidade;
         }
         const atualizadoEm = movimentos[0]?.createdAt ?? null;
 
@@ -76,7 +78,8 @@ export async function GET() {
 
         const consumo30d = contagemVazia();
         for (const row of consumo) {
-            if (row.caractere in consumo30d) consumo30d[row.caractere as Caractere] = -(row._sum.quantidade || 0);
+            const chave = row.caractere in consumo30d ? row.caractere as Caractere : itemDoCaractere(row.caractere);
+            if (chave) consumo30d[chave] += -(row._sum.quantidade || 0);
         }
 
         return NextResponse.json({
@@ -131,7 +134,12 @@ export async function POST(req: NextRequest) {
 
         const alteracoes = await prisma.$transaction(async (tx) => {
             const atuais = await tx.estoqueItem.findMany();
-            const atualMap = new Map(atuais.map(i => [i.caractere, i.quantidade]));
+            // Soma por item (registros antigos de "6"/"9" contam no "6/9")
+            const atualMap = new Map<string, number>();
+            for (const i of atuais) {
+                const chave = (CARACTERES as readonly string[]).includes(i.caractere) ? i.caractere : itemDoCaractere(i.caractere);
+                if (chave) atualMap.set(chave, (atualMap.get(chave) ?? 0) + i.quantidade);
+            }
             const feitas: { caractere: Caractere; antes: number; delta: number }[] = [];
 
             for (const c of CARACTERES) {

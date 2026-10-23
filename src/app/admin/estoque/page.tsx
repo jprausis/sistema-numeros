@@ -178,6 +178,7 @@ export default function EstoquePage() {
                         <h2 className={ui.cardTitle}>Saldo por caractere</h2>
                         <p className={ui.cardSubtitle}>
                             Pendentes = imóveis <strong>Liberados</strong> e <strong>Ausentes</strong> + complementos liberados ainda não instalados.
+                            O <strong>6</strong> e o <strong>9</strong> usam a mesma peça e são contados juntos em <strong>6/9</strong>.
                         </p>
                     </div>
                     <select className={ui.select} value={bairroFiltro} onChange={e => setBairroFiltro(e.target.value)} aria-label="Filtrar pendências por bairro">
