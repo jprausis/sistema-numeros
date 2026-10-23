@@ -24,7 +24,9 @@ export default function BairroDetalhesPage() {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
                 setBairro(data.bairro);
-                setImoveis(data.imoveis || []);
+                // Ordenação natural: 2, 10, 100 (o banco ordena como texto: 10, 100, 2)
+                const collator = new Intl.Collator('pt-BR', { numeric: true });
+                setImoveis((data.imoveis || []).sort((a: any, b: any) => collator.compare(a.numeroAInstalar || '', b.numeroAInstalar || '')));
             } catch (e: any) {
                 setError(e.message || 'Erro ao carregar os imóveis.');
             } finally {

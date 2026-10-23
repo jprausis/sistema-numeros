@@ -82,8 +82,8 @@ export default function AuditoriaPage() {
                 <div className={ui.field}>
                     <label htmlFor="f-order">Ordem</label>
                     <select id="f-order" value={filters.sortOrder} onChange={e => setFilters({ ...filters, sortOrder: e.target.value })}>
-                        <option value="desc">Mais recentes primeiro</option>
-                        <option value="asc">Mais antigos primeiro</option>
+                        <option value="desc">Mais recentes</option>
+                        <option value="asc">Mais antigos</option>
                     </select>
                 </div>
                 <button type="submit" className={ui.btnPrimary}><Filter size={16} /> Filtrar</button>

@@ -528,7 +528,7 @@ export default function PrefeituraPage() {
                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
                         <circle cx="12" cy="10" r="3" />
                     </svg>
-                    Mapa Geral
+                    Mapa
                 </button>
                 <button
                     className={`${styles.navBtn} ${view === 'gps' ? styles.activeNav : ''}`}
@@ -539,7 +539,7 @@ export default function PrefeituraPage() {
                         <circle cx="12" cy="12" r="3" />
                         <path d="M12 2v3m0 14v3m-7-10H2m17 0h3" />
                     </svg>
-                    Estou no Local
+                    No Local
                 </button>
                 <button
                     className={`${styles.navBtn} ${view === 'search' ? styles.activeNav : ''}`}
@@ -549,7 +549,7 @@ export default function PrefeituraPage() {
                         <circle cx="11" cy="11" r="8" />
                         <line x1="21" y1="21" x2="16.65" y2="16.65" />
                     </svg>
-                    Buscar Imóvel
+                    Buscar
                 </button>
             </nav>
             
@@ -1213,7 +1213,6 @@ export default function PrefeituraPage() {
                                             type="date"
                                             required
                                             aria-label="Data do agendamento"
-                                            min={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })}
                                             value={agendamentoData}
                                             onChange={e => setAgendamentoData(e.target.value)}
                                             className={styles.formInput}

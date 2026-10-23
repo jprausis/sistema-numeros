@@ -929,3 +929,10 @@
     min-width: 44px;
     min-height: 44px;
 }
+
+/* Esconde o "x" nativo do input type=search: a tela já tem o próprio botão de limpar */
+.searchInput::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+}

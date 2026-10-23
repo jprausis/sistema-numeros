@@ -44,6 +44,7 @@ export default function AdminDashboard() {
     const [rankingData, setRankingData] = useState<RankingItem[]>([]);
     const [rankingGeralData, setRankingGeralData] = useState<RankingItem[]>([]);
     const [loadingRanking, setLoadingRanking] = useState(false);
+    const [loadingRankingGeral, setLoadingRankingGeral] = useState(false);
 
     useEffect(() => {
         fetch('/api/auth/me')
@@ -83,11 +84,13 @@ export default function AdminDashboard() {
     // Ranking acumulado geral
     useEffect(() => {
         if (role !== 'ADMIN') return;
+        setLoadingRankingGeral(true);
         const url = selectedBairro ? `/api/admin/ranking?bairroId=${selectedBairro}` : '/api/admin/ranking';
         fetch(url)
             .then(res => res.json())
             .then(data => setRankingGeralData(data.ranking || []))
-            .catch(() => setRankingGeralData([]));
+            .catch(() => setRankingGeralData([]))
+            .finally(() => setLoadingRankingGeral(false));
     }, [selectedBairro, role]);
 
     const handleExport = async () => {
@@ -307,7 +310,7 @@ export default function AdminDashboard() {
                                     <p className={styles.panelSub}>Total acumulado de algarismos</p>
                                 </div>
                             </div>
-                            <RankingList items={rankingGeralData} empty="Nenhuma instalação registrada ainda." />
+                            <RankingList items={rankingGeralData} loading={loadingRankingGeral} empty="Nenhuma instalação registrada ainda." />
                         </section>
                     </div>
                 </>

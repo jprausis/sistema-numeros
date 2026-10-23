@@ -123,7 +123,7 @@
 
 .nav {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.5rem;
     margin: 0 1rem 1rem 1rem;
     flex-shrink: 0;
@@ -872,8 +872,14 @@
 
 .formRow {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* minmax(0, ...) impede que o input de data/hora estoure a coluna no celular */
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
     gap: 0.75rem;
+}
+
+.formRow .formInput {
+    width: 100%;
+    min-width: 0;
 }
 
 .formTextarea {
@@ -976,4 +982,18 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+}
+
+.navBtn {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Esconde o "x" nativo do input type=search: a tela já tem o próprio botão de limpar */
+.searchInput::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
 }

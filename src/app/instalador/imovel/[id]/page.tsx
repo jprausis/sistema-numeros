@@ -311,7 +311,7 @@ export default function ImovelDetalhesPage() {
                     Voltar
                 </button>
                 <h1 className={styles.title}>
-                    {agendamento ? 'Vincular Agendamento' : 'Executar Instalação'}
+                    Executar Instalação
                 </h1>
             </header>
 
