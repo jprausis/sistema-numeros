@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { requireUser, getRequestMeta } from "@/lib/auth";
 import { concluirAgendamentosDoImovel } from "@/lib/agendamentos";
+import { movimentarEstoqueSeguro } from "@/lib/estoque";
 
 const STATUS_PERMITIDOS = ["NAO_INICIADO", "LIBERADO", "AUSENTE", "PENDENTE", "CONCLUIDO"];
 
@@ -50,6 +51,15 @@ export async function PATCH(req: NextRequest) {
                 }
             });
         }
+
+        await movimentarEstoqueSeguro(prisma, {
+            numero: imovel.numeroAInstalar,
+            statusAnterior: atual.status,
+            statusNovo: imovel.status,
+            referencia: inscimob,
+            descricao: `imóvel Nº ${imovel.numeroAInstalar} (${inscimob})`,
+            userEmail: user.email,
+        });
 
         // Imóvel concluído => concluir todos os agendamentos em aberto vinculados a ele
         if (imovel.status === 'CONCLUIDO') {

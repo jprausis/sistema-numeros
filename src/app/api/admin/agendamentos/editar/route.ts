@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getSessionUser, restrictToAdmin } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
 import { buildBrazilDate } from "@/lib/timezone";
+import { movimentarEstoqueSeguro } from "@/lib/estoque";
 
 export const dynamic = "force-dynamic";
 
@@ -61,9 +62,26 @@ export async function POST(req: NextRequest) {
 
             updateImovelData.usuarioAlt = `Agendamento editado por admin: ${user?.email || 'admin'}`;
 
-            await prisma.imovel.update({
+            const imovelAntes = await prisma.imovel.findUnique({
+                where: { inscimob: agendamento.inscimobVinculo },
+                select: { status: true }
+            });
+            if (updateImovelData.status === "CONCLUIDO" && imovelAntes?.status !== "CONCLUIDO") {
+                updateImovelData.dataExecucao = new Date();
+            }
+
+            const imovelDepois = await prisma.imovel.update({
                 where: { inscimob: agendamento.inscimobVinculo },
                 data: updateImovelData
+            });
+
+            await movimentarEstoqueSeguro(prisma, {
+                numero: imovelDepois.numeroAInstalar,
+                statusAnterior: imovelAntes?.status,
+                statusNovo: imovelDepois.status,
+                referencia: imovelDepois.inscimob,
+                descricao: `imóvel Nº ${imovelDepois.numeroAInstalar} (${imovelDepois.inscimob}) - via agendamento ${protocolo}`,
+                userEmail: user?.email,
             });
         }
 

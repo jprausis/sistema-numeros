@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { requireUser, getRequestMeta } from "@/lib/auth";
 import { concluirAgendamentosDoImovel } from "@/lib/agendamentos";
+import { movimentarEstoqueSeguro } from "@/lib/estoque";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export async function PATCH(req: NextRequest) {
 
         const atual = await prisma.imovel.findUnique({
             where: { inscimob },
-            include: { complementos: { select: { id: true } } }
+            include: { complementos: { select: { id: true, status: true, numeroPredial: true } } }
         });
         if (!atual) {
             return NextResponse.json({ error: "Imóvel não encontrado" }, { status: 404 });
@@ -85,7 +86,30 @@ export async function PATCH(req: NextRequest) {
             return updated;
         });
 
-        // 4. Imóvel concluído => concluir todos os agendamentos em aberto vinculados a ele
+        // 4. Baixa automática do estoque de algarismos (principal + complementos que mudaram para CONCLUIDO)
+        await movimentarEstoqueSeguro(prisma, {
+            numero: imovel.numeroAInstalar,
+            statusAnterior: atual.status,
+            statusNovo: imovel.status,
+            referencia: inscimob,
+            descricao: `imóvel Nº ${imovel.numeroAInstalar} (${inscimob})`,
+            userEmail: user.email,
+        });
+        const compsAnteriores = new Map(atual.complementos.map(c => [c.id, c]));
+        for (const comp of compsValidos) {
+            const anterior = compsAnteriores.get(comp.id);
+            const numeroPredial = (typeof comp.numeroPredial === "string" && comp.numeroPredial.trim()) || anterior?.numeroPredial;
+            await movimentarEstoqueSeguro(prisma, {
+                numero: numeroPredial,
+                statusAnterior: anterior?.status,
+                statusNovo: comp.status,
+                referencia: comp.id,
+                descricao: `complemento ${numeroPredial} do imóvel ${inscimob}`,
+                userEmail: user.email,
+            });
+        }
+
+        // 5. Imóvel concluído => concluir todos os agendamentos em aberto vinculados a ele
         // (funciona mesmo quando o instalador acessa o imóvel pelo mapa/busca, sem protocolo)
         if (imovel.status === 'CONCLUIDO') {
             await concluirAgendamentosDoImovel(inscimob);

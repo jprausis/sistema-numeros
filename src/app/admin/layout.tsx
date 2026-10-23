@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-    Calendar, Home, LayoutDashboard, Loader2, LogOut, Map, Menu, ShieldAlert, UploadCloud, Users, X,
+    Calendar, Home, LayoutDashboard, Loader2, LogOut, Map, Menu, Package, ShieldAlert, UploadCloud, Users, X,
     type LucideIcon
 } from 'lucide-react';
 import styles from './layout.module.css';
@@ -22,6 +22,7 @@ const MENU: MenuItem[] = [
     { label: 'Bairros / Lotes', href: '/admin/bairros', icon: Map },
     { label: 'Imóveis', href: '/admin/imoveis', icon: Home },
     { label: 'Agendamentos', href: '/admin/agendamentos', icon: Calendar },
+    { label: 'Estoque', href: '/admin/estoque', icon: Package },
     { label: 'Importar Dados', href: '/admin/importar', icon: UploadCloud, adminOnly: true },
     { label: 'Usuários', href: '/admin/usuarios', icon: Users, adminOnly: true },
     { label: 'Auditoria', href: '/admin/auditoria', icon: ShieldAlert, adminOnly: true },

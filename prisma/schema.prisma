@@ -98,3 +98,25 @@ model AuditLog {
   createdAt  DateTime @default(now())
 }
 
+
+// Estoque de caracteres físicos das placas (0-9, C e S)
+model EstoqueItem {
+  caractere  String   @id // "0".."9", "C", "S"
+  quantidade Int      @default(0)
+  updatedAt  DateTime @default(now()) @updatedAt
+}
+
+// Histórico de movimentações do estoque (quantidade positiva = entrada, negativa = saída)
+model EstoqueMovimento {
+  id         String   @id @default(cuid())
+  caractere  String
+  quantidade Int
+  tipo       String   // ENTRADA, AJUSTE, INSTALACAO, ESTORNO
+  referencia String?  // inscimob do imóvel ou id do complemento
+  descricao  String?
+  userEmail  String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([tipo, createdAt])
+}

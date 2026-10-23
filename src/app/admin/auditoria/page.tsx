@@ -24,6 +24,8 @@ const ACTION_LABELS: Record<string, string> = {
     CREATE_USER: 'Usuário criado',
     UPDATE_USER: 'Usuário editado',
     DELETE_USER: 'Usuário excluído',
+    ESTOQUE_ENTRADA: 'Entrada de estoque',
+    ESTOQUE_AJUSTE: 'Ajuste de estoque',
 };
 const actionLabel = (action: string) =>
     ACTION_LABELS[action] || (action.startsWith('CONCLUIR_IMOVEL_') ? `Status → ${action.replace('CONCLUIR_IMOVEL_', '')}` : action);

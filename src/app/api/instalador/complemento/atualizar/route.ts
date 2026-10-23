@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { requireUser, getRequestMeta } from "@/lib/auth";
 import { concluirAgendamentosDoImovel } from "@/lib/agendamentos";
+import { movimentarEstoqueSeguro } from "@/lib/estoque";
 
 export async function PATCH(req: NextRequest) {
     const { user, response } = await requireUser(["ADMIN", "OPERATOR", "INSTALLER"]);
@@ -41,6 +42,15 @@ export async function PATCH(req: NextRequest) {
             data: dataUpdate
         });
 
+        await movimentarEstoqueSeguro(prisma, {
+            numero: complemento.numeroPredial,
+            statusAnterior: complementoAtual.status,
+            statusNovo: complemento.status,
+            referencia: id,
+            descricao: `complemento ${complemento.numeroPredial} do imóvel ${complemento.inscimob}`,
+            userEmail: user.email,
+        });
+
         // Se todos os complementos estiverem concluídos, o imóvel pai também é concluído
         if (status === "CONCLUIDO") {
             const parentImovel = await prisma.imovel.findUnique({
@@ -56,6 +66,14 @@ export async function PATCH(req: NextRequest) {
                         dataExecucao: new Date(),
                         instaladorResp: user.name || user.email || "Instalador"
                     }
+                });
+                await movimentarEstoqueSeguro(prisma, {
+                    numero: parentImovel.numeroAInstalar,
+                    statusAnterior: parentImovel.status,
+                    statusNovo: "CONCLUIDO",
+                    referencia: parentImovel.inscimob,
+                    descricao: `imóvel Nº ${parentImovel.numeroAInstalar} (${parentImovel.inscimob}) - concluído junto com os complementos`,
+                    userEmail: user.email,
                 });
                 await concluirAgendamentosDoImovel(parentImovel.inscimob);
             }

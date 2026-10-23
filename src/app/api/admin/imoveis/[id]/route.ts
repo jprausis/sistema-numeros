@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { requireUser, getRequestMeta } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
 import { concluirAgendamentosDoImovel } from "@/lib/agendamentos";
+import { movimentarEstoqueSeguro } from "@/lib/estoque";
 
 export async function PATCH(
     req: NextRequest,
@@ -55,6 +56,15 @@ export async function PATCH(
         const imovel = await prisma.imovel.update({
             where: { inscimob: id },
             data: updateData
+        });
+
+        await movimentarEstoqueSeguro(prisma, {
+            numero: imovel.numeroAInstalar,
+            statusAnterior: oldImovel.status,
+            statusNovo: imovel.status,
+            referencia: id,
+            descricao: `imóvel Nº ${imovel.numeroAInstalar} (${id}) - alterado no painel`,
+            userEmail: user.email,
         });
 
         if (imovel.status === 'CONCLUIDO') {

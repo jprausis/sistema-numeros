@@ -42,4 +42,12 @@ Usuários são criados pelo painel em **Usuários** (Supabase Auth + tabela `Use
 
 Coordenadas em UTM (zona 22S) são convertidas automaticamente para latitude/longitude.
 
+## Estoque de algarismos (Admin → Estoque)
+
+- Controla os caracteres físicos `0`–`9`, `C` e `S`. Entradas e ajustes de contagem são lançados manualmente (somente ADMIN).
+- **Baixa automática:** quando um imóvel ou complemento passa para *Concluído*, cada caractere do número é descontado. Se o status sair de *Concluído*, os caracteres voltam (estorno). Toda movimentação fica em `EstoqueMovimento`.
+- **Pendentes (previsão de produção):** imóveis com status *Liberado* ou *Ausente* + complementos liberados pela prefeitura ainda não instalados (exceto os marcados como pendentes). Visão geral e por bairro, com exportação em CSV.
+- Instalações anteriores à criação do estoque não foram descontadas: registre a contagem física atual em "Ajustar contagem".
+- Tabelas criadas pelo SQL em `prisma/manual/20261023_estoque.sql`.
+
 Todas as datas e horários são tratados no fuso de Brasília (`src/lib/timezone.ts`).
