@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser, restrictToAdmin } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
-import { buildBrazilDate } from "@/lib/timezone";
+import { buildBrazilDate, splitBrazilDate } from "@/lib/timezone";
 import { movimentarEstoqueSeguro } from "@/lib/estoque";
+import { buscarConflitoHorario, mensagemConflitoHorario } from "@/lib/agendamentos";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,19 @@ export async function POST(req: NextRequest) {
         if (data && horario) {
             const parsed = buildBrazilDate(data, horario);
             if (parsed) dataHora = parsed;
+        }
+
+        // Apenas um agendamento ativo por horário (contatos sem vínculo não ocupam horário)
+        const statusFinal = status ?? agendamento.status;
+        const ocupaHorario = (agendamento.protocolo.startsWith("PREF-") || agendamento.inscimobVinculo)
+            && !["CONCLUIDO", "CANCELADO"].includes(statusFinal);
+        const horarioMudou = dataHora?.getTime() !== agendamento.dataHora?.getTime();
+        const reativando = ["CONCLUIDO", "CANCELADO"].includes(agendamento.status) && status !== undefined;
+        if (ocupaHorario && dataHora && (horarioMudou || reativando)) {
+            const conflito = await buscarConflitoHorario(dataHora, protocolo);
+            if (conflito) {
+                return NextResponse.json({ error: mensagemConflitoHorario(conflito, splitBrazilDate(dataHora).horario) }, { status: 409 });
+            }
         }
 
         const updateAgendamentoData: any = {};

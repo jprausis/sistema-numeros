@@ -552,3 +552,121 @@
         overflow-y: auto;
     }
 }
+
+/* Filtros da fila (período e status) */
+.filterRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.filterChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #475569;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.filterChip:hover {
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+
+.filterChipActive {
+    composes: filterChip;
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #ffffff;
+}
+
+.filterChipActive:hover {
+    color: #ffffff;
+}
+
+.filterChipDanger {
+    composes: filterChip;
+    border-color: #fecaca;
+    color: #b91c1c;
+}
+
+.filterChipDangerActive {
+    composes: filterChip;
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #ffffff;
+}
+
+.chipCount {
+    background: rgba(0, 0, 0, 0.08);
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 10px;
+}
+
+.filterDate,
+.filterSelect {
+    min-height: 36px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #0f172a;
+    font-size: 0.85rem;
+}
+
+.filterDivider {
+    width: 1px;
+    height: 24px;
+    background: #e2e8f0;
+    margin: 0 4px;
+}
+
+.atrasadoTag {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.rowAtrasado td:first-child {
+    box-shadow: inset 3px 0 0 #dc2626;
+}
+
+.slotHint {
+    margin: -4px 0 0 0;
+    font-size: 0.8rem;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.slotHintError {
+    composes: slotHint;
+    color: #b91c1c;
+    font-weight: 600;
+}
+
+.slotBusy {
+    display: inline-block;
+    margin: 2px 4px 0 0;
+    padding: 1px 7px;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: #334155;
+    font-weight: 600;
+}

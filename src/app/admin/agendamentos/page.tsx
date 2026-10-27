@@ -5,6 +5,7 @@ import styles from './page.module.css';
 import { toast } from '@/utils/toast';
 import { splitBrazilDate, BR_TIMEZONE } from '@/lib/timezone';
 import { statusLabel } from '@/utils/status';
+import { useHorariosOcupados } from '@/utils/useHorariosOcupados';
 
 const fmtData = (d: string | Date) => new Date(d).toLocaleDateString('pt-BR', { timeZone: BR_TIMEZONE });
 const fmtHora = (d: string | Date) => new Date(d).toLocaleTimeString('pt-BR', { timeZone: BR_TIMEZONE, hour: '2-digit', minute: '2-digit' });
@@ -17,6 +18,13 @@ export default function AdminAgendamentosPage() {
     const [totalContatos, setTotalContatos] = useState(0);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [totalAtrasados, setTotalAtrasados] = useState(0);
+
+    // Filtros da fila
+    type Periodo = 'todos' | 'atrasados' | 'hoje' | 'amanha' | 'semana' | 'dia';
+    const [periodo, setPeriodo] = useState<Periodo>('todos');
+    const [dataFiltro, setDataFiltro] = useState('');
+    const [statusFiltro, setStatusFiltro] = useState('');
 
     // Estado para Vincular em Contatos
     const [vinculando, setVinculando] = useState<string | null>(null);
@@ -32,9 +40,23 @@ export default function AdminAgendamentosPage() {
     const [editStatus, setEditStatus] = useState('AGENDADO');
     const [savingEdit, setSavingEdit] = useState(false);
 
+    // Trava de horário: só agendamentos oficiais ativos ocupam horário
+    const editOcupaHorario = !!editingItem
+        && (editingItem.protocolo?.startsWith('PREF-') || !!editingItem.inscimobVinculo)
+        && !['CONCLUIDO', 'CANCELADO'].includes(editStatus);
+    const ocupadosNoDia = useHorariosOcupados(editData, editingItem?.protocolo, editOcupaHorario);
+    // Registros antigos já duplicados podem ser editados enquanto o horário não mudar
+    const horarioOriginal = editingItem?.dataHora && !['CONCLUIDO', 'CANCELADO'].includes(editingItem.status)
+        ? `${editingItem.dataStr} ${editingItem.horarioStr}`
+        : '';
+    const conflitoEdit = `${editData} ${editHorario}` === horarioOriginal
+        ? undefined
+        : ocupadosNoDia.find(o => o.horario === editHorario);
+
     useEffect(() => {
+        if (periodo === 'dia' && !dataFiltro) return;
         fetchData();
-    }, [activeTab]);
+    }, [activeTab, periodo, dataFiltro, statusFiltro]);
 
     async function fetchData(querySearch = search) {
         setLoading(true);
@@ -43,6 +65,11 @@ export default function AdminAgendamentosPage() {
             if (querySearch.trim()) {
                 params.set('q', querySearch.trim());
             }
+            if (activeTab !== 'contatos') {
+                params.set('periodo', periodo);
+                if (periodo === 'dia' && dataFiltro) params.set('data', dataFiltro);
+                if (statusFiltro && activeTab === 'agendamentos') params.set('status', statusFiltro);
+            }
             const res = await fetch(`/api/agendamentos/listar?${params.toString()}`);
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Erro ao buscar agendamentos');
@@ -50,6 +77,7 @@ export default function AdminAgendamentosPage() {
             if (data.totalAgendamentos !== undefined) setTotalAgendamentos(data.totalAgendamentos);
             if (data.totalConcluidos !== undefined) setTotalConcluidos(data.totalConcluidos);
             if (data.totalContatos !== undefined) setTotalContatos(data.totalContatos);
+            if (data.totalAtrasados !== undefined) setTotalAtrasados(data.totalAtrasados);
         } catch (e: any) {
             toast.error(e.message || 'Erro ao buscar agendamentos.');
         } finally {
@@ -84,6 +112,10 @@ export default function AdminAgendamentosPage() {
     const handleSaveEdit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingItem) return;
+        if (editOcupaHorario && conflitoEdit) {
+            toast.error(`O horário ${editHorario} já está ocupado pelo agendamento ${conflitoEdit.protocolo}.`);
+            return;
+        }
 
         setSavingEdit(true);
         try {
@@ -160,6 +192,27 @@ export default function AdminAgendamentosPage() {
         }
     };
 
+    const trocarAba = (tab: 'agendamentos' | 'concluidos' | 'contatos') => {
+        setActiveTab(tab);
+        setSearch('');
+        setPeriodo('todos');
+        setDataFiltro('');
+        setStatusFiltro('');
+    };
+
+    const periodos: { key: Periodo; label: string }[] = [
+        { key: 'todos', label: 'Todos' },
+        { key: 'hoje', label: 'Hoje' },
+        { key: 'amanha', label: 'Amanhã' },
+        { key: 'semana', label: 'Próximos 7 dias' },
+    ];
+
+    const emptyMessage = activeTab === 'concluidos'
+        ? (periodo === 'todos' ? 'Nenhum agendamento concluído ainda.' : 'Nenhum agendamento concluído neste período.')
+        : periodo === 'atrasados'
+            ? 'Nenhum agendamento atrasado.'
+            : (periodo === 'todos' && !statusFiltro ? 'Nenhum agendamento em aberto.' : 'Nenhum agendamento encontrado com estes filtros.');
+
     return (
         <div className={styles.container}>
             <header className={styles.headerRow}>
@@ -178,7 +231,7 @@ export default function AdminAgendamentosPage() {
                     <button
                         type="button"
                         className={activeTab === 'agendamentos' ? styles.tabBtnActive : styles.tabBtn}
-                        onClick={() => { setActiveTab('agendamentos'); setSearch(''); }}
+                        onClick={() => trocarAba('agendamentos')}
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -193,7 +246,7 @@ export default function AdminAgendamentosPage() {
                     <button
                         type="button"
                         className={activeTab === 'concluidos' ? styles.tabBtnActive : styles.tabBtn}
-                        onClick={() => { setActiveTab('concluidos'); setSearch(''); }}
+                        onClick={() => trocarAba('concluidos')}
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -206,7 +259,7 @@ export default function AdminAgendamentosPage() {
                     <button
                         type="button"
                         className={activeTab === 'contatos' ? styles.tabBtnActive : styles.tabBtn}
-                        onClick={() => { setActiveTab('contatos'); setSearch(''); }}
+                        onClick={() => trocarAba('contatos')}
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -235,6 +288,61 @@ export default function AdminAgendamentosPage() {
                         className={styles.searchInput}
                     />
                 </form>
+
+                {activeTab !== 'contatos' && (
+                    <div className={styles.filterRow} role="group" aria-label="Filtrar agendamentos">
+                        {activeTab === 'agendamentos' && (
+                            <button
+                                type="button"
+                                className={periodo === 'atrasados' ? styles.filterChipDangerActive : styles.filterChipDanger}
+                                onClick={() => setPeriodo(periodo === 'atrasados' ? 'todos' : 'atrasados')}
+                                aria-pressed={periodo === 'atrasados'}
+                            >
+                                Atrasados
+                                <span className={styles.chipCount}>{totalAtrasados}</span>
+                            </button>
+                        )}
+                        {periodos.map(p => (
+                            <button
+                                key={p.key}
+                                type="button"
+                                className={periodo === p.key ? styles.filterChipActive : styles.filterChip}
+                                onClick={() => setPeriodo(p.key)}
+                                aria-pressed={periodo === p.key}
+                            >
+                                {p.label}
+                            </button>
+                        ))}
+                        <input
+                            type="date"
+                            aria-label="Filtrar por dia"
+                            title="Filtrar por dia"
+                            className={styles.filterDate}
+                            value={periodo === 'dia' ? dataFiltro : ''}
+                            onChange={e => {
+                                setDataFiltro(e.target.value);
+                                setPeriodo(e.target.value ? 'dia' : 'todos');
+                            }}
+                        />
+                        {activeTab === 'agendamentos' && (
+                            <>
+                                <span className={styles.filterDivider} aria-hidden="true" />
+                                <select
+                                    aria-label="Filtrar por status"
+                                    className={styles.filterSelect}
+                                    value={statusFiltro}
+                                    onChange={e => setStatusFiltro(e.target.value)}
+                                >
+                                    <option value="">Todos os status</option>
+                                    <option value="AGENDADO">Agendado</option>
+                                    <option value="REAGENDAR">Reagendar</option>
+                                    <option value="EM_ROTA">Em rota</option>
+                                    <option value="PENDENTE">Pendente</option>
+                                </select>
+                            </>
+                        )}
+                    </div>
+                )}
             </div>
 
             <section className={styles.listCard}>
@@ -269,13 +377,13 @@ export default function AdminAgendamentosPage() {
                                                 <line x1="3" y1="10" x2="21" y2="10" />
                                             </svg>
                                             <p style={{ margin: 0, fontWeight: 600 }}>
-                                                {activeTab === 'concluidos' ? 'Nenhum agendamento concluído ainda.' : 'Nenhum agendamento em aberto.'}
+                                                {emptyMessage}
                                             </p>
                                         </div>
                                     </td>
                                 </tr>
                             ) : items.map(ag => (
-                                <tr key={ag.protocolo}>
+                                <tr key={ag.protocolo} className={ag.atrasado ? styles.rowAtrasado : undefined}>
                                     <td>
                                         <span className={styles.protoBadge}>{ag.protocolo}</span>
                                     </td>
@@ -301,6 +409,7 @@ export default function AdminAgendamentosPage() {
                                             <span className={styles.timeSub}>
                                                 {ag.dataHora ? fmtHora(ag.dataHora) : ''}
                                             </span>
+                                            {ag.atrasado && <span className={styles.atrasadoTag}>Atrasado</span>}
                                         </div>
                                     </td>
                                     <td>
@@ -549,6 +658,18 @@ export default function AdminAgendamentosPage() {
                                 </div>
                             </div>
 
+                            {editOcupaHorario && (conflitoEdit ? (
+                                <p className={styles.slotHintError} role="alert">
+                                    Horário {editHorario} já ocupado pelo agendamento {conflitoEdit.protocolo}
+                                    {conflitoEdit.inscimob ? ` (Insc. ${conflitoEdit.inscimob})` : ''}. Escolha outro horário.
+                                </p>
+                            ) : ocupadosNoDia.length > 0 ? (
+                                <p className={styles.slotHint}>
+                                    Horários já ocupados neste dia:{' '}
+                                    {ocupadosNoDia.map(o => <span key={o.protocolo} className={styles.slotBusy}>{o.horario}</span>)}
+                                </p>
+                            ) : null)}
+
                             <div className={styles.formRow}>
                                 <div className={styles.formGroup}>
                                     <label>
@@ -636,7 +757,7 @@ export default function AdminAgendamentosPage() {
                                 <button
                                     type="submit"
                                     className={styles.modalSaveBtn}
-                                    disabled={savingEdit}
+                                    disabled={savingEdit || (editOcupaHorario && !!conflitoEdit)}
                                 >
                                     {savingEdit ? 'Salvando...' : 'Salvar Alterações'}
                                 </button>

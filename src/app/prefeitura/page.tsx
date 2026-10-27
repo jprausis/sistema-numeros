@@ -8,6 +8,7 @@ import { createClient } from '@/utils/supabase/client';
 import { compressImage } from '@/utils/imageCompressor';
 import { statusLabel } from '@/utils/status';
 import { toast } from '@/utils/toast';
+import { useHorariosOcupados } from '@/utils/useHorariosOcupados';
 import { Camera, Check, Filter, Loader2, LogOut, Navigation, Pencil, Plus, X } from 'lucide-react';
 
 const InstallerMap = dynamic(() => import('@/components/InstallerMap'), {
@@ -55,6 +56,18 @@ export default function PrefeituraPage() {
     const [agendamentoObservacao, setAgendamentoObservacao] = useState('');
     const [agendandoLoading, setAgendandoLoading] = useState(false);
     const [agendamentoSuccessProtocolo, setAgendamentoSuccessProtocolo] = useState<string | null>(null);
+
+    // Trava de horário: um agendamento por horário
+    const ocupadosNoDia = useHorariosOcupados(
+        agendamentoData,
+        agendamentoProtocolo,
+        !!agendandoImovel && !agendamentoSuccessProtocolo && !carregandoDadosAgendamento
+    );
+    // Agendamento existente pode ser salvo sem trocar o horário, mesmo se já estava duplicado
+    const [horarioOriginal, setHorarioOriginal] = useState('');
+    const conflitoHorario = `${agendamentoData} ${agendamentoHorario}` === horarioOriginal
+        ? undefined
+        : ocupadosNoDia.find(o => o.horario === agendamentoHorario);
 
     useEffect(() => {
         if (selectedForProcess) {
@@ -408,6 +421,7 @@ export default function PrefeituraPage() {
         setAgendandoImovel(imovel);
         setAgendamentoSuccessProtocolo(null);
         setAgendamentoProtocolo(null);
+        setHorarioOriginal('');
 
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -431,6 +445,7 @@ export default function PrefeituraPage() {
                     setAgendamentoProtocolo(ag.protocolo || null);
                     if (ag.data) setAgendamentoData(ag.data);
                     if (ag.horario) setAgendamentoHorario(ag.horario);
+                    if (ag.data && ag.horario) setHorarioOriginal(`${ag.data} ${ag.horario}`);
                     if (ag.nome) setAgendamentoNome(ag.nome);
                     if (ag.telefone) setAgendamentoTelefone(ag.telefone);
                     if (ag.observacao !== undefined) setAgendamentoObservacao(ag.observacao);
@@ -448,6 +463,10 @@ export default function PrefeituraPage() {
         if (!agendandoImovel) return;
         if (!agendamentoData || !agendamentoHorario) {
             toast.error("Selecione data e horário para o agendamento.");
+            return;
+        }
+        if (conflitoHorario) {
+            toast.error(`O horário ${agendamentoHorario} já está ocupado pelo agendamento ${conflitoHorario.protocolo}. Escolha outro horário.`);
             return;
         }
 
@@ -1237,6 +1256,22 @@ export default function PrefeituraPage() {
                                     </div>
                                 </div>
 
+                                {conflitoHorario ? (
+                                    <p role="alert" style={{ margin: 0, fontSize: '0.82rem', color: '#b91c1c', fontWeight: 600 }}>
+                                        Horário {agendamentoHorario} já ocupado pelo agendamento {conflitoHorario.protocolo}
+                                        {conflitoHorario.inscimob ? ` (Insc. ${conflitoHorario.inscimob})` : ''}. Escolha outro horário.
+                                    </p>
+                                ) : ocupadosNoDia.length > 0 ? (
+                                    <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b', lineHeight: 1.6 }}>
+                                        Horários já ocupados neste dia:{' '}
+                                        {ocupadosNoDia.map(o => (
+                                            <span key={o.protocolo} style={{ display: 'inline-block', margin: '2px 4px 0 0', padding: '1px 7px', borderRadius: '6px', background: '#f1f5f9', color: '#334155', fontWeight: 600 }}>
+                                                {o.horario}
+                                            </span>
+                                        ))}
+                                    </p>
+                                ) : null}
+
                                 <div className={styles.formGroup}>
                                     <label>
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1302,7 +1337,7 @@ export default function PrefeituraPage() {
                                     <button
                                         type="submit"
                                         className={styles.submitModalBtn}
-                                        disabled={agendandoLoading || carregandoDadosAgendamento}
+                                        disabled={agendandoLoading || carregandoDadosAgendamento || !!conflitoHorario}
                                     >
                                         {agendandoLoading
                                             ? 'Salvando...'

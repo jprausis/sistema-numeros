@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { sincronizarAgendamentosConcluidos } from "@/lib/agendamentos";
 import { requireUser } from "@/lib/auth";
-import { splitBrazilDate } from "@/lib/timezone";
+import { splitBrazilDate, brazilDayRange, buildBrazilDate, todayBrazil } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +14,10 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const tipo = searchParams.get("tipo") || "agendamentos"; // "agendamentos" | "concluidos" | "contatos"
         const search = searchParams.get("q")?.trim();
+        // Filtros da fila: periodo = todos | atrasados | hoje | amanha | semana | dia (com data=YYYY-MM-DD)
+        const periodo = searchParams.get("periodo") || "todos";
+        const dataFiltro = searchParams.get("data") || "";
+        const statusFiltro = searchParams.get("status") || "";
 
         // Garante que agendamentos de imóveis já concluídos sejam marcados como CONCLUIDO
         await sincronizarAgendamentosConcluidos();
@@ -38,11 +42,16 @@ export async function GET(req: NextRequest) {
         const whereAbertos: any = { AND: [whereAgendamentos, { status: { not: "CONCLUIDO" } }] };
         const whereConcluidos: any = { AND: [whereAgendamentos, { status: "CONCLUIDO" }] };
 
+        // Atrasados: em aberto com horário marcado que já passou
+        const agora = new Date();
+        const whereAtrasados: any = { AND: [...whereAbertos.AND, { dataHora: { lt: agora } }] };
+
         // Contagens globais para exibição de abas e badges
-        const [totalAgendamentos, totalConcluidos, totalContatos] = await Promise.all([
+        const [totalAgendamentos, totalConcluidos, totalContatos, totalAtrasados] = await Promise.all([
             prisma.agendamento.count({ where: whereAbertos }),
             prisma.agendamento.count({ where: whereConcluidos }),
-            prisma.agendamento.count({ where: whereContatos })
+            prisma.agendamento.count({ where: whereContatos }),
+            prisma.agendamento.count({ where: whereAtrasados })
         ]);
 
         if (tipo === "contatos") {
@@ -66,7 +75,8 @@ export async function GET(req: NextRequest) {
                 items: contatos,
                 totalAgendamentos,
                 totalConcluidos,
-                totalContatos
+                totalContatos,
+                totalAtrasados
             });
         }
 
@@ -82,6 +92,27 @@ export async function GET(req: NextRequest) {
                     { inscimobVinculo: { contains: search, mode: "insensitive" } }
                 ]
             });
+        }
+
+        const hoje = todayBrazil();
+        const diaMs = 24 * 60 * 60 * 1000;
+        const inicioHoje = buildBrazilDate(hoje, "00:00")!;
+        if (periodo === "atrasados" && !isConcluidos) {
+            whereCondition.AND.push({ dataHora: { lt: agora } });
+        } else if (periodo === "hoje") {
+            whereCondition.AND.push({ dataHora: brazilDayRange(hoje) });
+        } else if (periodo === "amanha") {
+            const amanha = splitBrazilDate(new Date(inicioHoje.getTime() + diaMs)).data;
+            whereCondition.AND.push({ dataHora: brazilDayRange(amanha) });
+        } else if (periodo === "semana") {
+            // Próximos 7 dias (hoje incluso)
+            whereCondition.AND.push({ dataHora: { gte: inicioHoje, lt: new Date(inicioHoje.getTime() + 7 * diaMs) } });
+        } else if (periodo === "dia" && dataFiltro) {
+            const range = brazilDayRange(dataFiltro);
+            if (range) whereCondition.AND.push({ dataHora: range });
+        }
+        if (statusFiltro && !isConcluidos) {
+            whereCondition.AND.push({ status: statusFiltro });
         }
 
         const agendamentos = await prisma.agendamento.findMany({
@@ -121,7 +152,8 @@ export async function GET(req: NextRequest) {
                 imovel,
                 dataStr,
                 horarioStr,
-                observacao: imovel?.obsPendente || ""
+                observacao: imovel?.obsPendente || "",
+                atrasado: !isConcluidos && !!ag.dataHora && ag.dataHora < agora
             };
         });
 
@@ -139,7 +171,8 @@ export async function GET(req: NextRequest) {
             items: enriched,
             totalAgendamentos,
             totalConcluidos,
-            totalContatos
+            totalContatos,
+            totalAtrasados
         });
     } catch (error) {
         console.error("Erro ao listar agendamentos:", error);

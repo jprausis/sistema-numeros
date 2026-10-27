@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import prisma from "@/lib/prisma";
 import { requireUser, getRequestMeta, STAFF_ROLES } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
-import { generateUniqueProtocol } from "@/lib/agendamentos";
+import { generateUniqueProtocol, buscarConflitoHorario, mensagemConflitoHorario } from "@/lib/agendamentos";
 import { buildBrazilDate } from "@/lib/timezone";
 
 export async function POST(req: NextRequest) {
@@ -68,6 +68,17 @@ export async function POST(req: NextRequest) {
             if (existing) {
                 targetProtocolo = existing.protocolo;
             }
+        }
+
+        // Apenas um agendamento ativo por horário (ao editar sem trocar o horário, não revalida)
+        const atual = targetProtocolo
+            ? await prisma.agendamento.findUnique({ where: { protocolo: targetProtocolo }, select: { dataHora: true, status: true } })
+            : null;
+        const mesmoHorario = !!atual && atual.dataHora?.getTime() === dataHora.getTime()
+            && !["CONCLUIDO", "CANCELADO"].includes(atual.status);
+        const conflito = mesmoHorario ? null : await buscarConflitoHorario(dataHora, targetProtocolo);
+        if (conflito) {
+            return NextResponse.json({ error: mensagemConflitoHorario(conflito, horario) }, { status: 409 });
         }
 
         let agendamento;

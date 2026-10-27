@@ -63,3 +63,33 @@ export async function sincronizarAgendamentosConcluidos() {
     });
     return result.count;
 }
+
+/**
+ * Agendamentos oficiais (fila de instalação): protocolo PREF- ou vinculados a um imóvel.
+ * Contatos do formulário público guardam em dataHora a data do pedido, não um horário marcado.
+ */
+export const WHERE_AGENDAMENTO_OFICIAL = {
+    OR: [
+        { protocolo: { startsWith: "PREF-" } },
+        { inscimobVinculo: { not: null } }
+    ]
+};
+
+/** Agendamento ativo que já ocupa o mesmo horário (exceto o próprio protocolo), ou null se estiver livre. */
+export async function buscarConflitoHorario(dataHora: Date, ignorarProtocolo?: string | null) {
+    return prisma.agendamento.findFirst({
+        where: {
+            AND: [WHERE_AGENDAMENTO_OFICIAL],
+            dataHora,
+            status: { notIn: STATUS_FINALIZADOS },
+            ...(ignorarProtocolo ? { NOT: { protocolo: ignorarProtocolo } } : {})
+        },
+        select: { protocolo: true, nome: true, inscimobVinculo: true }
+    });
+}
+
+export function mensagemConflitoHorario(conflito: { protocolo: string; inscimobVinculo: string | null }, horario: string) {
+    return `O horário ${horario} deste dia já está ocupado pelo agendamento ${conflito.protocolo}`
+        + (conflito.inscimobVinculo ? ` (Insc. ${conflito.inscimobVinculo})` : "")
+        + ". Escolha outro horário.";
+}
