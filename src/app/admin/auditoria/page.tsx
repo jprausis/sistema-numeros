@@ -34,7 +34,7 @@ export default function AuditoriaPage() {
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [pagination, setPagination] = useState({ totalCount: 0, totalPages: 1, currentPage: 1, limit: 50 });
-    const [filters, setFilters] = useState({ userEmail: '', startDate: '', endDate: '', sortOrder: 'desc' });
+    const [filters, setFilters] = useState({ imovel: '', userEmail: '', startDate: '', endDate: '', sortOrder: 'desc' });
 
     const fetchLogs = useCallback((page = 1, currentFilters = filters) => {
         setLoading(true);
@@ -69,6 +69,10 @@ export default function AuditoriaPage() {
             </header>
 
             <form className={`${ui.cardPadded} ${styles.filterBar}`} onSubmit={handleFilter}>
+                <div className={ui.field}>
+                    <label htmlFor="f-imovel">Nº do imóvel / inscrição</label>
+                    <input id="f-imovel" type="search" placeholder="Ex: 311" value={filters.imovel} onChange={e => setFilters({ ...filters, imovel: e.target.value })} />
+                </div>
                 <div className={ui.field}>
                     <label htmlFor="f-email">E-mail do usuário</label>
                     <input id="f-email" type="search" placeholder="Ex: joao@email.com" value={filters.userEmail} onChange={e => setFilters({ ...filters, userEmail: e.target.value })} />
@@ -116,6 +120,12 @@ export default function AuditoriaPage() {
                                     </td>
                                     <td>
                                         <span className={styles.actionBadge}>{actionLabel(log.action)}</span>
+                                        {log.imovel && (
+                                            <span className={styles.imovelRef}>
+                                                Nº {log.imovel.numero}{log.imovel.complemento ? ` (${log.imovel.complemento})` : ''}
+                                                {log.imovel.bairro ? ` • ${log.imovel.bairro}` : ''}
+                                            </span>
+                                        )}
                                         <span className={ui.cellSub}>{log.resource}{log.resourceId ? `: ${log.resourceId}` : ''}</span>
                                     </td>
                                     <td className={styles.detailsCol}>

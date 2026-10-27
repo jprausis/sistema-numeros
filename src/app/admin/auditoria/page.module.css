@@ -1,8 +1,16 @@
 .filterBar {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1.3fr auto;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 0.9rem;
     align-items: end;
+}
+
+.imovelRef {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--foreground);
 }
 
 .dateCol {
