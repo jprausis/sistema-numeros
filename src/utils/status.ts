@@ -25,9 +25,10 @@ export function statusLabel(status?: string | null): string {
     return STATUS_LABELS[status] || status;
 }
 
-/** Link de WhatsApp a partir de um telefone brasileiro em qualquer formato. */
-export function whatsappLink(telefone?: string | null): string | null {
+/** Link de WhatsApp a partir de um telefone brasileiro em qualquer formato (com DDD). */
+export function whatsappLink(telefone?: string | null, mensagem?: string): string | null {
     const digits = (telefone || "").replace(/\D/g, "");
     if (digits.length < 10) return null;
-    return `https://wa.me/${digits.startsWith("55") && digits.length > 11 ? digits : `55${digits}`}`;
+    const numero = digits.startsWith("55") && digits.length > 11 ? digits : `55${digits}`;
+    return `https://wa.me/${numero}${mensagem ? `?text=${encodeURIComponent(mensagem)}` : ""}`;
 }

@@ -121,6 +121,18 @@
 }
 
 /* Nova Tela de Processo */
+.statusPill {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #334155;
+    white-space: nowrap;
+}
+
 .NAO_INICIADO {
     background: #fee2e2;
     color: #b91c1c;
@@ -402,7 +414,11 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    padding-bottom: 2rem;
+    padding: 1rem 1rem 2rem;
+}
+
+.gpsView {
+    padding: 1rem 1rem 2rem;
 }
 
 .searchHeader {
@@ -569,7 +585,7 @@
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
-    padding-bottom: 2rem;
+    padding: 1rem 1rem 2rem;
 }
 
 .agendaHeader {
@@ -596,10 +612,8 @@
 
 .agendaTabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
-    overflow-x: auto;
-    padding-bottom: 0.4rem;
-    scrollbar-width: none;
 }
 
 .agendaTabs::-webkit-scrollbar {
@@ -627,7 +641,8 @@
     background: #f8fafc;
 }
 
-.activeAgendaTab {
+.activeAgendaTab,
+.activeAgendaTab:hover {
     background: var(--primary);
     border-color: var(--primary);
     color: white;
@@ -795,8 +810,9 @@
     color: #64748b;
     margin: 0;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    gap: 2px 6px;
 }
 
 .agendaObservation {
@@ -847,8 +863,7 @@
 }
 
 .agendaPrimaryBtn {
-    flex: 2;
-    min-width: 140px;
+    flex: 1 1 100%;
     background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
     color: white;
     padding: 0.65rem 1rem;
@@ -871,6 +886,7 @@
 }
 
 .agendaIconBtn {
+    flex: 1 1 0;
     background: #f8fafc;
     border: 1px solid #cbd5e1;
     color: #334155;
@@ -893,6 +909,7 @@
 }
 
 .agendaWhatsappBtn {
+    flex: 1 1 0;
     background: #f0fdf4;
     border: 1px solid #bbf7d0;
     color: #166534;
@@ -913,6 +930,14 @@
     background: #dcfce7;
 }
 
+
+/* Botões secundários do card dividem a linha igualmente sem quebrar o texto */
+.agendaIconBtn,
+.agendaWhatsappBtn {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    white-space: nowrap;
+}
 
 /* Alvos de toque mínimos para uso em campo (luvas, sol, uma mão) */
 .radiusBtn,
@@ -935,4 +960,103 @@
     -webkit-appearance: none;
     appearance: none;
     display: none;
+}
+
+/* Aba "Atrasadas" em vermelho para chamar atenção */
+.agendaTabDanger {
+    border-color: #fecaca;
+    color: #b91c1c;
+}
+
+.agendaTabDanger:hover {
+    border-color: #f87171;
+    background: #fef2f2;
+}
+
+.activeAgendaTabDanger,
+.activeAgendaTabDanger:hover {
+    background: #b91c1c;
+    border-color: #b91c1c;
+    color: white;
+}
+
+.activeAgendaTabDanger .tabBadge {
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+}
+
+.agendaDateFilter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-top: -0.5rem;
+}
+
+.agendaDateFilter label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.agendaDateControls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.agendaDateInput {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    background: white;
+    color: #0f172a;
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: inherit;
+}
+
+.agendaDateInput:focus {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+}
+
+.agendaDateClear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 44px;
+    padding: 0 0.85rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.agendaCount {
+    margin: -0.5rem 0 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--muted);
+}
+
+/* Inscrição clicável: abre a ficha do imóvel */
+.inscBadgeBtn {
+    gap: 4px;
+    border: 1px solid #c7d2fe;
+    cursor: pointer;
+    min-height: 28px;
+    font-family: inherit;
+}
+
+.inscBadgeBtn:hover {
+    background: #c7d2fe;
 }

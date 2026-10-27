@@ -11,7 +11,10 @@ export async function GET(req: NextRequest) {
 
     try {
         const { searchParams } = new URL(req.url);
-        const filter = searchParams.get("filter") || "proximos"; // 'proximos' | 'hoje' | 'todos' | 'concluidos'
+        const filter = searchParams.get("filter") || "proximos"; // 'proximos' | 'hoje' | 'atrasados' | 'todos' | 'concluidos'
+        // Dia específico (YYYY-MM-DD, horário de Brasília), combinável com qualquer aba
+        const dia = searchParams.get("data");
+        const diaRange = dia ? brazilDayRange(dia) : null;
 
         // Garante que agendamentos de imóveis já concluídos sejam marcados como CONCLUIDO
         await sincronizarAgendamentosConcluidos();
@@ -70,10 +73,30 @@ export async function GET(req: NextRequest) {
             };
         });
 
-        // Filtrar por 'hoje' se requisitado
+        // A "próxima instalação" é a pendente mais cedo da fila inteira, independente do filtro aplicado
+        const proximaProtocolo = enriched
+            .filter(a => a.status !== "CONCLUIDO" && a.dataHora)
+            .sort((a, b) => new Date(a.dataHora!).getTime() - new Date(b.dataHora!).getTime())[0]?.protocolo
+            ?? enriched.find(a => a.status !== "CONCLUIDO")?.protocolo;
+
+        // Filtrar por 'hoje' / 'atrasados' se requisitado
         let results = enriched;
         if (filter === "hoje") {
             results = enriched.filter(item => item.isHoje);
+        } else if (filter === "atrasados") {
+            results = enriched.filter(item => item.isAtrasado);
+        }
+
+        // Filtro por dia: na aba de concluídos vale o dia da execução, nas demais o dia agendado
+        if (diaRange) {
+            results = results.filter(item => {
+                const ref = filter === "concluidos"
+                    ? (item.imovel?.dataExecucao || item.dataHora)
+                    : item.dataHora;
+                if (!ref) return false;
+                const d = new Date(ref);
+                return d >= diaRange.gte && d <= diaRange.lte;
+            });
         }
 
         // Ordenar pela ordem da próxima instalação que deve ser feita:
@@ -102,23 +125,18 @@ export async function GET(req: NextRequest) {
             return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         });
 
-        // Marcar exatamente a 1ª instalação pendente da fila como a próxima!
-        let nextFlagged = false;
-        results = results.map(item => {
-            if (!nextFlagged && item.status !== "CONCLUIDO") {
-                nextFlagged = true;
-                return { ...item, proximaInstalacao: true };
-            }
-            return { ...item, proximaInstalacao: false };
-        });
+        results = results.map(item => ({ ...item, proximaInstalacao: item.protocolo === proximaProtocolo }));
 
-        const totalPendentes = enriched.filter(a => a.status !== "CONCLUIDO").length;
-        const totalHoje = enriched.filter(a => a.isHoje && a.status !== "CONCLUIDO").length;
+        // Na aba de concluídos a consulta só traz concluídos: os contadores das outras abas não se aplicam
+        const contadores = filter === "concluidos" ? {} : {
+            totalPendentes: enriched.filter(a => a.status !== "CONCLUIDO").length,
+            totalHoje: enriched.filter(a => a.isHoje && a.status !== "CONCLUIDO").length,
+            totalAtrasados: enriched.filter(a => a.isAtrasado).length,
+        };
 
         return NextResponse.json({
             agendamentos: results,
-            totalPendentes,
-            totalHoje
+            ...contadores
         });
     } catch (error: any) {
         console.error("Erro ao listar agenda do instalador:", error);

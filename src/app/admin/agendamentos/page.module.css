@@ -670,3 +670,26 @@
     color: #334155;
     font-weight: 600;
 }
+
+/* Inscrição clicável: abre a ficha do imóvel */
+.inscBadgeBtn {
+    border: 1px solid #bae6fd;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.inscBadgeBtn:hover {
+    background: #bae6fd;
+    text-decoration: underline;
+}
+
+.whatsLink {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #15803d;
+    text-decoration: none;
+}
+
+.whatsLink:hover {
+    text-decoration: underline;
+}

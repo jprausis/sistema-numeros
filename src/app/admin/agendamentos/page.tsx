@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import styles from './page.module.css';
 import { toast } from '@/utils/toast';
 import { splitBrazilDate, BR_TIMEZONE } from '@/lib/timezone';
-import { statusLabel } from '@/utils/status';
+import { statusLabel, whatsappLink } from '@/utils/status';
+import ImovelInfoModal from '@/components/ImovelInfoModal';
 import { useHorariosOcupados } from '@/utils/useHorariosOcupados';
 
 const fmtData = (d: string | Date) => new Date(d).toLocaleDateString('pt-BR', { timeZone: BR_TIMEZONE });
@@ -19,6 +20,7 @@ export default function AdminAgendamentosPage() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [totalAtrasados, setTotalAtrasados] = useState(0);
+    const [imovelInfo, setImovelInfo] = useState<{ inscimob: string; imovel?: any } | null>(null);
 
     // Filtros da fila
     type Periodo = 'todos' | 'atrasados' | 'hoje' | 'amanha' | 'semana' | 'dia';
@@ -392,9 +394,18 @@ export default function AdminAgendamentosPage() {
                                             <span className={styles.imovelNumber}>
                                                 Nº {ag.imovel?.numeroAInstalar || 'S/N'}
                                             </span>
-                                            <span className={styles.inscBadge}>
-                                                Insc: {ag.inscimobVinculo || '—'}
-                                            </span>
+                                            {ag.inscimobVinculo ? (
+                                                <button
+                                                    type="button"
+                                                    className={`${styles.inscBadge} ${styles.inscBadgeBtn}`}
+                                                    onClick={() => setImovelInfo({ inscimob: ag.inscimobVinculo, imovel: ag.imovel })}
+                                                    title="Ver informações do imóvel"
+                                                >
+                                                    Insc: {ag.inscimobVinculo}
+                                                </button>
+                                            ) : (
+                                                <span className={styles.inscBadge}>Insc: —</span>
+                                            )}
                                             <span className={styles.imovelSub}>
                                                 {ag.imovel?.bairro?.nome || 'Bairro'}
                                                 {ag.imovel?.endereco ? ` • ${ag.imovel.endereco}` : ''}
@@ -414,7 +425,19 @@ export default function AdminAgendamentosPage() {
                                     </td>
                                     <td>
                                         <strong>{ag.nome || '—'}</strong><br />
-                                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{ag.telefone || '—'}</span>
+                                        {whatsappLink(ag.telefone) ? (
+                                            <a
+                                                href={whatsappLink(ag.telefone)!}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className={styles.whatsLink}
+                                                title="Abrir conversa no WhatsApp"
+                                            >
+                                                {ag.telefone}
+                                            </a>
+                                        ) : (
+                                            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{ag.telefone || '—'}</span>
+                                        )}
                                     </td>
                                     <td style={{ maxWidth: '200px' }}>
                                         <span style={{ fontSize: '0.82rem', color: '#475569', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -514,9 +537,14 @@ export default function AdminAgendamentosPage() {
                                     </td>
                                     <td>
                                         {ct.inscimobVinculo ? (
-                                            <span className={styles.inscBadge}>
+                                            <button
+                                                type="button"
+                                                className={`${styles.inscBadge} ${styles.inscBadgeBtn}`}
+                                                onClick={() => setImovelInfo({ inscimob: ct.inscimobVinculo })}
+                                                title="Ver informações do imóvel"
+                                            >
                                                 {ct.inscimobVinculo}
-                                            </span>
+                                            </button>
                                         ) : (
                                             <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>Não vinculado</span>
                                         )}
@@ -765,6 +793,9 @@ export default function AdminAgendamentosPage() {
                         </form>
                     </div>
                 </div>
+            )}
+            {imovelInfo && (
+                <ImovelInfoModal inscimob={imovelInfo.inscimob} initial={imovelInfo.imovel} onClose={() => setImovelInfo(null)} />
             )}
         </div>
     );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import styles from './page.module.css';
@@ -9,6 +9,8 @@ import { utmToLatLng } from '@/utils/geo';
 import { statusLabel, whatsappLink } from '@/utils/status';
 import { toast } from '@/utils/toast';
 import { X } from 'lucide-react';
+import ImovelInfoModal from '@/components/ImovelInfoModal';
+import { BR_TIMEZONE } from '@/lib/timezone';
 
 // Importação dinâmica do mapa para evitar erros de SSR com Leaflet
 const InstallerMap = dynamic(() => import('@/components/InstallerMap'), {
@@ -25,9 +27,12 @@ export default function InstallerDashboard() {
     const [view, setView] = useState<'map' | 'list' | 'gps' | 'search'>('map');
     const [properties, setProperties] = useState<any[]>([]);
     const [agendamentosList, setAgendamentosList] = useState<any[]>([]);
-    const [agendaFilter, setAgendaFilter] = useState<'proximos' | 'hoje' | 'todos' | 'concluidos'>('proximos');
-    const [agendaStats, setAgendaStats] = useState<{ totalPendentes: number; totalHoje: number }>({ totalPendentes: 0, totalHoje: 0 });
+    const [agendaFilter, setAgendaFilter] = useState<'proximos' | 'hoje' | 'atrasados' | 'todos' | 'concluidos'>('proximos');
+    const [agendaData, setAgendaData] = useState(''); // filtro por dia (YYYY-MM-DD)
+    const [agendaStats, setAgendaStats] = useState({ totalPendentes: 0, totalHoje: 0, totalAtrasados: 0 });
+    const [imovelInfo, setImovelInfo] = useState<{ inscimob: string; agendamento?: any } | null>(null);
     const [loadingAgenda, setLoadingAgenda] = useState(false);
+    const agendaReqId = useRef(0); // descarta respostas antigas quando o filtro muda rápido
     const [searchRadius, setSearchRadius] = useState<number>(80);
 
     // Estados para Busca de Imóvel por Inscrição
@@ -91,26 +96,31 @@ export default function InstallerDashboard() {
 
     useEffect(() => {
         if (view === 'list') {
-            fetchAgenda(agendaFilter);
+            fetchAgenda(agendaFilter, agendaData);
         }
-    }, [view, agendaFilter]);
+    }, [view, agendaFilter, agendaData]);
 
-    async function fetchAgenda(filterToUse = agendaFilter) {
+    async function fetchAgenda(filterToUse = agendaFilter, dataToUse = agendaData) {
+        const reqId = ++agendaReqId.current;
         setLoadingAgenda(true);
         try {
-            const res = await fetch(`/api/instalador/agenda?filter=${filterToUse}`);
+            const params = new URLSearchParams({ filter: filterToUse });
+            if (dataToUse) params.set('data', dataToUse);
+            const res = await fetch(`/api/instalador/agenda?${params.toString()}`);
             const data = await res.json();
+            if (reqId !== agendaReqId.current) return;
             setAgendamentosList(data.agendamentos || []);
             if (data.totalPendentes !== undefined) {
                 setAgendaStats({
                     totalPendentes: data.totalPendentes,
-                    totalHoje: data.totalHoje
+                    totalHoje: data.totalHoje,
+                    totalAtrasados: data.totalAtrasados || 0
                 });
             }
         } catch (e) {
             console.error("Erro ao carregar agenda:", e);
         } finally {
-            setLoadingAgenda(false);
+            if (reqId === agendaReqId.current) setLoadingAgenda(false);
         }
     }
 
@@ -193,6 +203,21 @@ export default function InstallerDashboard() {
         } else {
             router.push(`/instalador/imovel/${property.inscimob}`);
         }
+    };
+
+    const abrirInstalacao = (inscimob: string, ag: any) => {
+        router.push(`/instalador/imovel/${inscimob}?agendamento=${ag.protocolo}&nome=${encodeURIComponent(ag.nome || '')}&telefone=${encodeURIComponent(ag.telefone || '')}`);
+    };
+
+    const mensagemWhatsapp = (ag: any, numero?: string) => {
+        const data = ag.dataHora
+            ? new Date(ag.dataHora).toLocaleString('pt-BR', { timeZone: BR_TIMEZONE, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+            : null;
+        // "Morador / Prefeitura" é o nome padrão de quando a prefeitura não informou o morador
+        const primeiroNome = ag.nome && !/^morador\b/i.test(ag.nome) ? ag.nome.split(' ')[0] : '';
+        return `Olá${primeiroNome ? `, ${primeiroNome}` : ''}! Sou o instalador da numeração predial da Prefeitura.`
+            + ` Estou entrando em contato sobre a instalação do número${numero ? ` ${numero}` : ' da sua residência'}`
+            + `${data ? `, agendada para ${data.replace(',', ' às')}` : ''} (protocolo ${ag.protocolo}).`;
     };
 
     const handleViewOnMap = (property: any) => {
@@ -523,6 +548,16 @@ export default function InstallerDashboard() {
                                 )}
                             </button>
                             <button
+                                className={`${styles.agendaTab} ${styles.agendaTabDanger} ${agendaFilter === 'atrasados' ? styles.activeAgendaTabDanger : ''}`}
+                                onClick={() => setAgendaFilter('atrasados')}
+                                aria-pressed={agendaFilter === 'atrasados'}
+                            >
+                                <span>Atrasadas</span>
+                                {agendaStats.totalAtrasados > 0 && (
+                                    <span className={styles.tabBadge}>{agendaStats.totalAtrasados}</span>
+                                )}
+                            </button>
+                            <button
                                 className={`${styles.agendaTab} ${agendaFilter === 'todos' ? styles.activeAgendaTab : ''}`}
                                 onClick={() => setAgendaFilter('todos')}
                             >
@@ -535,6 +570,39 @@ export default function InstallerDashboard() {
                                 <span>Concluídas</span>
                             </button>
                         </div>
+
+                        {/* Filtro por dia (combina com a aba selecionada) */}
+                        <div className={styles.agendaDateFilter}>
+                            <label htmlFor="agenda-data">
+                                {agendaFilter === 'concluidos' ? 'Concluídas no dia' : 'Agendadas para o dia'}
+                            </label>
+                            <div className={styles.agendaDateControls}>
+                                <input
+                                    id="agenda-data"
+                                    type="date"
+                                    className={styles.agendaDateInput}
+                                    value={agendaData}
+                                    onChange={e => setAgendaData(e.target.value)}
+                                />
+                                {agendaData && (
+                                    <button
+                                        type="button"
+                                        className={styles.agendaDateClear}
+                                        onClick={() => setAgendaData('')}
+                                        aria-label="Limpar filtro de data"
+                                    >
+                                        <X size={16} /> Limpar
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {!loadingAgenda && (
+                            <p className={styles.agendaCount} aria-live="polite">
+                                {agendamentosList.length} {agendamentosList.length === 1 ? 'agendamento' : 'agendamentos'}
+                                {agendaData && ` em ${agendaData.split('-').reverse().join('/')}`}
+                            </p>
+                        )}
 
                         {loadingAgenda ? (
                             <p className={styles.loadingText} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
@@ -551,7 +619,9 @@ export default function InstallerDashboard() {
                                     const { hour, dateStr, isHoje } = formatAgendaDate(ag.dataHora);
                                     const isDone = ag.status === 'CONCLUIDO';
                                     const displayStatus = isDone ? 'CONCLUIDO' : (targetImovel?.status || ag.status);
-                                    const waLink = whatsappLink(ag.telefone);
+                                    const numeroImovel = targetImovel?.numeroAInstalar || ag.numero || ag.enderecoCompleto?.match(/Nº\s*([^\s-]+)/)?.[1];
+                                    const waLink = whatsappLink(ag.telefone, mensagemWhatsapp(ag, numeroImovel));
+                                    const inscAgendamento = targetImovel?.inscimob || ag.inscimobVinculo;
 
                                     return (
                                         <div
@@ -592,15 +662,25 @@ export default function InstallerDashboard() {
                                                         <span className={`${styles.statusPill} ${styles[displayStatus]}`}>
                                                             {statusLabel(displayStatus)}
                                                         </span>
-                                                        {(targetImovel?.inscimob || ag.inscimobVinculo) && (
-                                                            <span className={styles.inscBadge}>
-                                                                Insc: {targetImovel?.inscimob || ag.inscimobVinculo}
-                                                            </span>
+                                                        {inscAgendamento && (
+                                                            <button
+                                                                type="button"
+                                                                className={`${styles.inscBadge} ${styles.inscBadgeBtn}`}
+                                                                onClick={() => setImovelInfo({ inscimob: inscAgendamento, agendamento: ag })}
+                                                                title="Ver informações do imóvel"
+                                                            >
+                                                                Insc: {inscAgendamento}
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                                                    <circle cx="12" cy="12" r="10" />
+                                                                    <line x1="12" y1="16" x2="12" y2="12" />
+                                                                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                                                                </svg>
+                                                            </button>
                                                         )}
                                                     </div>
 
                                                     <h3 className={styles.agendaNumeroInstalar}>
-                                                        Nº {targetImovel?.numeroAInstalar || ag.numero || ag.enderecoCompleto?.match(/Nº\s*([^\s-]+)/)?.[1] || 'S/N'}
+                                                        Nº {numeroImovel || 'S/N'}
                                                     </h3>
 
                                                     <p className={styles.agendaAddress}>
@@ -621,7 +701,14 @@ export default function InstallerDashboard() {
                                                                 <circle cx="12" cy="7" r="4" />
                                                             </svg>
                                                             <span>{ag.nome}</span>
-                                                            {ag.telefone && <span style={{ color: '#94a3b8' }}>• {ag.telefone}</span>}
+                                                            {ag.telefone && (
+                                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                                                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+                                                                    </svg>
+                                                                    {ag.telefone}
+                                                                </span>
+                                                            )}
                                                         </p>
                                                     )}
 
@@ -661,10 +748,8 @@ export default function InstallerDashboard() {
                                                 <button
                                                     className={styles.agendaPrimaryBtn}
                                                     onClick={() => {
-                                                        if (targetImovel) {
-                                                            router.push(`/instalador/imovel/${targetImovel.inscimob}?agendamento=${ag.protocolo}&nome=${encodeURIComponent(ag.nome || '')}&telefone=${encodeURIComponent(ag.telefone || '')}`);
-                                                        } else if (ag.inscimobVinculo) {
-                                                            router.push(`/instalador/imovel/${ag.inscimobVinculo}?agendamento=${ag.protocolo}&nome=${encodeURIComponent(ag.nome || '')}&telefone=${encodeURIComponent(ag.telefone || '')}`);
+                                                        if (inscAgendamento) {
+                                                            abrirInstalacao(inscAgendamento, ag);
                                                         } else {
                                                             setLinkingAgendamento(ag);
                                                             handleGpsSearch();
@@ -737,13 +822,39 @@ export default function InstallerDashboard() {
                                     <line x1="8" y1="2" x2="8" y2="6" />
                                     <line x1="3" y1="10" x2="21" y2="10" />
                                 </svg>
-                                <h3>Nenhum agendamento encontrado</h3>
-                                <p>Não há instalações agendadas para o filtro selecionado no momento.</p>
+                                <h3>{agendaFilter === 'atrasados' && !agendaData ? 'Nenhuma instalação atrasada' : 'Nenhum agendamento encontrado'}</h3>
+                                <p>
+                                    {agendaData
+                                        ? `Não há instalações neste filtro para ${agendaData.split('-').reverse().join('/')}.`
+                                        : 'Não há instalações agendadas para o filtro selecionado no momento.'}
+                                </p>
+                                {agendaData && (
+                                    <button type="button" className={styles.agendaDateClear} style={{ marginTop: '1rem' }} onClick={() => setAgendaData('')}>
+                                        <X size={16} /> Limpar filtro de data
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
                 )}
             </main>
+
+            {imovelInfo && (
+                <ImovelInfoModal
+                    inscimob={imovelInfo.inscimob}
+                    initial={imovelInfo.agendamento?.imovel}
+                    onClose={() => setImovelInfo(null)}
+                    actions={imovelInfo.agendamento && (
+                        <button
+                            type="button"
+                            className={styles.agendaPrimaryBtn}
+                            onClick={() => abrirInstalacao(imovelInfo.inscimob, imovelInfo.agendamento)}
+                        >
+                            {imovelInfo.agendamento.status === 'CONCLUIDO' ? 'Ver / Reabrir' : 'Instalar / Concluir'}
+                        </button>
+                    )}
+                />
+            )}
 
             {fullScreenImage && (
                 <div className="lightbox" role="dialog" aria-label="Foto em tela cheia" onClick={() => setFullScreenImage(null)}>

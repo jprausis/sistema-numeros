@@ -130,7 +130,7 @@ export async function GET(req: NextRequest) {
                 where: { inscimob: { in: inscimobs } },
                 include: {
                     bairro: { select: { id: true, nome: true } },
-                    complementos: true
+                    complementos: { orderBy: { unidade: "asc" } }
                 }
             })
             : [];
