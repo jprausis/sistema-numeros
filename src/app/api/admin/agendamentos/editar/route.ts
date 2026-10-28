@@ -5,6 +5,7 @@ import { createAuditLog, diffCampos } from "@/lib/audit";
 import { buildBrazilDate, splitBrazilDate } from "@/lib/timezone";
 import { movimentarEstoqueSeguro } from "@/lib/estoque";
 import { buscarConflitoHorario, mensagemConflitoHorario } from "@/lib/agendamentos";
+import { validarContato } from "@/utils/contato";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Agendamento não encontrado" }, { status: 404 });
         }
 
+        // Nome e telefone do morador são obrigatórios
+        const erroContato = validarContato(nome ?? agendamento.nome, telefone ?? agendamento.telefone);
+        if (erroContato && (nome !== undefined || telefone !== undefined)) {
+            return NextResponse.json({ error: erroContato }, { status: 400 });
+        }
+
         let dataHora: Date | null = agendamento.dataHora;
         if (data && horario) {
             const parsed = buildBrazilDate(data, horario);
@@ -49,7 +56,7 @@ export async function POST(req: NextRequest) {
         }
 
         const updateAgendamentoData: any = {};
-        if (nome !== undefined) updateAgendamentoData.nome = String(nome).trim() || agendamento.nome;
+        if (nome !== undefined) updateAgendamentoData.nome = String(nome).trim();
         if (telefone !== undefined) updateAgendamentoData.telefone = String(telefone).trim();
         if (dataHora !== undefined) updateAgendamentoData.dataHora = dataHora;
         if (status !== undefined) updateAgendamentoData.status = status;

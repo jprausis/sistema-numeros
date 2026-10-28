@@ -8,6 +8,7 @@ import { createClient } from '@/utils/supabase/client';
 import { compressImage } from '@/utils/imageCompressor';
 import { statusLabel } from '@/utils/status';
 import { toast } from '@/utils/toast';
+import { NOME_PADRAO_AGENDAMENTO, validarContato } from '@/utils/contato';
 import { useHorariosOcupados } from '@/utils/useHorariosOcupados';
 import { Camera, Check, Filter, Loader2, LogOut, Navigation, Pencil, Plus, X } from 'lucide-react';
 
@@ -447,7 +448,7 @@ export default function PrefeituraPage() {
                     if (ag.data) setAgendamentoData(ag.data);
                     if (ag.horario) setAgendamentoHorario(ag.horario);
                     if (ag.data && ag.horario) setHorarioOriginal(`${ag.data} ${ag.horario}`);
-                    if (ag.nome) setAgendamentoNome(ag.nome);
+                    if (ag.nome && ag.nome !== NOME_PADRAO_AGENDAMENTO) setAgendamentoNome(ag.nome);
                     if (ag.telefone) setAgendamentoTelefone(ag.telefone);
                     if (ag.observacao !== undefined) setAgendamentoObservacao(ag.observacao);
                 }
@@ -464,6 +465,11 @@ export default function PrefeituraPage() {
         if (!agendandoImovel) return;
         if (!agendamentoData || !agendamentoHorario) {
             toast.error("Selecione data e horário para o agendamento.");
+            return;
+        }
+        const erroContato = validarContato(agendamentoNome, agendamentoTelefone);
+        if (erroContato) {
+            toast.error(erroContato);
             return;
         }
         if (conflitoHorario) {
@@ -1279,10 +1285,12 @@ export default function PrefeituraPage() {
                                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                                             <circle cx="12" cy="7" r="4" />
                                         </svg>
-                                        Nome do Solicitante / Morador (opcional)
+                                        Nome do Morador *
                                     </label>
                                     <input
                                         type="text"
+                                        required
+                                        autoComplete="name"
                                         placeholder="Ex: João da Silva"
                                         value={agendamentoNome}
                                         onChange={e => setAgendamentoNome(e.target.value)}
@@ -1295,10 +1303,12 @@ export default function PrefeituraPage() {
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                             <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                                         </svg>
-                                        Telefone / WhatsApp (opcional)
+                                        Telefone / WhatsApp *
                                     </label>
                                     <input
                                         type="tel"
+                                        required
+                                        inputMode="tel"
                                         placeholder="Ex: (41) 99999-9999"
                                         value={agendamentoTelefone}
                                         onChange={e => setAgendamentoTelefone(e.target.value)}

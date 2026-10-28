@@ -7,6 +7,7 @@ import { splitBrazilDate, BR_TIMEZONE } from '@/lib/timezone';
 import { statusLabel, whatsappLink } from '@/utils/status';
 import ImovelInfoModal from '@/components/ImovelInfoModal';
 import { useHorariosOcupados } from '@/utils/useHorariosOcupados';
+import { NOME_PADRAO_AGENDAMENTO, validarContato } from '@/utils/contato';
 
 const fmtData = (d: string | Date) => new Date(d).toLocaleDateString('pt-BR', { timeZone: BR_TIMEZONE });
 const fmtHora = (d: string | Date) => new Date(d).toLocaleTimeString('pt-BR', { timeZone: BR_TIMEZONE, hour: '2-digit', minute: '2-digit' });
@@ -114,7 +115,7 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
 
     const handleOpenEdit = (item: any) => {
         setEditingItem(item);
-        setEditNome(item.nome || '');
+        setEditNome(item.nome && item.nome !== NOME_PADRAO_AGENDAMENTO ? item.nome : '');
         setEditTelefone(item.telefone || '');
         setEditStatus(item.status || 'AGENDADO');
         setEditObservacao(item.observacao || item.imovel?.obsPendente || '');
@@ -134,6 +135,11 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
     const handleSaveEdit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingItem) return;
+        const erroContato = validarContato(editNome, editTelefone);
+        if (erroContato) {
+            toast.error(erroContato);
+            return;
+        }
         if (editOcupaHorario && conflitoEdit) {
             toast.error(`O horário ${editHorario} já está ocupado pelo agendamento ${conflitoEdit.protocolo}.`);
             return;
@@ -246,6 +252,8 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
     const handleCriar = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!imovelNovo) return toast.error('Selecione o imóvel.');
+        const erroContato = validarContato(novoNome, novoTelefone);
+        if (erroContato) return toast.error(erroContato);
         if (conflitoNovo) return toast.error(`O horário ${novoHorario} já está ocupado pelo agendamento ${conflitoNovo.protocolo}.`);
 
         setSalvandoNovo(true);
@@ -791,10 +799,11 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                                             <circle cx="12" cy="7" r="4" />
                                         </svg>
-                                        Nome do Solicitante / Morador
+                                        Nome do Morador *
                                     </label>
                                     <input
                                         type="text"
+                                        required
                                         value={editNome}
                                         onChange={e => setEditNome(e.target.value)}
                                         placeholder="Ex: João da Silva"
@@ -828,10 +837,12 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                                     </svg>
-                                    Telefone / WhatsApp
+                                    Telefone / WhatsApp *
                                 </label>
                                 <input
                                     type="tel"
+                                    required
+                                    inputMode="tel"
                                     value={editTelefone}
                                     onChange={e => setEditTelefone(e.target.value)}
                                     placeholder="(41) 99999-9999"
@@ -960,12 +971,12 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                 ) : null}
                                 <div className={styles.formRow}>
                                     <div className={styles.formGroup}>
-                                        <label htmlFor="novo-nome">Nome do morador</label>
-                                        <input id="novo-nome" type="text" value={novoNome} onChange={e => setNovoNome(e.target.value)} placeholder="Ex: João da Silva" className={styles.formInput} />
+                                        <label htmlFor="novo-nome">Nome do morador *</label>
+                                        <input id="novo-nome" type="text" required value={novoNome} onChange={e => setNovoNome(e.target.value)} placeholder="Ex: João da Silva" className={styles.formInput} />
                                     </div>
                                     <div className={styles.formGroup}>
-                                        <label htmlFor="novo-telefone">Telefone / WhatsApp</label>
-                                        <input id="novo-telefone" type="tel" value={novoTelefone} onChange={e => setNovoTelefone(e.target.value)} placeholder="(41) 99999-9999" className={styles.formInput} />
+                                        <label htmlFor="novo-telefone">Telefone / WhatsApp *</label>
+                                        <input id="novo-telefone" type="tel" required inputMode="tel" value={novoTelefone} onChange={e => setNovoTelefone(e.target.value)} placeholder="(41) 99999-9999" className={styles.formInput} />
                                     </div>
                                 </div>
                                 <div className={styles.formGroup}>

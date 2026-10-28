@@ -5,6 +5,7 @@ import { requireUser, getRequestMeta, AGENDA_ROLES, ROLE_LABEL } from "@/lib/aut
 import { createAuditLog, diffCampos } from "@/lib/audit";
 import { generateUniqueProtocol, buscarConflitoHorario, mensagemConflitoHorario } from "@/lib/agendamentos";
 import { buildBrazilDate } from "@/lib/timezone";
+import { validarContato } from "@/utils/contato";
 
 export async function POST(req: NextRequest) {
     const { user, response } = await requireUser(AGENDA_ROLES);
@@ -24,6 +25,11 @@ export async function POST(req: NextRequest) {
 
         if (!data || !horario) {
             return NextResponse.json({ error: "Data e horário do agendamento são obrigatórios" }, { status: 400 });
+        }
+
+        const erroContato = validarContato(nome, telefone);
+        if (erroContato) {
+            return NextResponse.json({ error: erroContato }, { status: 400 });
         }
 
         // Buscar o imóvel
@@ -53,7 +59,7 @@ export async function POST(req: NextRequest) {
         if (imovel.bairro?.nome) enderecoParts.push(imovel.bairro.nome);
         const enderecoCompleto = enderecoParts.join(" - ");
 
-        const contactName = String(nome ?? "").trim() || "Morador / Prefeitura";
+        const contactName = String(nome ?? "").trim();
         const contactPhone = String(telefone ?? "").trim();
 
         let targetProtocolo = existingProtocolo;
