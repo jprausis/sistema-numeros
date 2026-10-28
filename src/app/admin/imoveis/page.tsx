@@ -9,6 +9,7 @@ import { toast } from '@/utils/toast';
 import { parseFotos, limparLinksImagens, temFotosReais, fotoDestaque } from '@/utils/fotos';
 import { statusLabel } from '@/utils/status';
 import { formatBrazil, todayBrazil } from '@/lib/timezone';
+import { MOTIVOS_PENDENCIA } from '@/lib/motivosPendencia';
 import type { InstaladorLocalizacao } from '@/components/InstallerMap';
 
 const PAGE_SIZE = 100;
@@ -46,6 +47,7 @@ export default function AdminImoveisPage() {
     const [bairros, setBairros] = useState<any[]>([]);
     const [bairroFilter, setBairroFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
+    const [motivoFilter, setMotivoFilter] = useState('');
 
     async function fetchImoveis() {
         try {
@@ -322,6 +324,7 @@ export default function AdminImoveisPage() {
                 'Instalador': i.instaladorResp || '',
                 'Foto Orientação': limparLinksImagens(i.fotoLocalInstalacao) || 'Nenhuma',
                 'Foto Instalação': limparLinksImagens(i.fotos) || 'Nenhuma',
+                'Motivo Pendência': i.status === 'PENDENTE' ? (i.motivoPendencia || '') : '',
                 'Observações': i.obsPendente || '',
                 'Data Execução': i.dataExecucao ? formatBrazil(i.dataExecucao) : 'N/A',
                 'Tipo': 'Principal'
@@ -341,6 +344,7 @@ export default function AdminImoveisPage() {
                         'Instalador': instaladorName,
                         'Foto Orientação': limparLinksImagens(c.fotoLocalInstalacao) || 'Nenhuma',
                         'Foto Instalação': limparLinksImagens(c.fotos) || 'Nenhuma',
+                        'Motivo Pendência': '',
                         'Observações': '',
                         'Data Execução': c.dataExecucao ? formatBrazil(c.dataExecucao) : 'N/A',
                         'Tipo': 'Complemento'
@@ -361,14 +365,15 @@ export default function AdminImoveisPage() {
             const matchesSearch = !q || i.inscimob.toLowerCase().includes(q) || i.numeroAInstalar?.toLowerCase().includes(q) || i.endereco?.toLowerCase().includes(q);
             const matchesBairro = bairroFilter === '' || i.bairroId === bairroFilter;
             const matchesStatus = statusFilter === '' || i.status === statusFilter;
-            return matchesSearch && matchesBairro && matchesStatus;
+            const matchesMotivo = motivoFilter === '' || (i.status === 'PENDENTE' && (motivoFilter === 'SEM_MOTIVO' ? !i.motivoPendencia : i.motivoPendencia === motivoFilter));
+            return matchesSearch && matchesBairro && matchesStatus && matchesMotivo;
         });
-    }, [imoveis, search, bairroFilter, statusFilter]);
+    }, [imoveis, search, bairroFilter, statusFilter, motivoFilter]);
 
     // Volta para a primeira "página" quando os filtros mudam
     useEffect(() => {
         setVisibleCount(PAGE_SIZE);
-    }, [search, bairroFilter, statusFilter]);
+    }, [search, bairroFilter, statusFilter, motivoFilter]);
 
     return (
         <div className={styles.container}>
@@ -412,6 +417,17 @@ export default function AdminImoveisPage() {
                         <option value="PENDENTE">Pendente</option>
                         <option value="AGENDADO">Agendado</option>
                         <option value="CONCLUIDO">Concluído</option>
+                    </select>
+
+                    <select
+                        className={styles.filterSelect}
+                        aria-label="Filtrar por motivo da pendência"
+                        value={motivoFilter}
+                        onChange={e => setMotivoFilter(e.target.value)}
+                    >
+                        <option value="">Todos os Motivos</option>
+                        {MOTIVOS_PENDENCIA.map(m => <option key={m} value={m}>{m}</option>)}
+                        <option value="SEM_MOTIVO">Pendente sem motivo</option>
                     </select>
 
                     <div className={styles.viewToggle}>

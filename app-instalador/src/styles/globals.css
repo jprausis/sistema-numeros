@@ -295,3 +295,59 @@ select:focus-visible {
     scroll-behavior: auto !important;
   }
 }
+
+/* Modo sol (botão ☀ no painel): letras maiores, mais peso e mais contraste para ler na rua.
+   O filtro no elemento raiz não altera o posicionamento de modais fixos. */
+html[data-contraste="alto"] {
+  font-size: 112.5%;
+  filter: contrast(1.25) saturate(1.1);
+}
+
+html[data-contraste="alto"] body {
+  font-weight: 500;
+  color: #000000;
+}
+
+/* Aviso de localização (App.tsx) */
+.aviso-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.aviso-caixa {
+  width: 100%;
+  max-width: 420px;
+  padding: 1.25rem;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.aviso-caixa h2 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+}
+
+.aviso-caixa p {
+  font-size: 0.95rem;
+  color: #334155;
+  margin-bottom: 0.6rem;
+}
+
+.aviso-caixa button {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 0.5rem;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1rem;
+}

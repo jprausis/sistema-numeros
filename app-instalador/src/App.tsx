@@ -6,7 +6,9 @@ import { Loader2 } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import { isNative } from './lib/native';
-import { registrarLocalizacao } from './lib/localizacao';
+import { iniciarLocalizacaoExpediente, marcarAvisoLocalizacaoVisto, precisaAvisoLocalizacao, registrarLocalizacao } from './lib/localizacao';
+import { iniciarEnvioAutomatico, processarFila } from './lib/fila';
+import { aplicarContraste } from './lib/contraste';
 import LoginPage from './pages/Login';
 import InstallerDashboard from './pages/Painel';
 import ImovelDetalhesPage from './pages/Imovel';
@@ -15,6 +17,7 @@ export default function App() {
     const navigate = useNavigate();
     const location = useLocation();
     const [session, setSession] = useState<Session | null | undefined>(undefined);
+    const [avisoLocalizacao, setAvisoLocalizacao] = useState(false);
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data }) => {
@@ -25,6 +28,18 @@ export default function App() {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
         return () => subscription.unsubscribe();
     }, []);
+
+    useEffect(() => { aplicarContraste(); }, []);
+
+    // Logado: envia o que ficou guardado no celular e registra a posição a cada 10 min com o app aberto
+    const logado = Boolean(session);
+    useEffect(() => {
+        if (!logado) return;
+        setAvisoLocalizacao(precisaAvisoLocalizacao());
+        const pararEnvio = iniciarEnvioAutomatico();
+        const pararLocalizacao = iniciarLocalizacaoExpediente();
+        return () => { pararEnvio(); pararLocalizacao(); };
+    }, [logado]);
 
     useEffect(() => {
         if (!isNative) return;
@@ -38,7 +53,9 @@ export default function App() {
         const handle = CapApp.addListener('appStateChange', ({ isActive }) => {
             if (!isActive) return;
             supabase.auth.getSession().then(({ data }) => {
-                if (data.session) registrarLocalizacao('ABERTURA');
+                if (!data.session) return;
+                registrarLocalizacao('ABERTURA');
+                processarFila().catch(() => {});
             });
         });
         return () => { handle.then(h => h.remove()); };
@@ -61,6 +78,7 @@ export default function App() {
     }
 
     return (
+        <>
         <Routes>
             {/* O login confere o perfil antes de entrar no painel */}
             <Route path="/login" element={<LoginPage />} />
@@ -68,5 +86,21 @@ export default function App() {
             <Route path="/imovel/:id" element={session ? <ImovelDetalhesPage /> : <Navigate to="/login" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+
+        {/* Aviso de registro de localização (uma vez por aparelho) */}
+        {session && avisoLocalizacao && (
+            <div className="aviso-overlay" role="dialog" aria-labelledby="aviso-loc-titulo">
+                <div className="aviso-caixa">
+                    <h2 id="aviso-loc-titulo">Registro de localização</h2>
+                    <p>
+                        Para acompanhar as instalações, este app registra a sua localização ao entrar, ao abrir o app,
+                        a cada 10 minutos enquanto ele estiver aberto e em cada instalação ou pendência registrada.
+                    </p>
+                    <p>A localização aparece para a equipe do escritório no mapa do sistema. Com o app fechado, nada é registrado.</p>
+                    <button type="button" onClick={() => { marcarAvisoLocalizacaoVisto(); setAvisoLocalizacao(false); }}>Entendi</button>
+                </div>
+            </div>
+        )}
+        </>
     );
 }

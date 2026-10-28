@@ -1,7 +1,7 @@
 .container {
     max-width: 580px;
     margin: 0 auto;
-    padding: 1rem 1rem 3rem 1rem;
+    padding: 1rem 1rem 0 1rem;
     font-family: inherit;
     color: #1e293b;
 }
@@ -676,4 +676,118 @@
 @keyframes scaleUpModal {
     from { opacity: 0; transform: scale(0.95); }
     to { opacity: 1; transform: scale(1); }
-}
+}
+/* Botão de salvar fixo no rodapé (ao alcance do polegar) */
+.submitBar {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    margin: 0 -1rem;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, #f8fafc 70%, rgba(248, 250, 252, 0));
+}
+
+/* Motivos de pendência (botões grandes, fáceis de tocar com luva/sol) */
+.motivos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.motivoBtn {
+    min-height: 52px;
+    padding: 0.6rem 0.75rem;
+    border: 2px solid #cbd5e1;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #1e293b;
+    font-weight: 700;
+    font-size: 0.92rem;
+    line-height: 1.2;
+    text-align: left;
+}
+
+.motivoAtivo {
+    border-color: #d97706;
+    background: #fef3c7;
+    color: #78350f;
+    box-shadow: 0 0 0 1px #d97706;
+}
+
+/* Aviso de GPS / distância abaixo da foto */
+.fotoAviso,
+.fotoOk {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.fotoAviso {
+    background: #fef3c7;
+    color: #78350f;
+}
+
+.fotoAvisoForte {
+    background: #fee2e2;
+    color: #7f1d1d;
+    border: 1px solid #fca5a5;
+}
+
+.fotoOk {
+    background: #dcfce7;
+    color: #14532d;
+}
+
+.fotoAviso svg,
+.fotoOk svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* Avisos do topo: sem internet, aguardando envio, rascunho recuperado */
+.bannerOffline,
+.bannerFila,
+.bannerRascunho {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding: 0.65rem 0.8rem;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.bannerOffline {
+    background: #1e293b;
+    color: #f8fafc;
+}
+
+.bannerFila {
+    background: #e0f2fe;
+    color: #0c4a6e;
+}
+
+.bannerRascunho {
+    justify-content: space-between;
+    background: #ede9fe;
+    color: #3b0764;
+}
+
+.bannerRascunho button {
+    flex-shrink: 0;
+    padding: 0.35rem 0.7rem;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #6b21a8;
+    font-weight: 700;
+    border: 1px solid #c4b5fd;
+}

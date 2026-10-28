@@ -1,11 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import styles from './Imovel.module.css';
-import { apiFetch } from '@/lib/api';
 import { compressImage } from '@/utils/imageCompressor';
 import { parseFotos } from '@/utils/fotos';
 import { toast } from '@/utils/toast';
-import { Loader2, X } from 'lucide-react';
+import { MOTIVOS_PENDENCIA, montarObsPendente, separarObsPendente } from '@/utils/motivosPendencia';
+import { apiGetComCache } from '@/lib/cache';
+import { adicionarNaFila, itensFila, processarFila } from '@/lib/fila';
+import { distanciaAteImovel, formatarDistancia, obterPosicao } from '@/lib/gps';
+import { apagarRascunho, lerRascunho, salvarRascunho, type InfoFoto } from '@/lib/rascunho';
+import { vibrar } from '@/lib/vibrar';
+import { AlertTriangle, CloudOff, Loader2, MapPin, X } from 'lucide-react';
+
+// Acima disso a foto provavelmente não foi tirada em frente ao imóvel
+const DISTANCIA_ALERTA_M = 100;
+
+const dataHoraBR = (ms: number) => new Date(ms).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 export default function ImovelDetalhesPage() {
     const { id } = useParams();
@@ -18,19 +28,29 @@ export default function ImovelDetalhesPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [savingStep, setSavingStep] = useState('');
+    const [offline, setOffline] = useState(false);
+    const [aguardandoEnvio, setAguardandoEnvio] = useState(false);
+    const [rascunhoRecuperado, setRascunhoRecuperado] = useState<number | null>(null);
+    const [processandoFotos, setProcessandoFotos] = useState(0);
 
     // Status e Foto do Número Principal
     const [statusMain, setStatusMain] = useState<'CONCLUIDO' | 'PENDENTE'>('CONCLUIDO');
+    const [motivo, setMotivo] = useState('');
     const [obs, setObs] = useState('');
-    const [photoMain, setPhotoMain] = useState<File | null>(null);
+    const [photoMain, setPhotoMain] = useState<Blob | null>(null);
     const [photoMainPreview, setPhotoMainPreview] = useState<string | null>(null);
+    const [photoMainInfo, setPhotoMainInfo] = useState<InfoFoto | null>(null);
 
     // Complementos: fotos novas, previews, status, seleção e número predial editável (key = complemento id)
-    const [compPhotos, setCompPhotos] = useState<Record<string, File | null>>({});
+    const [compPhotos, setCompPhotos] = useState<Record<string, Blob | null>>({});
     const [compPreviews, setCompPreviews] = useState<Record<string, string | null>>({});
+    const [compInfo, setCompInfo] = useState<Record<string, InfoFoto | null>>({});
     const [compStatuses, setCompStatuses] = useState<Record<string, 'CONCLUIDO' | 'PENDENTE'>>({});
     const [compIncluded, setCompIncluded] = useState<Record<string, boolean>>({});
     const [compNumeroPredial, setCompNumeroPredial] = useState<Record<string, string>>({});
+
+    // Rascunho só começa a ser gravado depois de carregar (senão apagaria o salvo com o formulário vazio)
+    const rascunhoPronto = useRef(false);
 
     // Modal e Seleção de Foto (Câmera ou Arquivos de Mídia)
     const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -67,17 +87,43 @@ export default function ImovelDetalhesPage() {
         }
     };
 
-    const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    /**
+     * Foto escolhida: pega o GPS, mede a distância até o imóvel e grava na imagem
+     * o número, a data/hora e as coordenadas (a foto já fica reduzida para o envio).
+     */
+    const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>, galeria: boolean) => {
         const file = e.target.files?.[0] || null;
         if (!file) return;
 
         const target = photoModalTargetRef.current;
         if (!target) return;
 
-        if (target.type === 'main') {
-            handleMainPhotoChange(file);
-        } else if (target.type === 'comp' && target.compId) {
-            handleCompPhotoChange(target.compId, file);
+        setProcessandoFotos(n => n + 1);
+        try {
+            const gps = await obterPosicao(8000);
+            const distancia = gps ? distanciaAteImovel(gps, imovel) : null;
+            const numero = target.type === 'comp' && target.compId
+                ? `${imovel.numeroAInstalar} - ${compNumeroPredial[target.compId] || ''}`
+                : imovel.numeroAInstalar;
+            const quando = galeria ? (file.lastModified || Date.now()) : Date.now();
+            const carimbo = [
+                `Nº ${numero} • Inscr. ${imovel.inscimob}`,
+                `${dataHoraBR(quando)}${galeria ? ' (foto da galeria)' : ''}`,
+                gps ? `GPS ${gps.lat.toFixed(6)}, ${gps.lon.toFixed(6)}${gps.precisao ? ` ±${Math.round(gps.precisao)} m` : ''}` : 'GPS indisponível',
+            ];
+            const foto = await compressImage(file, 1280, 0.72, carimbo).catch(() => file);
+            const info: InfoFoto = { gps, distancia, galeria };
+
+            if (distancia != null && distancia > DISTANCIA_ALERTA_M) vibrar('aviso');
+            else vibrar('leve');
+
+            if (target.type === 'main') {
+                handleMainPhotoChange(foto, info);
+            } else if (target.type === 'comp' && target.compId) {
+                handleCompPhotoChange(target.compId, foto, info);
+            }
+        } finally {
+            setProcessandoFotos(n => n - 1);
         }
     };
 
@@ -86,30 +132,41 @@ export default function ImovelDetalhesPage() {
     useEffect(() => {
         async function loadData() {
             try {
-                const res = await apiFetch(`/api/instalador/imovel/${id}`);
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Erro ao carregar imóvel');
+                let dados: any = null;
+                let semInternet = false;
+                try {
+                    const r = await apiGetComCache(`/api/instalador/imovel/${id}`);
+                    dados = r.dados?.imovel;
+                    semInternet = r.offline;
+                } catch (e: any) {
+                    // Sem conexão com o servidor e sem a ficha salva: usa a lista de imóveis guardada para o mapa
+                    if (e?.http) throw e;
+                    const lista = await apiGetComCache('/api/instalador/imoveis').catch(() => null);
+                    dados = lista?.dados?.imoveis?.find((i: any) => i.inscimob === id) || null;
+                    semInternet = true;
+                    if (!dados) throw e;
+                }
+                setOffline(semInternet);
+                setImovel(dados);
 
-                setImovel(data.imovel);
-
-                if (data.imovel?.status === 'CONCLUIDO') {
-                    setStatusMain('CONCLUIDO');
-                } else if (data.imovel?.status === 'PENDENTE') {
+                const pendencia = separarObsPendente(dados?.obsPendente, dados?.motivoPendencia);
+                if (dados?.status === 'PENDENTE') {
                     setStatusMain('PENDENTE');
-                    setObs(data.imovel?.obsPendente || '');
+                    setMotivo(pendencia.motivo);
+                    setObs(pendencia.detalhe);
                 } else {
                     setStatusMain('CONCLUIDO');
                 }
 
                 // Inicializar estados de TODOS os complementos (tanto a instalar quanto já concluídos)
-                const initialCompPhotos: Record<string, File | null> = {};
+                const initialCompPhotos: Record<string, Blob | null> = {};
                 const initialCompPreviews: Record<string, string | null> = {};
                 const initialCompStatuses: Record<string, 'CONCLUIDO' | 'PENDENTE'> = {};
                 const initialCompIncluded: Record<string, boolean> = {};
                 const initialCompNumeroPredial: Record<string, string> = {};
 
-                if (data.imovel?.complementos) {
-                    data.imovel.complementos.forEach((c: any) => {
+                if (dados?.complementos) {
+                    dados.complementos.forEach((c: any) => {
                         initialCompPhotos[c.id] = null;
                         initialCompPreviews[c.id] = null;
                         initialCompStatuses[c.id] = c.status === 'PENDENTE' ? 'PENDENTE' : 'CONCLUIDO';
@@ -117,12 +174,41 @@ export default function ImovelDetalhesPage() {
                         initialCompNumeroPredial[c.id] = c.numeroPredial || '';
                     });
                 }
+
+                // Rascunho salvo no celular (app fechado ou travado no meio do registro)
+                const r = id ? await lerRascunho(id) : undefined;
+                if (r) {
+                    setStatusMain(r.statusMain);
+                    setMotivo(r.motivo);
+                    setObs(r.obs);
+                    if (r.photoMain) {
+                        setPhotoMain(r.photoMain);
+                        setPhotoMainPreview(URL.createObjectURL(r.photoMain));
+                        setPhotoMainInfo(r.photoMainInfo);
+                    }
+                    for (const compId of Object.keys(initialCompPhotos)) {
+                        const foto = r.compPhotos[compId];
+                        if (foto) {
+                            initialCompPhotos[compId] = foto;
+                            initialCompPreviews[compId] = URL.createObjectURL(foto);
+                        }
+                        if (r.compStatuses[compId]) initialCompStatuses[compId] = r.compStatuses[compId];
+                        if (r.compIncluded[compId]) initialCompIncluded[compId] = true;
+                        if (r.compNumeroPredial[compId] != null) initialCompNumeroPredial[compId] = r.compNumeroPredial[compId];
+                    }
+                    setCompInfo(r.compInfo || {});
+                    setRascunhoRecuperado(r.salvoEm);
+                }
+
                 setCompPhotos(initialCompPhotos);
                 setCompPreviews(initialCompPreviews);
                 setCompStatuses(initialCompStatuses);
                 setCompIncluded(initialCompIncluded);
                 setCompNumeroPredial(initialCompNumeroPredial);
 
+                const fila = await itensFila();
+                setAguardandoEnvio(fila.some(i => i.inscimob === id));
+                rascunhoPronto.current = true;
             } catch (e: any) {
                 console.error("Erro ao carregar dados", e);
                 toast.error(e.message || 'Erro ao carregar o imóvel.');
@@ -133,20 +219,43 @@ export default function ImovelDetalhesPage() {
         loadData();
     }, [id]);
 
-    const handleMainPhotoChange = (file: File | null) => {
-        setPhotoMain(file);
-        // Libera a URL da prévia anterior para não acumular memória no celular
-        if (photoMainPreview) URL.revokeObjectURL(photoMainPreview);
-        if (file) {
-            setPhotoMainPreview(URL.createObjectURL(file));
-            setStatusMain('CONCLUIDO');
-        } else {
-            setPhotoMainPreview(null);
-        }
+    // Grava o rascunho a cada alteração (com pequena espera para não gravar a cada letra)
+    useEffect(() => {
+        if (!rascunhoPronto.current || !id) return;
+        const temAlgo = photoMain || motivo || obs.trim() || statusMain === 'PENDENTE'
+            || Object.values(compPhotos).some(Boolean) || Object.values(compIncluded).some(Boolean);
+        const timer = window.setTimeout(() => {
+            if (!temAlgo) { apagarRascunho(id); return; }
+            salvarRascunho(id, {
+                statusMain, motivo, obs, photoMain, photoMainInfo,
+                compPhotos, compInfo, compStatuses, compIncluded, compNumeroPredial,
+                salvoEm: Date.now(),
+            });
+        }, 600);
+        return () => window.clearTimeout(timer);
+    }, [id, statusMain, motivo, obs, photoMain, photoMainInfo, compPhotos, compInfo, compStatuses, compIncluded, compNumeroPredial]);
+
+    const descartarRascunho = () => {
+        if (!confirm('Descartar as fotos e informações recuperadas deste imóvel?')) return;
+        if (id) apagarRascunho(id);
+        rascunhoPronto.current = false;
+        window.location.reload();
     };
 
-    const handleCompPhotoChange = (compId: string, file: File | null) => {
+    const handleMainPhotoChange = (file: Blob | null, info: InfoFoto | null = null) => {
+        setPhotoMain(file);
+        setPhotoMainInfo(file ? info : null);
+        // Libera a URL da prévia anterior para não acumular memória no celular
+        setPhotoMainPreview(prev => {
+            if (prev) URL.revokeObjectURL(prev);
+            return file ? URL.createObjectURL(file) : null;
+        });
+        if (file) setStatusMain('CONCLUIDO');
+    };
+
+    const handleCompPhotoChange = (compId: string, file: Blob | null, info: InfoFoto | null = null) => {
         setCompPhotos(prev => ({ ...prev, [compId]: file }));
+        setCompInfo(prev => ({ ...prev, [compId]: file ? info : null }));
         if (file) {
             setCompPreviews(prev => ({ ...prev, [compId]: URL.createObjectURL(file) }));
             setCompStatuses(prev => ({ ...prev, [compId]: 'CONCLUIDO' }));
@@ -156,36 +265,19 @@ export default function ImovelDetalhesPage() {
         }
     };
 
-    const uploadFile = async (file: File | Blob, folder: string, prefix: string) => {
-        const formData = new FormData();
-        const fileName = `${id}_${prefix}_${Date.now()}.jpg`; // compressImage gera JPEG
-        formData.append("file", file, fileName);
-        formData.append("folder", folder);
-
-        const uploadRes = await apiFetch("/api/upload", {
-            method: "POST",
-            body: formData,
-        });
-
-        const uploadData = await uploadRes.json();
-
-        if (!uploadRes.ok) {
-            const errorMsg = uploadData.details || uploadData.error || `Falha no upload da foto ${prefix}`;
-            throw new Error(errorMsg);
-        }
-
-        return uploadData.url;
-    };
-
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (processandoFotos > 0) {
+            toast.info("Aguarde: a foto ainda está sendo preparada.");
+            return;
+        }
 
         const allComps = imovel.complementos || [];
         const isMainAlreadyCompleted = imovel.status === 'CONCLUIDO';
         const hasExistingMainPhoto = Boolean(parseFotos(imovel.fotos));
 
         // Complementos que têm foto nova ou que foram selecionados para atualizar
-        const compsToUpdate = allComps.filter((c: any) => compIncluded[c.id] || compPhotos[c.id] !== null);
+        const compsToUpdate = allComps.filter((c: any) => compIncluded[c.id] || compPhotos[c.id]);
 
         // Validação da foto principal:
         // Se o principal não estava concluído e não tem foto existente nem foto nova selecionada:
@@ -201,8 +293,12 @@ export default function ImovelDetalhesPage() {
             }
         }
 
-        if (!isMainAlreadyCompleted && statusMain === 'PENDENTE' && !obs.trim()) {
-            toast.error("Informe o motivo da pendência.");
+        if (!isMainAlreadyCompleted && statusMain === 'PENDENTE' && !motivo) {
+            toast.error("Escolha o motivo da pendência.");
+            return;
+        }
+        if (!isMainAlreadyCompleted && statusMain === 'PENDENTE' && motivo === 'Outro' && !obs.trim()) {
+            toast.error("Descreva o motivo da pendência.");
             return;
         }
 
@@ -212,71 +308,91 @@ export default function ImovelDetalhesPage() {
             return;
         }
 
+        // Foto tirada longe do endereço cadastrado: confirma antes de salvar
+        const distancias = [photoMainInfo, ...compsToUpdate.map((c: any) => compPhotos[c.id] ? compInfo[c.id] : null)]
+            .map(i => i?.distancia).filter((d): d is number => d != null);
+        const maiorDistancia = distancias.length ? Math.max(...distancias) : 0;
+        if (maiorDistancia > DISTANCIA_ALERTA_M && !confirm(
+            `A foto foi tirada a ${formatarDistancia(maiorDistancia)} do endereço cadastrado deste imóvel.\n\nConfirma que é o imóvel certo?`
+        )) return;
+
         setSaving(true);
-        const folder = imovel.bairro?.nome || 'geral';
+        setSavingStep('Guardando no celular...');
 
         try {
-            // 1. Upload da foto do principal se uma nova foi selecionada
-            let fotos: string[] = [];
-            if (photoMain) {
-                setSavingStep('Enviando foto principal...');
-                const compressedMain = await compressImage(photoMain);
-                const url = await uploadFile(compressedMain, folder, 'principal');
-                fotos = [url];
-            }
-
-            // 2. Upload das fotos dos complementos alterados
-            const complementosData = [];
-            for (const comp of compsToUpdate) {
-                let compFotos: string[] = [];
-                const cFile = compPhotos[comp.id];
-                const cStatus = compStatuses[comp.id] || comp.status || 'CONCLUIDO';
-
-                if (cFile) {
-                    setSavingStep(`Enviando foto da unidade ${compNumeroPredial[comp.id] || comp.numeroPredial}...`);
-                    const compressedComp = await compressImage(cFile);
-                    const url = await uploadFile(compressedComp, folder, comp.unidade || comp.numeroPredial || 'comp');
-                    compFotos = [url];
-                }
-
-                complementosData.push({
-                    id: comp.id,
-                    status: cStatus,
-                    numeroPredial: compNumeroPredial[comp.id] || comp.numeroPredial,
-                    fotos: compFotos
-                });
-            }
-
             // Definir o status do principal a ser enviado
             const statusToSave = isMainAlreadyCompleted
                 ? 'CONCLUIDO'
                 : (photoMain ? statusMain : (compsToUpdate.length > 0 ? imovel.status : statusMain));
 
-            setSavingStep('Salvando instalação...');
-            const res = await apiFetch('/api/instalador/atualizar', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    inscimob: id,
-                    status: statusToSave,
-                    obsPendente: statusToSave === 'PENDENTE' ? obs : null,
-                    fotos,
-                    complementosData,
-                    protocolo: agendamento
-                })
-            });
+            // GPS da instalação: o da foto principal, senão o de um complemento, senão a posição atual
+            const gpsFoto = photoMainInfo?.gps || compsToUpdate.map((c: any) => compInfo[c.id]?.gps).find(Boolean) || null;
+            const gps = gpsFoto || await obterPosicao(6000);
 
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                throw new Error(data.error || "Erro ao atualizar dados no servidor.");
+            // 1. Guarda no celular (não se perde se o envio falhar ou o app fechar)
+            const item = await adicionarNaFila({
+                inscimob: imovel.inscimob,
+                numero: imovel.numeroAInstalar,
+                pasta: imovel.bairro?.nome || 'geral',
+                criadoEm: Date.now(),
+                status: statusToSave,
+                obsPendente: statusToSave === 'PENDENTE' ? montarObsPendente(motivo, obs) : null,
+                motivoPendencia: statusToSave === 'PENDENTE' ? (motivo || null) : null,
+                protocolo: agendamento,
+                gps: gps ? { lat: gps.lat, lon: gps.lon, precisao: gps.precisao } : null,
+                fotoPrincipal: photoMain,
+                complementos: compsToUpdate.map((c: any) => ({
+                    id: c.id,
+                    status: compStatuses[c.id] || c.status || 'CONCLUIDO',
+                    numeroPredial: compNumeroPredial[c.id] || c.numeroPredial,
+                    foto: compPhotos[c.id] || null,
+                })),
+            });
+            rascunhoPronto.current = false;
+            await apagarRascunho(imovel.inscimob);
+
+            // 2. Tenta enviar agora, mostrando o progresso
+            const resultado = await processarFila({ apenas: item.chave, aoProgredir: setSavingStep });
+            const restante = (await itensFila()).find(i => i.chave === item.chave);
+
+            if (!restante) {
+                vibrar('sucesso');
+                toast.success(statusToSave === 'PENDENTE' ? "Pendência registrada." : "Instalação salva com sucesso!");
+            } else if (restante.rejeitado) {
+                vibrar('aviso');
+                toast.error(`Não foi possível salvar: ${restante.erro}. Ela ficou guardada na lista de envios do painel.`);
+            } else {
+                vibrar('sucesso');
+                toast.info(resultado.semInternet
+                    ? "Sem internet: instalação guardada no celular. Ela será enviada sozinha quando a conexão voltar."
+                    : "Instalação guardada no celular e será enviada em seguida.");
             }
-            toast.success(statusToSave === 'PENDENTE' ? "Pendência registrada." : "Instalação salva com sucesso!");
             navigate('/', { replace: true });
         } catch (e: any) {
-            toast.error(e.message || "Erro ao salvar. Verifique a conexão e tente novamente.");
+            toast.error(e.message || "Erro ao guardar a instalação no celular.");
             setSaving(false);
             setSavingStep('');
         }
+    };
+
+    /** Aviso exibido abaixo da prévia da foto (GPS / distância do imóvel). */
+    const avisoFoto = (info: InfoFoto | null | undefined) => {
+        if (!info) return null;
+        if (!info.gps) {
+            return <div className={styles.fotoAviso}><AlertTriangle size={15} /> GPS indisponível: a foto foi salva sem localização.</div>;
+        }
+        if (info.distancia != null && info.distancia > DISTANCIA_ALERTA_M) {
+            return (
+                <div className={`${styles.fotoAviso} ${styles.fotoAvisoForte}`}>
+                    <AlertTriangle size={15} /> Você está a {formatarDistancia(info.distancia)} do endereço cadastrado. Confira se é o imóvel certo.
+                </div>
+            );
+        }
+        return (
+            <div className={styles.fotoOk}>
+                <MapPin size={14} /> Localização registrada{info.distancia != null ? ` (${formatarDistancia(info.distancia)} do imóvel)` : ''}{info.galeria ? ' • foto da galeria' : ''}
+            </div>
+        );
     };
 
     if (loading) return <div className="page-loading" style={{ minHeight: '100dvh' }}><Loader2 size={28} className="spin" />Carregando imóvel...</div>;
@@ -313,6 +429,23 @@ export default function ImovelDetalhesPage() {
                     Executar Instalação
                 </h1>
             </header>
+
+            {offline && (
+                <div className={styles.bannerOffline}>
+                    <CloudOff size={16} /> Sem internet: mostrando os dados guardados no celular. A instalação será enviada quando a conexão voltar.
+                </div>
+            )}
+            {aguardandoEnvio && (
+                <div className={styles.bannerFila}>
+                    <Loader2 size={15} className="spin" /> Este imóvel tem uma instalação guardada no celular aguardando envio.
+                </div>
+            )}
+            {rascunhoRecuperado && (
+                <div className={styles.bannerRascunho}>
+                    <span>Recuperamos o que você tinha preenchido aqui ({dataHoraBR(rascunhoRecuperado)}).</span>
+                    <button type="button" onClick={descartarRascunho}>Descartar</button>
+                </div>
+            )}
 
             {agendamento && nomeMorador && (
                 <div className={styles.agendamentoAlert}>
@@ -428,6 +561,7 @@ export default function ImovelDetalhesPage() {
                                 onClick={() => setFullScreenImage(photoMainPreview)}
                             />
                             <span className={styles.previewBadge}>Nova Foto Selecionada</span>
+                            {avisoFoto(photoMainInfo)}
                             <button
                                 type="button"
                                 className={styles.removePhotoBtn}
@@ -492,17 +626,33 @@ export default function ImovelDetalhesPage() {
                     </div>
                     )}
 
-                    {/* Motivo da pendência (a observação só é salva para imóveis pendentes) */}
+                    {/* Motivo da pendência: botões padronizados (relatórios do admin) + detalhe opcional */}
                     {statusMain === 'PENDENTE' && (
                         <div className={styles.formGroup}>
-                            <label className={styles.label} htmlFor="obs-pendencia">Motivo da Pendência *</label>
+                            <span className={styles.label}>Motivo da Pendência *</span>
+                            <div className={styles.motivos} role="radiogroup" aria-label="Motivo da pendência">
+                                {MOTIVOS_PENDENCIA.map(m => (
+                                    <button
+                                        key={m}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={motivo === m}
+                                        className={`${styles.motivoBtn} ${motivo === m ? styles.motivoAtivo : ''}`}
+                                        onClick={() => { setMotivo(m); vibrar('leve'); }}
+                                    >
+                                        {m}
+                                    </button>
+                                ))}
+                            </div>
+                            <label className={styles.label} htmlFor="obs-pendencia" style={{ marginTop: '0.75rem' }}>
+                                {motivo === 'Outro' ? 'Descreva o motivo *' : 'Detalhes (opcional)'}
+                            </label>
                             <textarea
                                 id="obs-pendencia"
                                 className={styles.textarea}
                                 value={obs}
                                 onChange={e => setObs(e.target.value)}
-                                placeholder="Ex: Portão trancado, morador ausente, muro sem condição de fixação..."
-                                required
+                                placeholder={motivo === 'Outro' ? 'Ex: Portão trancado, cachorro solto...' : 'Ex: Voltar à tarde, falar com o vizinho...'}
                             />
                         </div>
                     )}
@@ -530,7 +680,7 @@ export default function ImovelDetalhesPage() {
                         </div>
 
                         {activeCompsToProcess.map((c: any) => {
-                            const isIncluded = compIncluded[c.id] || compPhotos[c.id] !== null;
+                            const isIncluded = compIncluded[c.id] || Boolean(compPhotos[c.id]);
                             const preview = compPreviews[c.id];
 
                             return (
@@ -600,6 +750,7 @@ export default function ImovelDetalhesPage() {
                                                 onClick={() => setFullScreenImage(preview)}
                                             />
                                             <span className={styles.previewBadge}>Nova Foto Selecionada</span>
+                                            {avisoFoto(compInfo[c.id])}
                                             <button
                                                 type="button"
                                                 className={styles.removePhotoBtn}
@@ -771,6 +922,7 @@ export default function ImovelDetalhesPage() {
                                                 onClick={() => setFullScreenImage(preview)}
                                             />
                                             <span className={styles.previewBadge}>Nova Foto Selecionada</span>
+                                            {avisoFoto(compInfo[c.id])}
                                             <button
                                                 type="button"
                                                 className={styles.removePhotoBtn}
@@ -806,23 +958,27 @@ export default function ImovelDetalhesPage() {
                     </div>
                 )}
 
-                {/* Botão de Submissão Geral */}
-                <button
-                    type="submit"
-                    className={styles.submitButton}
-                    disabled={saving}
-                    aria-busy={saving}
-                >
-                    {saving ? <Loader2 size={20} className="spin" /> : (
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                    )}
-                    {saving ? (savingStep || "Salvando...") : (statusMain === 'PENDENTE' && imovel.status !== 'CONCLUIDO' ? "Registrar Pendência" : "Salvar Instalação")}
-                </button>
+                {/* Botão de Submissão Geral: fixo no rodapé, ao alcance do polegar */}
+                <div className={styles.submitBar}>
+                    <button
+                        type="submit"
+                        className={styles.submitButton}
+                        disabled={saving || processandoFotos > 0}
+                        aria-busy={saving || processandoFotos > 0}
+                    >
+                        {saving || processandoFotos > 0 ? <Loader2 size={20} className="spin" /> : (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        )}
+                        {saving ? (savingStep || "Salvando...")
+                            : processandoFotos > 0 ? "Preparando foto (GPS)..."
+                            : (statusMain === 'PENDENTE' && imovel.status !== 'CONCLUIDO' ? "Registrar Pendência" : "Salvar Instalação")}
+                    </button>
+                </div>
             </form>
 
-            <div style={{ height: '40px' }}></div>
+            <div style={{ height: '16px' }}></div>
 
             {/* Modal de Zoom da Foto em Tela Cheia */}
             {fullScreenImage && (
@@ -839,14 +995,14 @@ export default function ImovelDetalhesPage() {
                 accept="image/*"
                 capture="environment"
                 className={styles.hiddenFileInput}
-                onChange={handleFileSelected}
+                onChange={e => handleFileSelected(e, false)}
             />
             <input
                 ref={galleryInputRef}
                 type="file"
                 accept="image/*"
                 className={styles.hiddenFileInput}
-                onChange={handleFileSelected}
+                onChange={e => handleFileSelected(e, true)}
             />
 
             {/* Modal de Escolha: Câmera ou Galeria */}

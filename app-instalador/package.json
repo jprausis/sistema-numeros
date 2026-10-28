@@ -17,6 +17,7 @@
     "@capacitor/app": "^7.1.2",
     "@capacitor/app-launcher": "^7.0.4",
     "@capacitor/core": "^7.6.9",
+    "@capacitor/haptics": "^7.0.5",
     "@capacitor/status-bar": "^7.0.6",
     "@supabase/supabase-js": "^2.118.0",
     "leaflet": "^1.9.4",

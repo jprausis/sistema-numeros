@@ -49,6 +49,13 @@ const HORAS_RECENTE = 12;
 
 const escapeHtml = (texto: string) => texto.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
+const EVENTOS_LOCALIZACAO: Record<string, string> = {
+    LOGIN: 'Login no app',
+    ABERTURA: 'Abertura do app',
+    EXPEDIENTE: 'App aberto (envio automático)',
+    INSTALACAO: 'Registro de instalação',
+};
+
 const isRecente = (data: string) => Date.now() - new Date(data).getTime() < HORAS_RECENTE * 60 * 60 * 1000;
 
 function tempoDecorrido(data: string) {
@@ -312,7 +319,7 @@ export default function InstallerMap({
                                 <div className={styles.popup}>
                                     <h3>{inst.nome}</h3>
                                     <p><strong>Atualizado:</strong> {formatBrazil(inst.createdAt, true)} ({tempoDecorrido(inst.createdAt)})</p>
-                                    <p><strong>Registro:</strong> {inst.evento === 'LOGIN' ? 'Login no app' : 'Abertura do app'}</p>
+                                    <p><strong>Registro:</strong> {EVENTOS_LOCALIZACAO[inst.evento] || inst.evento}</p>
                                     {inst.precisao != null && <p><strong>Precisão:</strong> ~{Math.round(inst.precisao)} m</p>}
                                     <div className={styles.actions}>
                                         <a

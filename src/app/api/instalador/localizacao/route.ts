@@ -4,9 +4,10 @@ import { requireUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-const EVENTOS = ["LOGIN", "ABERTURA"];
+// EXPEDIENTE: envio periódico enquanto o app está aberto (INSTALACAO vem de /api/instalador/atualizar)
+const EVENTOS = ["LOGIN", "ABERTURA", "EXPEDIENTE"];
 
-/** Registra a localização do instalador (enviada pelo app Android no login e ao abrir o app). */
+/** Registra a localização do instalador (enviada pelo app Android no login, ao abrir o app e a cada 10 min com ele aberto). */
 export async function POST(req: NextRequest) {
     const { user, response } = await requireUser(["ADMIN", "OPERATOR", "INSTALLER"]);
     if (response) return response;

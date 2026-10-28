@@ -40,6 +40,7 @@ model Imovel {
   fotos             String?  // JSON ou caminhos separados por vírgula
   fotoLocalInstalacao String? // Foto tirada pelo operador da prefeitura com a indicação de onde instalar
   obsPendente       String?
+  motivoPendencia   String?  // Motivo padronizado escolhido no app (ver src/lib/motivosPendencia.ts)
   usuarioAlt        String?  // Nome/Email do usuário que fez a última alteração
   latExecucao       Float?   // Coordenadas reais da instalação (GPS)
   lonExecucao       Float?

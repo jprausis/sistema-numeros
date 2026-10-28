@@ -4,10 +4,27 @@ import { createAuditLog } from "@/lib/audit";
 import { requireUser, getRequestMeta } from "@/lib/auth";
 import { concluirAgendamentosDoImovel } from "@/lib/agendamentos";
 import { movimentarEstoqueSeguro } from "@/lib/estoque";
+import { motivoValido } from "@/lib/motivosPendencia";
 
 export const dynamic = "force-dynamic";
 
 const STATUS_EXECUCAO = ["CONCLUIDO", "PENDENTE"];
+// Instalações guardadas no celular sem internet chegam depois: aceita o horário do aparelho até 7 dias atrás
+const ATRASO_MAXIMO_MS = 7 * 24 * 60 * 60 * 1000;
+
+function horarioDoRegistro(valor: unknown): Date {
+    const agora = Date.now();
+    const t = typeof valor === "string" || typeof valor === "number" ? new Date(valor).getTime() : NaN;
+    return isFinite(t) && t <= agora + 5 * 60 * 1000 && agora - t <= ATRASO_MAXIMO_MS ? new Date(Math.min(t, agora)) : new Date(agora);
+}
+
+function coordenadas(body: any): { lat: number; lon: number; precisao: number | null } | null {
+    const lat = Number(body?.lat);
+    const lon = Number(body?.lon);
+    if (body?.lat == null || body?.lon == null || !isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+    const precisao = body.precisao != null && isFinite(Number(body.precisao)) ? Number(body.precisao) : null;
+    return { lat, lon, precisao };
+}
 
 export async function PATCH(req: NextRequest) {
     const { user, response } = await requireUser();
@@ -16,6 +33,9 @@ export async function PATCH(req: NextRequest) {
     try {
         const body = await req.json();
         const { inscimob, status, obsPendente, fotos, complementosData, protocolo } = body;
+        const motivoPendencia = motivoValido(body.motivoPendencia);
+        const gps = coordenadas(body);
+        const registradoEm = horarioDoRegistro(body.registradoEm);
 
         if (!inscimob || !status) {
             return NextResponse.json({ error: "Inscimob e Status são obrigatórios" }, { status: 400 });
@@ -37,11 +57,22 @@ export async function PATCH(req: NextRequest) {
 
         const imovelData: any = { status, usuarioAlt: user.email };
         if (novasFotos) imovelData.fotos = JSON.stringify(fotos);
-        if (status === "PENDENTE") imovelData.obsPendente = obsPendente ? String(obsPendente).trim() : null;
-        if (status === "CONCLUIDO") imovelData.obsPendente = null;
+        if (status === "PENDENTE") {
+            imovelData.obsPendente = obsPendente ? String(obsPendente).trim() : null;
+            imovelData.motivoPendencia = motivoPendencia;
+        }
+        if (status === "CONCLUIDO") {
+            imovelData.obsPendente = null;
+            imovelData.motivoPendencia = null;
+        }
         if (principalExecutado) {
-            imovelData.dataExecucao = new Date();
+            imovelData.dataExecucao = registradoEm;
             imovelData.instaladorResp = actualInstaladorResp;
+        }
+        // GPS do celular no momento da foto/registro (prova de local da instalação)
+        if (gps && (principalExecutado || novasFotos)) {
+            imovelData.latExecucao = gps.lat;
+            imovelData.lonExecucao = gps.lon;
         }
 
         // Apenas complementos que pertencem a este imóvel
@@ -66,7 +97,8 @@ export async function PATCH(req: NextRequest) {
                         status: comp.status,
                         ...(numeroPredial ? { numeroPredial } : {}),
                         fotos: Array.isArray(comp.fotos) && comp.fotos.length > 0 ? JSON.stringify(comp.fotos) : undefined,
-                        dataExecucao: STATUS_EXECUCAO.includes(comp.status) ? new Date() : undefined,
+                        dataExecucao: STATUS_EXECUCAO.includes(comp.status) ? registradoEm : undefined,
+                        ...(gps && Array.isArray(comp.fotos) && comp.fotos.length > 0 ? { latExecucao: gps.lat, lonExecucao: gps.lon } : {}),
                         liberadoInstalacao: comp.status === "CONCLUIDO" ? true : undefined
                     }
                 });
@@ -125,12 +157,22 @@ export async function PATCH(req: NextRequest) {
                 status,
                 statusAnterior: atual.status,
                 obsPendente,
+                motivoPendencia,
+                gps,
+                registradoEm: registradoEm.toISOString(),
                 fotos,
                 complementosData: compsValidos,
                 protocolo
             },
             ...getRequestMeta(req)
         });
+
+        // A posição da instalação também atualiza o instalador no mapa do admin
+        if (gps) {
+            await prisma.localizacaoInstalador.create({
+                data: { userId: user.id, userNome: user.name, userEmail: user.email, lat: gps.lat, lon: gps.lon, precisao: gps.precisao, evento: "INSTALACAO", createdAt: registradoEm },
+            }).catch(e => console.error("Erro ao registrar localização da instalação:", e));
+        }
 
         return NextResponse.json({ success: true, imovel });
     } catch (error) {

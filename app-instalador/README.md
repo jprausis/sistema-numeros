@@ -16,6 +16,21 @@ Stack: Vite + React + [Capacitor 7](https://capacitorjs.com) (projeto nativo em 
 - Telas: mapa, agenda (filtros, WhatsApp, rota GPS), imóveis próximos pelo GPS, busca por inscrição e
   registro da instalação com foto (câmera ou galeria).
 
+## Uso na rua
+
+- **Sem internet** (`src/lib/fila.ts`): toda instalação é gravada primeiro no celular (IndexedDB, com as fotos)
+  e enviada depois; sem conexão fica na fila e é reenviada sozinha (ao abrir o app, quando a internet volta e a
+  cada minuto). O servidor recebe o horário do registro (`registradoEm`), então a data da instalação é a real.
+  Agenda, imóveis do mapa e fichas abertas ficam guardados para consulta sem internet (`src/lib/cache.ts`).
+- **Rascunho** (`src/lib/rascunho.ts`): o formulário do imóvel é salvo a cada alteração e volta se o app fechar.
+- **Foto com prova de local**: a foto recebe carimbo com nº, data/hora e GPS; acima de 100 m do endereço
+  cadastrado o app avisa e pede confirmação. O GPS vai para `latExecucao`/`lonExecucao` do imóvel.
+- **Motivos de pendência** padronizados (`src/utils/motivosPendencia.ts`, mesma lista do servidor), salvos em
+  `motivoPendencia` e filtráveis no admin.
+- **Modo sol** (botão ☀), botões principais no rodapé e vibração ao salvar.
+- **Localização**: no login, ao abrir o app, a cada 10 min com ele aberto e em cada instalação (aviso exibido
+  uma vez por aparelho).
+
 ## Configuração
 
 Copie `.env.example` para `.env` e preencha com os mesmos valores `NEXT_PUBLIC_SUPABASE_*` do sistema web.
