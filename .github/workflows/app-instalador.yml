@@ -1,0 +1,51 @@
+# Gera o APK do app Android do instalador (pasta app-instalador).
+# Configure em Settings > Secrets and variables > Actions > Secrets:
+#   VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (os mesmos NEXT_PUBLIC_* do sistema web)
+name: App do Instalador (APK)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app-instalador/**"
+      - ".github/workflows/app-instalador.yml"
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app-instalador
+    env:
+      VITE_API_URL: https://sistema-numeros.vercel.app
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app-instalador/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync android
+
+      - name: Gerar APK
+        working-directory: app-instalador/android
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-instalador-apk
+          path: app-instalador/android/app/build/outputs/apk/debug/app-debug.apk

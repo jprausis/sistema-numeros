@@ -1,0 +1,679 @@
+.container {
+    max-width: 580px;
+    margin: 0 auto;
+    padding: 1rem 1rem 3rem 1rem;
+    font-family: inherit;
+    color: #1e293b;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.backButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.5rem 0.85rem;
+    color: #475569;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.backButton:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+/* Banner de Vinculação com Agendamento */
+.agendamentoAlert {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+/* Card do Imóvel Principal */
+.propertyHeaderCard {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #ffffff;
+    border-radius: 12px;
+    padding: 1.15rem 1.25rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.propertyHeaderTitle {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.85;
+    margin-bottom: 0.25rem;
+}
+
+.propertyHeaderNumber {
+    font-size: 1.6rem;
+    font-weight: 900;
+    line-height: 1.2;
+}
+
+.propertyHeaderDetails {
+    font-size: 0.875rem;
+    opacity: 0.9;
+    margin-top: 0.25rem;
+}
+
+/* Formulário e Seções */
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 0.85rem;
+    margin-bottom: 1.15rem;
+}
+
+.cardTitle {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sectionHeaderGroup {
+    margin-bottom: 0.75rem;
+}
+
+.sectionTitle {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 0.25rem 0;
+}
+
+.sectionSubtitle {
+    font-size: 0.825rem;
+    color: #64748b;
+    margin: 0;
+}
+
+/* Orientação Prefeitura */
+.orientationBox {
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 10px;
+    padding: 0.85rem;
+    margin-bottom: 1.15rem;
+}
+
+.orientationLabel {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #3730a3;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-bottom: 0.5rem;
+}
+
+.orientationImg {
+    width: 100%;
+    max-height: 220px;
+    object-fit: cover;
+    border-radius: 8px;
+    cursor: zoom-in;
+    border: 1px solid #cbd5e1;
+    transition: transform 0.15s ease;
+}
+
+.orientationImg:hover {
+    opacity: 0.95;
+}
+
+/* Foto Existente */
+.currentPhotoBox {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.85rem;
+    margin-bottom: 1.15rem;
+}
+
+.currentPhotoHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.currentPhotoLabel {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #166534;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.currentPhotoThumb {
+    width: 100%;
+    max-height: 200px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    cursor: zoom-in;
+}
+
+/* Grupos do Form */
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+}
+
+.formGroup:last-child {
+    margin-bottom: 0;
+}
+
+.label {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #334155;
+}
+
+/* Botões de Status */
+.statusButtons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+}
+
+.statusBtn {
+    padding: 0.75rem 0.5rem;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+}
+
+.statusBtn:hover {
+    background: #f1f5f9;
+}
+
+.statusActiveSuccess {
+    background: #dcfce7;
+    color: #15803d;
+    border-color: #22c55e;
+}
+
+.statusActiveWarning {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #f59e0b;
+}
+
+/* Área de Upload / Câmera */
+.uploadTriggerBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem;
+    background: #f8fafc;
+    border: 2px dashed #cbd5e1;
+    border-radius: 10px;
+    color: #2563eb;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+}
+
+.uploadTriggerBtn:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+}
+
+.hiddenFileInput {
+    display: none;
+}
+
+/* Preview de Foto */
+.previewContainer {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+    border: 1px solid #cbd5e1;
+}
+
+.previewThumb {
+    width: 100%;
+    max-height: 220px;
+    object-fit: cover;
+    display: block;
+    cursor: zoom-in;
+}
+
+.previewBadge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(37, 99, 235, 0.9);
+    color: white;
+    font-size: 0.725rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    backdrop-filter: blur(4px);
+}
+
+.removePhotoBtn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(15, 23, 42, 0.75);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: background 0.15s ease;
+}
+
+.removePhotoBtn:hover {
+    background: #dc2626;
+}
+
+/* Textarea */
+.textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    min-height: 80px;
+    resize: vertical;
+    transition: border-color 0.15s ease;
+}
+
+.textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+}
+
+/* Cards de Complemento */
+.compCard {
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.15rem;
+    margin-bottom: 1rem;
+    transition: all 0.2s ease;
+}
+
+.compCardActive {
+    border-color: #3b82f6;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.12);
+}
+
+.compCardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.85rem;
+}
+
+.compUnitName {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.compUnitSub {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 1px;
+}
+
+.badgeConcluido {
+    background: #dcfce7;
+    color: #166534;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Edição de Unidade / Número Predial */
+.unitEditWrapper {
+    display: inline-flex;
+    align-items: center;
+    background: #f1f5f9;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 2px 8px;
+    transition: all 0.2s ease;
+}
+
+.unitEditWrapper:focus-within {
+    background: #ffffff;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.unitInput {
+    border: none;
+    background: transparent;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0f172a;
+    width: 120px;
+    padding: 3px 0;
+    font-family: inherit;
+}
+
+.unitInput:focus {
+    outline: none;
+}
+
+.unitEditIcon {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-left: 4px;
+    pointer-events: none;
+}
+
+/* Botão de Envio */
+.submitButton {
+    background: #16a34a;
+    color: #ffffff;
+    padding: 1.1rem 1.25rem;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 1.05rem;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3);
+    transition: all 0.15s ease;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.submitButton:hover:not(:disabled) {
+    background: #15803d;
+    transform: translateY(-1px);
+}
+
+.submitButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Modal / Bottom Sheet de Escolha de Foto */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    z-index: 9999;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    animation: fadeInModal 0.2s ease-out;
+}
+
+.modalSheet {
+    background: #ffffff;
+    width: 100%;
+    max-width: 480px;
+    border-radius: 20px 20px 0 0;
+    padding: 1.25rem 1.25rem 2rem 1.25rem;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.2);
+    animation: slideUpModal 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+    .modalOverlay {
+        align-items: center;
+        padding: 1rem;
+    }
+
+    .modalSheet {
+        border-radius: 18px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08);
+        animation: scaleUpModal 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+}
+
+.modalHandle {
+    width: 38px;
+    height: 4px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    margin: 0 auto 1.15rem auto;
+}
+
+@media (min-width: 640px) {
+    .modalHandle {
+        display: none;
+    }
+}
+
+.modalHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+
+.modalTitle {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+    letter-spacing: -0.01em;
+}
+
+.modalSubtitle {
+    font-size: 0.825rem;
+    color: #2563eb;
+    font-weight: 600;
+    margin-top: 0.25rem;
+}
+
+.modalCloseBtn {
+    background: #f1f5f9;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.modalCloseBtn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.modalOptions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.modalOptionBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.95rem 1rem;
+    border-radius: 14px;
+    border: 1.5px solid #e2e8f0;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.modalOptionBtn:hover {
+    border-color: #2563eb;
+    background: #f8faff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.modalOptionBtn:active {
+    transform: translateY(0);
+}
+
+.optionIconWrapperCamera {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.optionIconWrapperGallery {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: #f0fdf4;
+    color: #16a34a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.optionInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.optionTitle {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 2px;
+}
+
+.optionDesc {
+    font-size: 0.775rem;
+    color: #64748b;
+}
+
+.optionChevron {
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+}
+
+.modalCancelBtn {
+    margin-top: 1rem;
+    width: 100%;
+    padding: 0.85rem;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    color: #475569;
+    font-weight: 700;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.modalCancelBtn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+@keyframes fadeInModal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUpModal {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+@keyframes scaleUpModal {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}

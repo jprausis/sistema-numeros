@@ -1,6 +1,7 @@
 import { createClient } from "../utils/supabase/server";
 import prisma from "./prisma";
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 
 export type Role = "ADMIN" | "OPERATOR" | "PREFEITURA" | "INSTALLER";
 
@@ -9,7 +10,14 @@ export const STAFF_ROLES: Role[] = ["ADMIN", "OPERATOR", "PREFEITURA"];
 
 export async function getSessionUser() {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+
+    // App Android do instalador: não usa cookies, envia o token do Supabase no cabeçalho
+    const authHeader = (await headers()).get("authorization");
+    const bearer = authHeader?.match(/^Bearer\s+(.+)$/i)?.[1];
+
+    const { data: { user } } = bearer
+        ? await supabase.auth.getUser(bearer)
+        : await supabase.auth.getUser();
 
     if (!user) return null;
 

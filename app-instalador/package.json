@@ -1,0 +1,38 @@
+{
+  "name": "app-instalador",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:teste": "vite --mode teste",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "android:sync": "npm run build && cap sync android",
+    "android:open": "cap open android",
+    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.6.9",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/app-launcher": "^7.0.4",
+    "@capacitor/core": "^7.6.9",
+    "@capacitor/status-bar": "^7.0.6",
+    "@supabase/supabase-js": "^2.118.0",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.575.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-leaflet": "^5.0.0",
+    "react-router-dom": "^7.18.5"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.6.9",
+    "@types/leaflet": "^1.9.22",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.5"
+  }
+}
