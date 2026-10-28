@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Clock, CloudUpload, Loader2, RotateCw, Trash2, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CloudUpload, Loader2, RotateCw, Trash2, X } from 'lucide-react';
 import { apiGetComCache } from '@/lib/cache';
 import { descartarDaFila, observarFila, processarFila, tentarNovamente, type ItemFila } from '@/lib/fila';
 import { toast } from '@/utils/toast';
 import styles from './resumoDia.module.css';
 
-type Resumo = { concluidos: number; pendentes: number; complementos: number };
+// algarismos: números dos imóveis + complementos instalados hoje (ex.: "365" conta 3, "CS2" conta 3)
+type Resumo = { algarismos?: number; concluidos: number; pendentes: number; complementos: number };
 
 const hora = (ms: number) => new Date(ms).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
@@ -54,9 +55,7 @@ export default function ResumoDia() {
             <div className={styles.resumo}>
                 <div className={styles.numeros} aria-label="Resumo de hoje">
                     <span className={styles.rotulo}>Hoje</span>
-                    <span className={styles.numero}><CheckCircle2 size={16} /> <strong>{resumo?.concluidos ?? '–'}</strong> instaladas</span>
-                    {!!resumo?.complementos && <span className={styles.numero}><strong>+{resumo.complementos}</strong> unid.</span>}
-                    <span className={styles.numero}><Clock size={16} /> <strong>{resumo?.pendentes ?? '–'}</strong> pendentes</span>
+                    <span className={styles.numero}><CheckCircle2 size={16} /> <strong>{resumo?.algarismos ?? '–'}</strong> algarismos instalados</span>
                 </div>
                 {fila.length > 0 && (
                     <button
