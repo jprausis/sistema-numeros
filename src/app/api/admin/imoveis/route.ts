@@ -68,7 +68,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-    const { response } = await requireUser(STAFF_ROLES);
+    // Leitura também liberada para o Painel Prefeitura
+    const { response } = await requireUser([...STAFF_ROLES, "PAINEL_PREFEITURA"]);
     if (response) return response;
 
     try {

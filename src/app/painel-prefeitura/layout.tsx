@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { CalendarDays, LayoutDashboard, Loader2, LogOut } from 'lucide-react';
+import { CalendarDays, Home, LayoutDashboard, Loader2, LogOut } from 'lucide-react';
 import styles from './layout.module.css';
 import { createClient } from '@/utils/supabase/client';
 
@@ -11,6 +11,7 @@ const ROLES_PERMITIDOS = ['PAINEL_PREFEITURA', 'ADMIN', 'OPERATOR'];
 
 const MENU = [
     { label: 'Visão geral', href: '/painel-prefeitura', icon: LayoutDashboard },
+    { label: 'Imóveis', href: '/painel-prefeitura/imoveis', icon: Home },
     { label: 'Agendamentos', href: '/painel-prefeitura/agendamentos', icon: CalendarDays },
 ];
 

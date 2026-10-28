@@ -5,7 +5,8 @@ import { requireUser, STAFF_ROLES } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-    const { response } = await requireUser(STAFF_ROLES);
+    // Leitura também liberada para o Painel Prefeitura
+    const { response } = await requireUser([...STAFF_ROLES, "PAINEL_PREFEITURA"]);
     if (response) return response;
 
     try {
