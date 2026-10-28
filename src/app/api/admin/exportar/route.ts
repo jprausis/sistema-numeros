@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
                 dataExecucao: true,
                 instaladorResp: true,
                 fotos: true,
+                motivoPendencia: true,
+                obsPendente: true,
                 bairro: { select: { nome: true } },
                 complementos: {
                     select: { inscimob: true, numeroPredial: true, status: true, dataExecucao: true, fotos: true },
@@ -40,7 +42,7 @@ export async function GET(req: NextRequest) {
             orderBy: { inscimob: 'asc' }
         });
 
-        const header = ["Inscimob", "Bairro", "Numero", "Status", "DataExecucao", "Instalador", "Fotos", "Tipo"];
+        const header = ["Inscimob", "Bairro", "Numero", "Status", "DataExecucao", "Instalador", "Fotos", "Tipo", "MotivoPendencia", "Observacoes"];
         const rows: string[] = [header.join(";")];
 
         for (const i of imoveis) {
@@ -52,7 +54,9 @@ export async function GET(req: NextRequest) {
                 formatBrazil(i.dataExecucao),
                 i.instaladorResp || "",
                 limparLinksImagens(i.fotos),
-                "Principal"
+                "Principal",
+                i.status === "PENDENTE" || i.status === "AUSENTE" ? (i.motivoPendencia || "") : "",
+                i.obsPendente || ""
             ].map(csvCell).join(";"));
 
             for (const c of i.complementos) {
@@ -66,7 +70,9 @@ export async function GET(req: NextRequest) {
                     formatBrazil(c.dataExecucao),
                     cConcluido ? (i.instaladorResp || "") : "",
                     limparLinksImagens(c.fotos),
-                    "Complemento"
+                    "Complemento",
+                    "",
+                    ""
                 ].map(csvCell).join(";"));
             }
         }
