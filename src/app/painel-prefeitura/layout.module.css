@@ -40,15 +40,9 @@
 }
 
 .logoMark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    display: block;
     width: 38px;
     height: 38px;
-    border-radius: 10px;
-    background: var(--primary);
-    color: #fff;
-    font-weight: 800;
     flex-shrink: 0;
 }
 

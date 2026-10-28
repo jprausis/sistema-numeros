@@ -52,7 +52,8 @@ export default function PainelPrefeituraLayout({ children }: { children: React.R
         <div className={styles.page}>
             <header className={styles.topBar}>
                 <div className={styles.brand}>
-                    <span className={styles.logoMark}>Nº</span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/icon.svg" alt="" className={styles.logoMark} width={38} height={38} />
                     <div>
                         <strong>Rio Branco do Sul tem endereço</strong>
                         <span>Painel da Prefeitura</span>
