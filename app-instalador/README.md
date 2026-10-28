@@ -32,8 +32,12 @@ npm run dev:teste    # app usando o sistema web local (npm run dev na raiz, port
 
 **Pelo GitHub (sem instalar nada):** o workflow `.github/workflows/app-instalador.yml` gera o APK a cada
 push em `main` que altere esta pasta (ou manualmente em Actions → "App do Instalador (APK)" → Run workflow).
-Antes, cadastre em Settings → Secrets and variables → Actions os secrets `VITE_SUPABASE_URL` e
-`VITE_SUPABASE_ANON_KEY`. O APK fica em "Artifacts" na execução.
+Antes, cadastre em Settings → Secrets and variables → Actions os secrets `VITE_SUPABASE_URL`,
+`VITE_SUPABASE_ANON_KEY`, `ANDROID_KEYSTORE_BASE64` e `ANDROID_KEYSTORE_PASSWORD`. O APK fica em "Artifacts" na execução.
+
+O APK é assinado com uma chave fixa (PKCS12, alias `instalador`, guardada fora do repositório), então cada
+versão nova instala por cima da anterior. O número da execução do workflow vira o `versionCode`. Se a chave
+for perdida, os celulares terão que desinstalar o app para instalar uma versão assinada com chave nova.
 
 **No computador:** com JDK 21 e Android SDK (Android Studio) instalados:
 
