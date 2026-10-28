@@ -57,3 +57,28 @@ export async function movimentarEstoqueSeguro(db: Db, mudanca: MudancaStatus) {
         console.error("Erro ao movimentar estoque:", error, mudanca);
     }
 }
+
+// Imóveis prontos para receber a placa: só estes entram na previsão de produção
+export const STATUS_PENDENTES_PRODUCAO = ["LIBERADO", "AUSENTE"];
+
+/**
+ * Imóveis e complementos que ainda vão consumir placas (previsão de produção).
+ * Complementos usam a marcação "liberado para instalação" da prefeitura
+ * (ou o próprio status LIBERADO/AUSENTE) e ainda não foram instalados.
+ */
+export async function buscarPendentesProducao(db: Db = prisma) {
+    const [imoveis, complementos] = await Promise.all([
+        db.imovel.findMany({
+            where: { status: { in: STATUS_PENDENTES_PRODUCAO } },
+            select: { numeroAInstalar: true, bairroId: true }
+        }),
+        db.complemento.findMany({
+            where: {
+                status: { notIn: ["CONCLUIDO", "PENDENTE"] },
+                OR: [{ liberadoInstalacao: true }, { status: { in: STATUS_PENDENTES_PRODUCAO } }]
+            },
+            select: { numeroPredial: true, imovel: { select: { bairroId: true } } }
+        })
+    ]);
+    return { imoveis, complementos };
+}

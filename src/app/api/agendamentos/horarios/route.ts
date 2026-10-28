@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireUser, STAFF_ROLES } from "@/lib/auth";
+import { requireUser, AGENDA_ROLES } from "@/lib/auth";
 import { WHERE_AGENDAMENTO_OFICIAL } from "@/lib/agendamentos";
 import { brazilDayRange, splitBrazilDate } from "@/lib/timezone";
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 // Horários já ocupados em um dia (YYYY-MM-DD), para travar a escolha nos formulários.
 export async function GET(req: NextRequest) {
-    const { response } = await requireUser(STAFF_ROLES);
+    const { response } = await requireUser(AGENDA_ROLES);
     if (response) return response;
 
     const { searchParams } = new URL(req.url);

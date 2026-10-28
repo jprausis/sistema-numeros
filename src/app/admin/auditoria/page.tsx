@@ -27,6 +27,18 @@ const ACTION_LABELS: Record<string, string> = {
     ESTOQUE_ENTRADA: 'Entrada de estoque',
     ESTOQUE_AJUSTE: 'Ajuste de estoque',
 };
+const CAMPO_LABELS: Record<string, string> = {
+    nome: 'Nome',
+    telefone: 'Telefone',
+    dataHora: 'Data/hora',
+    status: 'Status',
+    inscimobVinculo: 'Imóvel vinculado',
+    'imovel.status': 'Status do imóvel',
+    'imovel.obsPendente': 'Observação',
+};
+const valorCampo = (campo: string, v: any) =>
+    v === null || v === undefined ? '—' : campo === 'dataHora' ? formatBrazil(v, true) : String(v);
+
 const actionLabel = (action: string) =>
     ACTION_LABELS[action] || (action.startsWith('CONCLUIR_IMOVEL_') ? `Status → ${action.replace('CONCLUIR_IMOVEL_', '')}` : action);
 
@@ -129,6 +141,16 @@ export default function AuditoriaPage() {
                                         <span className={ui.cellSub}>{log.resource}{log.resourceId ? `: ${log.resourceId}` : ''}</span>
                                     </td>
                                     <td className={styles.detailsCol}>
+                                        {Array.isArray(log.details?.alteracoes) && log.details.alteracoes.length > 0 && (
+                                            <ul className={styles.changes}>
+                                                {log.details.alteracoes.map((a: any) => (
+                                                    <li key={a.campo}>
+                                                        <strong>{CAMPO_LABELS[a.campo] || a.campo}:</strong>{' '}
+                                                        <span className={styles.changeOld}>{valorCampo(a.campo, a.antes)}</span> → {valorCampo(a.campo, a.depois)}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
                                         <details>
                                             <summary>Ver dados</summary>
                                             <pre>{JSON.stringify(log.details, null, 2)}</pre>

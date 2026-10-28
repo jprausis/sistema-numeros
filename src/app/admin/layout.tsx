@@ -51,6 +51,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 const role = data.user?.role;
                 // Painel administrativo é exclusivo de ADMIN e OPERATOR
                 if (role === 'PREFEITURA') return router.replace('/prefeitura');
+                if (role === 'PAINEL_PREFEITURA') return router.replace('/painel-prefeitura');
                 if (role !== 'ADMIN' && role !== 'OPERATOR') return router.replace('/instalador');
                 setUser(data.user);
             } catch (error) {

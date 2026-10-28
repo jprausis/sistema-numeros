@@ -6,7 +6,7 @@ import { createAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
-const VALID_ROLES: Role[] = ["ADMIN", "OPERATOR", "PREFEITURA", "INSTALLER"];
+const VALID_ROLES: Role[] = ["ADMIN", "OPERATOR", "PREFEITURA", "PAINEL_PREFEITURA", "INSTALLER"];
 
 export async function GET() {
     const { response } = await requireUser(["ADMIN"]);

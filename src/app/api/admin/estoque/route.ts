@@ -3,11 +3,10 @@ import prisma from "@/lib/prisma";
 import { requireUser, getRequestMeta } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
 import { CARACTERES, Caractere, Contagem, contagemVazia, contarCaracteres, itemDoCaractere, totalContagem } from "@/utils/estoque";
+import { buscarPendentesProducao } from "@/lib/estoque";
 
 export const dynamic = "force-dynamic";
 
-// Imóveis prontos para receber a placa: só estes entram na previsão de produção
-const STATUS_PENDENTES = ["LIBERADO", "AUSENTE"];
 const DIAS_CONSUMO = 30;
 
 export async function GET() {
@@ -17,21 +16,9 @@ export async function GET() {
     try {
         const desde = new Date(Date.now() - DIAS_CONSUMO * 24 * 60 * 60 * 1000);
 
-        const [itens, imoveis, complementos, bairros, consumo, movimentos] = await Promise.all([
+        const [itens, { imoveis, complementos }, bairros, consumo, movimentos] = await Promise.all([
             prisma.estoqueItem.findMany(),
-            prisma.imovel.findMany({
-                where: { status: { in: STATUS_PENDENTES } },
-                select: { numeroAInstalar: true, bairroId: true }
-            }),
-            // Complementos usam a marcação "liberado para instalação" da prefeitura
-            // (ou o próprio status LIBERADO/AUSENTE) e ainda não foram instalados
-            prisma.complemento.findMany({
-                where: {
-                    status: { notIn: ["CONCLUIDO", "PENDENTE"] },
-                    OR: [{ liberadoInstalacao: true }, { status: { in: STATUS_PENDENTES } }]
-                },
-                select: { numeroPredial: true, imovel: { select: { bairroId: true } } }
-            }),
+            buscarPendentesProducao(),
             prisma.bairro.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
             prisma.estoqueMovimento.groupBy({
                 by: ["caractere"],

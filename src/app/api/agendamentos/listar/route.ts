@@ -7,7 +7,7 @@ import { splitBrazilDate, brazilDayRange, buildBrazilDate, todayBrazil } from "@
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-    const { response } = await requireUser(["ADMIN", "OPERATOR"]);
+    const { response } = await requireUser(["ADMIN", "OPERATOR", "PAINEL_PREFEITURA"]);
     if (response) return response;
 
     try {

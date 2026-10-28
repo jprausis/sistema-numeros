@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getSessionUser, restrictToAdmin } from "@/lib/auth";
+import { requireUser, getRequestMeta, ROLE_LABEL } from "@/lib/auth";
+import { createAuditLog } from "@/lib/audit";
 
 export async function DELETE(req: NextRequest) {
-    const restriction = await restrictToAdmin();
-    if (restriction) return restriction;
+    const { user, response } = await requireUser(["ADMIN", "PAINEL_PREFEITURA"]);
+    if (response) return response;
 
-    const user = await getSessionUser();
     const { searchParams } = new URL(req.url);
     const protocolo = searchParams.get("protocolo");
 
@@ -36,25 +36,26 @@ export async function DELETE(req: NextRequest) {
                     where: { inscimob: agendamento.inscimobVinculo },
                     data: {
                         status: "NAO_INICIADO",
-                        usuarioAlt: `Agendamento excluído por admin: ${user?.email || 'admin'}`
+                        usuarioAlt: `Agendamento excluído por ${ROLE_LABEL[user.role] || user.role}: ${user.name || user.email}`
                     }
                 });
             }
         }
 
         // Registrar auditoria
-        await prisma.auditLog.create({
-            data: {
-                userId: user?.id || 'unknown',
-                userEmail: user?.email || 'unknown',
-                action: "DELETE_AGENDAMENTO",
-                resource: "agendamento",
-                resourceId: protocolo,
-                details: {
-                    mensagem: "Agendamento excluído pelo administrador",
-                    dadosExcluidos: agendamento
-                }
-            }
+        await createAuditLog({
+            userId: user.id,
+            userEmail: user.email || "desconhecido",
+            action: "DELETE_AGENDAMENTO",
+            resource: "agendamento",
+            resourceId: protocolo,
+            details: {
+                perfil: user.role,
+                inscimob: agendamento.inscimobVinculo,
+                mensagem: `Agendamento excluído (${ROLE_LABEL[user.role] || user.role})`,
+                dadosExcluidos: agendamento
+            },
+            ...getRequestMeta(req)
         });
 
         return NextResponse.json({ success: true });

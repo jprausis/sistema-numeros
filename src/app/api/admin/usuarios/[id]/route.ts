@@ -4,7 +4,7 @@ import { createAdminClient } from "@/utils/supabase/admin";
 import { requireUser, getRequestMeta, Role } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
 
-const VALID_ROLES: Role[] = ["ADMIN", "OPERATOR", "PREFEITURA", "INSTALLER"];
+const VALID_ROLES: Role[] = ["ADMIN", "OPERATOR", "PREFEITURA", "PAINEL_PREFEITURA", "INSTALLER"];
 
 // IDs antigos (criados por script) usam o e-mail como ID e não existem no Supabase Auth
 const isAuthId = (id: string) => !id.includes('@');

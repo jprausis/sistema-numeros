@@ -39,7 +39,7 @@ export async function updateSession(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     const pathname = request.nextUrl.pathname;
-    const isProtectedRoute = pathname.startsWith('/instalador') || pathname.startsWith('/admin') || pathname.startsWith('/prefeitura');
+    const isProtectedRoute = pathname.startsWith('/instalador') || pathname.startsWith('/admin') || pathname.startsWith('/prefeitura') || pathname.startsWith('/painel-prefeitura');
 
     if (isProtectedRoute && !user) {
         const url = request.nextUrl.clone();

@@ -8,6 +8,7 @@ import { toast } from '@/utils/toast';
 const ROLES = [
     { value: 'INSTALLER', label: 'Instalador', desc: 'Executa instalações em campo pelo celular' },
     { value: 'PREFEITURA', label: 'Operador Prefeitura', desc: 'Libera imóveis e agenda instalações' },
+    { value: 'PAINEL_PREFEITURA', label: 'Painel Prefeitura', desc: 'Somente leitura: acompanha indicadores e baixa relatórios' },
     { value: 'OPERATOR', label: 'Operador', desc: 'Acompanha o painel, sem funções administrativas' },
     { value: 'ADMIN', label: 'Administrador', desc: 'Acesso total, incluindo usuários e importação' },
 ];

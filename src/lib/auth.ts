@@ -3,10 +3,22 @@ import prisma from "./prisma";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 
-export type Role = "ADMIN" | "OPERATOR" | "PREFEITURA" | "INSTALLER";
+export type Role = "ADMIN" | "OPERATOR" | "PREFEITURA" | "PAINEL_PREFEITURA" | "INSTALLER";
 
 // Papéis com acesso ao painel administrativo / gestão da base
 export const STAFF_ROLES: Role[] = ["ADMIN", "OPERATOR", "PREFEITURA"];
+
+// Papéis que gerenciam agendamentos (o Painel Prefeitura agenda pela página própria)
+export const AGENDA_ROLES: Role[] = [...STAFF_ROLES, "PAINEL_PREFEITURA"];
+
+// Nome do papel gravado em `usuarioAlt` / logs
+export const ROLE_LABEL: Record<string, string> = {
+    ADMIN: "Admin",
+    OPERATOR: "Operador",
+    PREFEITURA: "Prefeitura",
+    PAINEL_PREFEITURA: "Painel Prefeitura",
+    INSTALLER: "Instalador",
+};
 
 export async function getSessionUser() {
     const supabase = await createClient();

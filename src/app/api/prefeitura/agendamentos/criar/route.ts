@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 import prisma from "@/lib/prisma";
-import { requireUser, getRequestMeta, STAFF_ROLES } from "@/lib/auth";
-import { createAuditLog } from "@/lib/audit";
+import { requireUser, getRequestMeta, AGENDA_ROLES, ROLE_LABEL } from "@/lib/auth";
+import { createAuditLog, diffCampos } from "@/lib/audit";
 import { generateUniqueProtocol, buscarConflitoHorario, mensagemConflitoHorario } from "@/lib/agendamentos";
 import { buildBrazilDate } from "@/lib/timezone";
 
 export async function POST(req: NextRequest) {
-    const { user, response } = await requireUser(STAFF_ROLES);
+    const { user, response } = await requireUser(AGENDA_ROLES);
     if (response) return response;
     const userEmail = user.email;
     const userName = user.name;
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
         // Apenas um agendamento ativo por horário (ao editar sem trocar o horário, não revalida)
         const atual = targetProtocolo
-            ? await prisma.agendamento.findUnique({ where: { protocolo: targetProtocolo }, select: { dataHora: true, status: true } })
+            ? await prisma.agendamento.findUnique({ where: { protocolo: targetProtocolo } })
             : null;
         const mesmoHorario = !!atual && atual.dataHora?.getTime() === dataHora.getTime()
             && !["CONCLUIDO", "CANCELADO"].includes(atual.status);
@@ -123,8 +123,8 @@ export async function POST(req: NextRequest) {
                 status: "AGENDADO",
                 obsPendente: obsNote,
                 usuarioAlt: isEdit
-                    ? `Agendamento editado por Prefeitura: ${userName || userEmail}`
-                    : `Agendado por Prefeitura: ${userName || userEmail}`
+                    ? `Agendamento editado por ${ROLE_LABEL[user.role] || user.role}: ${userName || userEmail}`
+                    : `Agendado por ${ROLE_LABEL[user.role] || user.role}: ${userName || userEmail}`
             },
             include: {
                 bairro: { select: { id: true, nome: true, visivelInstalacao: true } },
@@ -145,7 +145,13 @@ export async function POST(req: NextRequest) {
                 nome: contactName,
                 telefone: contactPhone,
                 observacao: obsNote,
-                isEdit
+                isEdit,
+                perfil: user.role,
+                alteracoes: [
+                    ...diffCampos(atual, agendamento, ["nome", "telefone", "dataHora", "status", "inscimobVinculo"]),
+                    ...diffCampos(imovel, updatedImovel, ["status", "obsPendente"]).map(a => ({ ...a, campo: `imovel.${a.campo}` })),
+                ],
+                antes: atual
             },
             ...getRequestMeta(req)
         });

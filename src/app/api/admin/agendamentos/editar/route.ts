@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getSessionUser, restrictToAdmin } from "@/lib/auth";
-import { createAuditLog } from "@/lib/audit";
+import { requireUser, getRequestMeta, ROLE_LABEL } from "@/lib/auth";
+import { createAuditLog, diffCampos } from "@/lib/audit";
 import { buildBrazilDate, splitBrazilDate } from "@/lib/timezone";
 import { movimentarEstoqueSeguro } from "@/lib/estoque";
 import { buscarConflitoHorario, mensagemConflitoHorario } from "@/lib/agendamentos";
@@ -10,10 +10,10 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
     try {
-        const restriction = await restrictToAdmin();
-        if (restriction) return restriction;
+        const { user, response } = await requireUser(["ADMIN", "PAINEL_PREFEITURA"]);
+        if (response) return response;
 
-        const user = await getSessionUser();
+        const autor = `${ROLE_LABEL[user.role] || user.role}: ${user.name || user.email}`;
         const body = await req.json();
         const { protocolo, data, horario, nome, telefone, observacao, status } = body;
 
@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
         });
 
         // Se houver imóvel vinculado, sincronizar observação e status conforme necessário
+        let imovelAlteracoes: ReturnType<typeof diffCampos> = [];
         if (agendamento.inscimobVinculo) {
             const updateImovelData: any = {};
             if (observacao !== undefined) {
@@ -74,11 +75,11 @@ export async function POST(req: NextRequest) {
                 updateImovelData.status = "AGENDADO";
             }
 
-            updateImovelData.usuarioAlt = `Agendamento editado por admin: ${user?.email || 'admin'}`;
+            updateImovelData.usuarioAlt = `Agendamento editado por ${autor}`;
 
             const imovelAntes = await prisma.imovel.findUnique({
                 where: { inscimob: agendamento.inscimobVinculo },
-                select: { status: true }
+                select: { status: true, obsPendente: true }
             });
             if (updateImovelData.status === "CONCLUIDO" && imovelAntes?.status !== "CONCLUIDO") {
                 updateImovelData.dataExecucao = new Date();
@@ -88,6 +89,8 @@ export async function POST(req: NextRequest) {
                 where: { inscimob: agendamento.inscimobVinculo },
                 data: updateImovelData
             });
+            imovelAlteracoes = diffCampos(imovelAntes, imovelDepois, ["status", "obsPendente"])
+                .map(a => ({ ...a, campo: `imovel.${a.campo}` }));
 
             await movimentarEstoqueSeguro(prisma, {
                 numero: imovelDepois.numeroAInstalar,
@@ -95,22 +98,31 @@ export async function POST(req: NextRequest) {
                 statusNovo: imovelDepois.status,
                 referencia: imovelDepois.inscimob,
                 descricao: `imóvel Nº ${imovelDepois.numeroAInstalar} (${imovelDepois.inscimob}) - via agendamento ${protocolo}`,
-                userEmail: user?.email,
+                userEmail: user.email,
             });
         }
 
+        const alteracoes = [
+            ...diffCampos(agendamento, updated, ["nome", "telefone", "dataHora", "status"]),
+            ...imovelAlteracoes,
+        ];
+
         // Registrar Log de Auditoria
         await createAuditLog({
-            userId: user?.id || "admin",
-            userEmail: user?.email || "admin@projemix.com.br",
+            userId: user.id,
+            userEmail: user.email || "desconhecido",
             action: "UPDATE_AGENDAMENTO",
             resource: "agendamento",
             resourceId: protocolo,
             details: {
+                perfil: user.role,
+                inscimob: agendamento.inscimobVinculo,
+                alteracoes,
                 antes: agendamento,
                 depois: updated,
                 observacao
-            }
+            },
+            ...getRequestMeta(req)
         });
 
         return NextResponse.json({ success: true, agendamento: updated });

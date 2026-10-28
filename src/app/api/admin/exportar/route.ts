@@ -13,7 +13,7 @@ function csvCell(value: unknown): string {
 }
 
 export async function GET(req: NextRequest) {
-    const { response } = await requireUser(["ADMIN", "OPERATOR"]);
+    const { response } = await requireUser(["ADMIN", "OPERATOR", "PAINEL_PREFEITURA"]);
     if (response) return response;
 
     try {

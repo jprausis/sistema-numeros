@@ -11,6 +11,7 @@ const ROLE_HOME: Record<string, string> = {
     ADMIN: '/admin',
     OPERATOR: '/admin',
     PREFEITURA: '/prefeitura',
+    PAINEL_PREFEITURA: '/painel-prefeitura',
     INSTALLER: '/instalador',
 };
 

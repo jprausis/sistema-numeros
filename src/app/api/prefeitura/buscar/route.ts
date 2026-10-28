@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 import prisma from "@/lib/prisma";
-import { requireUser, STAFF_ROLES } from "@/lib/auth";
+import { requireUser, AGENDA_ROLES } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-    const { response } = await requireUser(STAFF_ROLES);
+    const { response } = await requireUser(AGENDA_ROLES);
     if (response) return response;
 
     try {

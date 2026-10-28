@@ -9,6 +9,7 @@ Sistema de gestão da instalação da numeração predial (Next.js + Prisma/Post
 | `ADMIN` | Painel completo: dashboard, imóveis, agendamentos, importação, usuários e auditoria |
 | `OPERATOR` | Painel sem funções administrativas (sem importar, usuários ou auditoria) |
 | `PREFEITURA` | Tela `/prefeitura`: libera imóveis/complementos, fotos de orientação e agendamentos |
+| `PAINEL_PREFEITURA` | `/painel-prefeitura`: indicadores (geral, por bairro, ritmo, agendamentos, estoque), relatórios CSV por bairro e gestão de agendamentos. Toda alteração em agendamento vai para a Auditoria com o "antes → depois" |
 | `INSTALLER` | Tela `/instalador`: mapa, agenda, busca por GPS e registro das instalações com foto |
 
 Páginas públicas: `/` (informações ao morador) e `/agendar` (formulário de contato, vai para a aba "Lista de Contatos" dos agendamentos).

@@ -151,6 +151,7 @@ export default function PrefeituraPage() {
             // Instaladores não têm acesso às ações da prefeitura
             const me = await fetch('/api/auth/me').then(r => r.ok ? r.json() : null).catch(() => null);
             if (me?.user?.role === 'INSTALLER') router.replace('/instalador');
+            if (me?.user?.role === 'PAINEL_PREFEITURA') router.replace('/painel-prefeitura');
         };
         checkUser();
         fetchImoveis();
