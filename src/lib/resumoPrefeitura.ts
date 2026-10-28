@@ -26,14 +26,14 @@ export async function gerarResumoPrefeitura() {
     const agora = new Date();
 
     const [bairros, imoveis, complementos, agendamentos, itensEstoque, pendentesProducao, consumo] = await Promise.all([
-        prisma.bairro.findMany({ where: { status: { not: "ARQUIVADO" } }, select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
+        prisma.bairro.findMany({ where: { status: { not: "ARQUIVADO" } }, select: { id: true, nome: true, status: true }, orderBy: { nome: "asc" } }),
         prisma.imovel.findMany({
             where: { bairro: { status: { not: "ARQUIVADO" } } },
-            select: { status: true, bairroId: true, dataExecucao: true, motivoPendencia: true }
+            select: { status: true, bairroId: true, dataExecucao: true, motivoPendencia: true, numeroAInstalar: true }
         }),
         prisma.complemento.findMany({
             where: { imovel: { bairro: { status: { not: "ARQUIVADO" } } } },
-            select: { status: true, fotos: true, dataExecucao: true, imovel: { select: { bairroId: true } } }
+            select: { status: true, fotos: true, dataExecucao: true, numeroPredial: true, imovel: { select: { bairroId: true } } }
         }),
         // Somente agendamentos oficiais (PREF- ou vinculados a um imóvel), como na fila do admin
         prisma.agendamento.findMany({
@@ -49,22 +49,30 @@ export async function gerarResumoPrefeitura() {
         })
     ]);
 
+    // Cada algarismo é instalado um a um: conta as peças do número (0-9, C e S)
+    const algarismos = (numero: string | null | undefined) => totalContagem(contarCaracteres(numero));
+
     // Evolução diária (imóveis concluídos + complementos instalados)
-    const evolucaoMap = new Map<string, { imoveis: number; complementos: number }>();
+    const evolucaoMap = new Map<string, { imoveis: number; complementos: number; algarismos: number }>();
     for (let i = 0; i < DIAS_EVOLUCAO; i++) {
-        evolucaoMap.set(splitBrazilDate(new Date(inicioEvolucao.getTime() + i * DIA_MS)).data, { imoveis: 0, complementos: 0 });
+        evolucaoMap.set(splitBrazilDate(new Date(inicioEvolucao.getTime() + i * DIA_MS)).data, { imoveis: 0, complementos: 0, algarismos: 0 });
     }
     const diaDe = (d: Date | null) => d && d >= inicioEvolucao ? evolucaoMap.get(splitBrazilDate(d).data) : undefined;
 
     // Andamento por bairro
+    // Bairro "concluído": marcado pelo admin (mesmo com imóveis que não serão instalados) ou 100% instalado
     const porBairro = new Map(bairros.map(b => [b.id, {
         ...porStatusVazio(),
         total: 0,
         complementos: 0,
         complementosInstalados: 0,
+        algarismosInstalados: 0,
         ultimaInstalacao: null as Date | null,
+        marcadoConcluido: b.status === "CONCLUIDO",
     }]));
     const geral = porStatusVazio();
+    let algarismosImoveis = 0;
+    let restantes = 0;
     const motivos = new Map<string, number>();
 
     for (const im of imoveis) {
@@ -74,9 +82,13 @@ export async function gerarResumoPrefeitura() {
         b[status]++;
         b.total++;
         geral[status]++;
+        if (status !== "CONCLUIDO" && !b.marcadoConcluido) restantes++;
         if (status === "CONCLUIDO") {
+            const qtd = algarismos(im.numeroAInstalar);
+            b.algarismosInstalados += qtd;
+            algarismosImoveis += qtd;
             const dia = diaDe(im.dataExecucao);
-            if (dia) dia.imoveis++;
+            if (dia) { dia.imoveis++; dia.algarismos += qtd; }
             if (im.dataExecucao && (!b.ultimaInstalacao || im.dataExecucao > b.ultimaInstalacao)) b.ultimaInstalacao = im.dataExecucao;
         }
         if (status === "PENDENTE" || status === "AUSENTE") {
@@ -86,24 +98,30 @@ export async function gerarResumoPrefeitura() {
     }
 
     let complementosInstalados = 0;
+    let algarismosComplementos = 0;
     for (const c of complementos) {
         const b = porBairro.get(c.imovel.bairroId);
         if (!b) continue;
         b.complementos++;
         // Mesmo critério do dashboard: complemento só conta como instalado com foto
         if (c.status === "CONCLUIDO" && temFotosReais(c.fotos)) {
+            const qtd = algarismos(c.numeroPredial);
             b.complementosInstalados++;
+            b.algarismosInstalados += qtd;
             complementosInstalados++;
+            algarismosComplementos += qtd;
             const dia = diaDe(c.dataExecucao);
-            if (dia) dia.complementos++;
+            if (dia) { dia.complementos++; dia.algarismos += qtd; }
         }
     }
+
+    const concluido = (d: { marcadoConcluido: boolean; total: number; CONCLUIDO: number }) =>
+        d.marcadoConcluido || (d.total > 0 && d.CONCLUIDO === d.total);
 
     const evolucao = Array.from(evolucaoMap, ([data, v]) => ({ data, ...v }));
     const diasTrabalhados = evolucao.filter(d => d.imoveis > 0).length;
     const instaladosPeriodo = evolucao.reduce((s, d) => s + d.imoveis, 0);
     const mediaPorDiaTrabalhado = diasTrabalhados ? instaladosPeriodo / diasTrabalhados : 0;
-    const restantes = imoveis.length - geral.CONCLUIDO;
     const inicioSemana = splitBrazilDate(new Date(inicioHoje.getTime() - 6 * DIA_MS)).data;
 
     // Agendamentos
@@ -125,7 +143,7 @@ export async function gerarResumoPrefeitura() {
         if (dia && a.dataHora >= agora) { dia.total++; ag.proximos7++; }
     }
 
-    // Estoque de números (peças físicas) x previsão para os imóveis já liberados
+    // Estoque de algarismos x previsão para os imóveis já liberados
     const estoque = contagemVazia();
     for (const item of itensEstoque) {
         const chave = item.caractere in estoque ? item.caractere as Caractere : itemDoCaractere(item.caractere);
@@ -150,16 +168,17 @@ export async function gerarResumoPrefeitura() {
             restantes,
             totalComplementos: complementos.length,
             complementosInstalados,
-            placasInstaladas: geral.CONCLUIDO + complementosInstalados,
+            algarismosInstalados: algarismosImoveis + algarismosComplementos,
+            algarismosImoveis,
+            algarismosComplementos,
             bairros: bairros.length,
-            bairrosConcluidos: bairros.filter(b => {
-                const d = porBairro.get(b.id)!;
-                return d.total > 0 && d.CONCLUIDO === d.total;
-            }).length,
+            bairrosConcluidos: bairros.filter(b => concluido(porBairro.get(b.id)!)).length,
         },
         ritmo: {
             hoje: evolucaoMap.get(hoje)?.imoveis || 0,
             semana: evolucao.filter(d => d.data >= inicioSemana).reduce((s, d) => s + d.imoveis, 0),
+            algarismosSemana: evolucao.filter(d => d.data >= inicioSemana).reduce((s, d) => s + d.algarismos, 0),
+            algarismosPeriodo: evolucao.reduce((s, d) => s + d.algarismos, 0),
             periodo: instaladosPeriodo,
             diasPeriodo: DIAS_EVOLUCAO,
             diasTrabalhados,
@@ -168,7 +187,10 @@ export async function gerarResumoPrefeitura() {
         },
         evolucao,
         porBairro: bairros
-            .map(b => ({ id: b.id, nome: b.nome, ...porBairro.get(b.id)! }))
+            .map(b => {
+                const d = porBairro.get(b.id)!;
+                return { id: b.id, nome: b.nome, ...d, concluido: concluido(d) };
+            })
             .filter(b => b.total > 0),
         motivosPendencia: Array.from(motivos, ([motivo, total]) => ({ motivo, total })).sort((a, b) => b.total - a.total),
         agendamentos: { ...ag, proximosDias },

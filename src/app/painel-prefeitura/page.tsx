@@ -20,27 +20,34 @@ interface Resumo {
         restantes: number;
         totalComplementos: number;
         complementosInstalados: number;
-        placasInstaladas: number;
+        algarismosInstalados: number;
+        algarismosImoveis: number;
+        algarismosComplementos: number;
         bairros: number;
         bairrosConcluidos: number;
     };
     ritmo: {
         hoje: number;
         semana: number;
+        algarismosSemana: number;
+        algarismosPeriodo: number;
         periodo: number;
         diasPeriodo: number;
         diasTrabalhados: number;
         mediaPorDiaTrabalhado: number;
         diasRestantesEstimados: number | null;
     };
-    evolucao: { data: string; imoveis: number; complementos: number }[];
+    evolucao: { data: string; imoveis: number; complementos: number; algarismos: number }[];
     porBairro: (PorStatus & {
         id: string;
         nome: string;
         total: number;
         complementos: number;
         complementosInstalados: number;
+        algarismosInstalados: number;
         ultimaInstalacao: string | null;
+        concluido: boolean;
+        marcadoConcluido: boolean;
     })[];
     motivosPendencia: { motivo: string; total: number }[];
     agendamentos: {
@@ -160,18 +167,18 @@ export default function PainelPrefeituraPage() {
     const { geral, ritmo, agendamentos: ag, estoque } = resumo;
     const total = geral.totalImoveis;
     const instalados = geral.porStatus.CONCLUIDO;
-    const maxEvolucao = Math.max(...resumo.evolucao.map(d => d.imoveis + d.complementos), 1);
+    const maxEvolucao = Math.max(...resumo.evolucao.map(d => d.algarismos), 1);
     const maxProximos = Math.max(...ag.proximosDias.map(d => d.total), 1);
     const maxMotivo = Math.max(...resumo.motivosPendencia.map(m => m.total), 1);
     const maxEstoque = Math.max(...estoque.itens.map(i => Math.max(i.estoque, i.necessario)), 1);
 
     const kpis = [
         { label: 'Imóveis com número instalado', value: fmt(instalados), sub: `${fmtPct(instalados, total)} de ${fmt(total)} imóveis`, icon: CheckCircle2, tone: styles.toneSuccess },
-        { label: 'Placas instaladas', value: fmt(geral.placasInstaladas), sub: `Inclui ${fmt(geral.complementosInstalados)} complementos (unidades internas)`, icon: Layers, tone: styles.toneInfo },
-        { label: 'Instalados nos últimos 7 dias', value: fmt(ritmo.semana), sub: `${fmt(ritmo.hoje)} hoje`, icon: TrendingUp, tone: styles.toneNeutral },
+        { label: 'Algarismos instalados', value: fmt(geral.algarismosInstalados), sub: `${fmt(geral.algarismosImoveis)} nos imóveis · ${fmt(geral.algarismosComplementos)} em ${fmt(geral.complementosInstalados)} complementos`, icon: Layers, tone: styles.toneInfo },
+        { label: 'Algarismos nos últimos 7 dias', value: fmt(ritmo.algarismosSemana), sub: `${fmt(ritmo.semana)} imóveis · ${fmt(ritmo.hoje)} hoje`, icon: TrendingUp, tone: styles.toneNeutral },
         { label: 'Agendamentos em aberto', value: fmt(ag.abertos), sub: `${fmt(ag.hoje)} para hoje`, icon: CalendarClock, tone: styles.tonePurple },
-        { label: 'Bairros concluídos', value: `${fmt(geral.bairrosConcluidos)} / ${fmt(geral.bairros)}`, sub: '100% dos imóveis instalados', icon: MapPin, tone: styles.toneSuccess },
-        { label: 'Peças em estoque', value: fmt(estoque.total), sub: estoque.falta > 0 ? `Faltam ${fmt(estoque.falta)} para os liberados` : 'Suficiente para os liberados', icon: Package, tone: estoque.falta > 0 ? styles.toneWarning : styles.toneNeutral },
+        { label: 'Bairros concluídos', value: `${fmt(geral.bairrosConcluidos)} / ${fmt(geral.bairros)}`, sub: 'Finalizados pela equipe ou 100% instalados', icon: MapPin, tone: styles.toneSuccess },
+        { label: 'Algarismos em estoque', value: fmt(estoque.total), sub: estoque.falta > 0 ? `Faltam ${fmt(estoque.falta)} para os liberados` : 'Suficiente para os liberados', icon: Package, tone: estoque.falta > 0 ? styles.toneWarning : styles.toneNeutral },
     ];
 
     return (
@@ -233,17 +240,16 @@ export default function PainelPrefeituraPage() {
                     <section className={styles.panel} aria-labelledby="evolucao-title">
                         <div className={styles.panelHeader}>
                             <div>
-                                <h3 id="evolucao-title">Instalações por dia</h3>
+                                <h3 id="evolucao-title">Algarismos instalados por dia</h3>
                                 <p className={styles.panelSub}>Últimos {ritmo.diasPeriodo} dias · imóveis + complementos</p>
                             </div>
-                            <strong className={styles.panelValue}>{fmt(ritmo.periodo)} imóveis</strong>
+                            <strong className={styles.panelValue}>{fmt(ritmo.algarismosPeriodo)} algarismos</strong>
                         </div>
-                        <div className={styles.barChart} role="img" aria-label={`Instalações por dia nos últimos ${ritmo.diasPeriodo} dias`}>
+                        <div className={styles.barChart} role="img" aria-label={`Algarismos instalados por dia nos últimos ${ritmo.diasPeriodo} dias`}>
                             {resumo.evolucao.map(d => {
-                                const v = d.imoveis + d.complementos;
                                 return (
-                                    <div key={d.data} className={styles.barCol} title={`${diaCurto(d.data)} (${diaSemana(d.data)}): ${fmt(d.imoveis)} imóveis, ${fmt(d.complementos)} complementos`}>
-                                        <div className={styles.bar} style={{ height: `${pct(v, maxEvolucao)}%` }} />
+                                    <div key={d.data} className={styles.barCol} title={`${diaCurto(d.data)} (${diaSemana(d.data)}): ${fmt(d.algarismos)} algarismos em ${fmt(d.imoveis)} imóveis e ${fmt(d.complementos)} complementos`}>
+                                        <div className={styles.bar} style={{ height: `${pct(d.algarismos, maxEvolucao)}%` }} />
                                     </div>
                                 );
                             })}
@@ -272,7 +278,7 @@ export default function PainelPrefeituraPage() {
                                 <dd>{fmt(ritmo.diasTrabalhados)}</dd>
                             </div>
                             <div>
-                                <dt>Imóveis restantes</dt>
+                                <dt>Imóveis restantes (bairros em andamento)</dt>
                                 <dd>{fmt(geral.restantes)}</dd>
                             </div>
                             <div>
@@ -320,6 +326,7 @@ export default function PainelPrefeituraPage() {
                                         <th className={styles.num}>Liberados</th>
                                         <th className={styles.num}>Pend./Aus.</th>
                                         <th className={styles.num}>Complementos</th>
+                                        <th className={styles.num}>Algarismos</th>
                                         <th>Última instalação</th>
                                         <th><span className="sr-only">Relatório</span></th>
                                     </tr>
@@ -327,7 +334,13 @@ export default function PainelPrefeituraPage() {
                                 <tbody>
                                     {bairros.map(b => (
                                         <tr key={b.id}>
-                                            <th scope="row" className={styles.bairroNome}>{b.nome}</th>
+                                            <th scope="row" className={styles.bairroNome}>
+                                                {b.nome}
+                                                {b.concluido && <span className={styles.concluidoTag}>Concluído</span>}
+                                                {b.marcadoConcluido && b.CONCLUIDO < b.total && (
+                                                    <span className={styles.semInstalacao}>{fmt(b.total - b.CONCLUIDO)} não serão instalados</span>
+                                                )}
+                                            </th>
                                             <td className={styles.progressCol}>
                                                 <div className={styles.progressCell}>
                                                     <StackedBar dados={b} total={b.total} />
@@ -340,6 +353,7 @@ export default function PainelPrefeituraPage() {
                                             <td className={styles.num}>{fmt(b.LIBERADO)}</td>
                                             <td className={styles.num}>{fmt(b.PENDENTE + b.AUSENTE)}</td>
                                             <td className={styles.num}>{fmt(b.complementosInstalados)} / {fmt(b.complementos)}</td>
+                                            <td className={styles.num}>{fmt(b.algarismosInstalados)}</td>
                                             <td className={styles.muted}>{b.ultimaInstalacao ? formatBrazil(b.ultimaInstalacao) : '—'}</td>
                                             <td>
                                                 <button
@@ -419,7 +433,7 @@ export default function PainelPrefeituraPage() {
                         <div>
                             <h3 id="estoque-title">Estoque de números</h3>
                             <p className={styles.panelSub}>
-                                Peças disponíveis x necessárias para {fmt(estoque.imoveisAguardando)} imóveis e {fmt(estoque.complementosAguardando)} complementos já liberados
+                                Algarismos disponíveis x necessários para {fmt(estoque.imoveisAguardando)} imóveis e {fmt(estoque.complementosAguardando)} complementos já liberados
                             </p>
                         </div>
                         <ul className={styles.legendInline}>
@@ -428,8 +442,8 @@ export default function PainelPrefeituraPage() {
                         </ul>
                     </div>
                     <div className={styles.miniStats}>
-                        <MiniStat label="Peças em estoque" value={estoque.total} />
-                        <MiniStat label="Necessárias (liberados)" value={estoque.necessario} />
+                        <MiniStat label="Algarismos em estoque" value={estoque.total} />
+                        <MiniStat label="Necessários (liberados)" value={estoque.necessario} />
                         <MiniStat label="A produzir" value={estoque.falta} alerta={estoque.falta > 0} />
                         <MiniStat label="Usadas em 30 dias" value={estoque.consumo30d} />
                         <MiniStat label="Duração estimada" texto={estoque.coberturaDias === null ? '—' : `${fmt(estoque.coberturaDias)} dias`} />
@@ -438,7 +452,7 @@ export default function PainelPrefeituraPage() {
                         {estoque.itens.map(i => (
                             <div key={i.caractere} className={`${styles.stockItem} ${i.falta > 0 ? styles.stockFalta : ''}`}>
                                 <span className={styles.stockChar}>{i.caractere}</span>
-                                <div className={styles.stockBars} title={`${i.caractere}: ${fmt(i.estoque)} em estoque, ${fmt(i.necessario)} necessárias`}>
+                                <div className={styles.stockBars} title={`${i.caractere}: ${fmt(i.estoque)} em estoque, ${fmt(i.necessario)} necessários`}>
                                     <div className={styles.stockTrack}><div style={{ width: `${pct(i.estoque, maxEstoque)}%`, background: 'var(--primary)' }} /></div>
                                     <div className={styles.stockTrack}><div style={{ width: `${pct(i.necessario, maxEstoque)}%`, background: '#94a3b8' }} /></div>
                                 </div>
@@ -450,7 +464,7 @@ export default function PainelPrefeituraPage() {
                             </div>
                         ))}
                     </div>
-                    <p className={styles.note}>As peças 6 e 9 são a mesma (basta girar). Pendentes e liberados ainda sem instalação entram na previsão.</p>
+                    <p className={styles.note}>O 6 e o 9 são a mesma peça (basta girar). Entram na previsão os imóveis liberados ainda sem instalação; bairros concluídos ficam de fora.</p>
                 </section>
 
                 <footer className={styles.footer}>

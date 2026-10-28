@@ -64,14 +64,53 @@ export async function PATCH(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const { response } = await requireUser(["ADMIN", "OPERATOR"]);
+    const { user, response } = await requireUser(["ADMIN", "OPERATOR"]);
     if (response) return response;
 
     const { id } = await params;
 
     try {
         const body = await req.json();
-        const { visivelInstalacao } = body;
+        const { visivelInstalacao, status } = body;
+
+        // Marcar o bairro como concluído (mesmo com imóveis que não serão instalados) ou reabrir
+        if (status !== undefined) {
+            if (user.role !== "ADMIN") {
+                return NextResponse.json({ error: "Apenas administradores podem concluir ou reabrir um bairro." }, { status: 403 });
+            }
+            if (status !== "CONCLUIDO" && status !== "ATIVO") {
+                return NextResponse.json({ error: "Situação inválida." }, { status: 400 });
+            }
+
+            const antes = await prisma.bairro.findUnique({ where: { id }, select: { nome: true, status: true } });
+            if (!antes) {
+                return NextResponse.json({ error: "Bairro não encontrado" }, { status: 404 });
+            }
+
+            const updated = await prisma.bairro.update({ where: { id }, data: { status } });
+            const [total, instalados] = await Promise.all([
+                prisma.imovel.count({ where: { bairroId: id } }),
+                prisma.imovel.count({ where: { bairroId: id, status: "CONCLUIDO" } }),
+            ]);
+
+            await createAuditLog({
+                userId: user.id,
+                userEmail: user.email || "desconhecido",
+                action: status === "CONCLUIDO" ? "BAIRRO_CONCLUIDO" : "BAIRRO_REABERTO",
+                resource: "bairro",
+                resourceId: id,
+                details: {
+                    nome: antes.nome,
+                    alteracoes: [{ campo: "status", antes: antes.status, depois: status }],
+                    imoveis: total,
+                    instalados,
+                    semInstalacao: total - instalados,
+                },
+                ...getRequestMeta(req)
+            });
+
+            return NextResponse.json({ success: true, bairro: updated });
+        }
 
         if (typeof visivelInstalacao !== "boolean") {
             return NextResponse.json({ error: "Campo visivelInstalacao inválido." }, { status: 400 });

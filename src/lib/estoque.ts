@@ -62,19 +62,21 @@ export async function movimentarEstoqueSeguro(db: Db, mudanca: MudancaStatus) {
 export const STATUS_PENDENTES_PRODUCAO = ["LIBERADO", "AUSENTE"];
 
 /**
- * Imóveis e complementos que ainda vão consumir placas (previsão de produção).
+ * Imóveis e complementos que ainda vão consumir algarismos (previsão de produção).
+ * Bairros marcados como concluídos ficam de fora: o que sobrou neles não será instalado.
  * Complementos usam a marcação "liberado para instalação" da prefeitura
  * (ou o próprio status LIBERADO/AUSENTE) e ainda não foram instalados.
  */
 export async function buscarPendentesProducao(db: Db = prisma) {
     const [imoveis, complementos] = await Promise.all([
         db.imovel.findMany({
-            where: { status: { in: STATUS_PENDENTES_PRODUCAO } },
+            where: { status: { in: STATUS_PENDENTES_PRODUCAO }, bairro: { status: { not: "CONCLUIDO" } } },
             select: { numeroAInstalar: true, bairroId: true }
         }),
         db.complemento.findMany({
             where: {
                 status: { notIn: ["CONCLUIDO", "PENDENTE"] },
+                imovel: { bairro: { status: { not: "CONCLUIDO" } } },
                 OR: [{ liberadoInstalacao: true }, { status: { in: STATUS_PENDENTES_PRODUCAO } }]
             },
             select: { numeroPredial: true, imovel: { select: { bairroId: true } } }

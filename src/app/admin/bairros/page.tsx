@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ChevronRight, Loader2, MapPinned, Trash2 } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Loader2, MapPinned, RotateCcw, Trash2 } from 'lucide-react';
 import ui from '../admin.module.css';
 import { toast } from '@/utils/toast';
 import { formatBrazil } from '@/lib/timezone';
@@ -12,6 +12,7 @@ export default function BairrosPage() {
     const [loading, setLoading] = useState(true);
     const [role, setRole] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [statusId, setStatusId] = useState<string | null>(null);
 
     useEffect(() => {
         async function fetchData() {
@@ -52,6 +53,31 @@ export default function BairrosPage() {
         } catch (e: any) {
             setBairros(prev => prev.map(b => b.id === id ? { ...b, visivelInstalacao: currentStatus } : b));
             toast.error(e.message || 'Erro ao se conectar ao servidor.');
+        }
+    };
+
+    // Concluir: o bairro conta como finalizado mesmo com imóveis que não serão instalados
+    const handleStatus = async (b: any) => {
+        const concluir = b.status !== 'CONCLUIDO';
+        const msg = concluir
+            ? `Marcar o bairro "${b.nome}" como concluído?\n\nOs imóveis que ainda não foram instalados passam a contar como "não serão instalados" no painel da prefeitura e saem da previsão de estoque.`
+            : `Reabrir o bairro "${b.nome}"? Os imóveis sem instalação voltam a contar como restantes.`;
+        if (!confirm(msg)) return;
+        setStatusId(b.id);
+        try {
+            const res = await fetch(`/api/admin/bairros/${b.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: concluir ? 'CONCLUIDO' : 'ATIVO' })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Erro ao atualizar o bairro');
+            setBairros(prev => prev.map(item => item.id === b.id ? { ...item, status: data.bairro.status } : item));
+            toast.success(concluir ? `Bairro "${b.nome}" concluído.` : `Bairro "${b.nome}" reaberto.`);
+        } catch (e: any) {
+            toast.error(e.message);
+        } finally {
+            setStatusId(null);
         }
     };
 
@@ -111,7 +137,9 @@ export default function BairrosPage() {
                                 <tr key={b.id}>
                                     <td>
                                         <strong>{b.nome}</strong>
-                                        <span className={ui.cellSub}>{b.status === 'ATIVO' ? 'Ativo' : b.status}</span>
+                                        <span className={ui.cellSub}>
+                                            {b.status === 'CONCLUIDO' ? <span className={`${ui.badge} ${ui.OPERATOR}`}>Concluído</span> : b.status === 'ATIVO' ? 'Em andamento' : b.status}
+                                        </span>
                                     </td>
                                     <td>{formatBrazil(b.dataImportacao)}</td>
                                     <td>{b._count.imoveis.toLocaleString('pt-BR')}</td>
@@ -132,6 +160,19 @@ export default function BairrosPage() {
                                             <Link href={`/admin/bairros/${b.id}`} className={ui.btnSecondary}>
                                                 Ver imóveis <ChevronRight size={16} />
                                             </Link>
+                                            {isAdmin && (
+                                                <button
+                                                    onClick={() => handleStatus(b)}
+                                                    className={ui.btnSecondary}
+                                                    disabled={statusId === b.id}
+                                                    title={b.status === 'CONCLUIDO' ? 'Reabrir bairro' : 'Marcar bairro como concluído'}
+                                                >
+                                                    {statusId === b.id
+                                                        ? <Loader2 size={16} className="spin" />
+                                                        : b.status === 'CONCLUIDO' ? <RotateCcw size={16} /> : <CheckCircle2 size={16} />}
+                                                    {b.status === 'CONCLUIDO' ? 'Reabrir' : 'Concluir bairro'}
+                                                </button>
+                                            )}
                                             {isAdmin && (
                                                 <button
                                                     onClick={() => handleDelete(b)}

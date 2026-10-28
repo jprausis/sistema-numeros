@@ -21,6 +21,8 @@ const ACTION_LABELS: Record<string, string> = {
     EDITAR_AGENDAMENTO: 'Agendamento alterado',
     VINCULAR_AGENDAMENTO: 'Agendamento vinculado',
     DELETE_BAIRRO: 'Bairro excluído',
+    BAIRRO_CONCLUIDO: 'Bairro concluído',
+    BAIRRO_REABERTO: 'Bairro reaberto',
     CREATE_USER: 'Usuário criado',
     UPDATE_USER: 'Usuário editado',
     DELETE_USER: 'Usuário excluído',
