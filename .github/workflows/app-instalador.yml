@@ -50,7 +50,13 @@ jobs:
             echo "::error::Cadastre os secrets ANDROID_KEYSTORE_BASE64 e ANDROID_KEYSTORE_PASSWORD"
             exit 1
           fi
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/instalador-release.keystore"
+          # Remove espaços, quebras de linha e aspas que costumam vir junto ao colar o secret
+          LIMPO=$(printf '%s' "$KEYSTORE_BASE64" | tr -d ' \t\r\n"'"'")
+          echo "ANDROID_KEYSTORE_BASE64: ${#LIMPO} caracteres (esperado: 3256)"
+          if ! printf '%s' "$LIMPO" | base64 -d > "$RUNNER_TEMP/instalador-release.keystore"; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 inválido: cole de novo o conteúdo inteiro de keystore-base64.txt"
+            exit 1
+          fi
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/instalador-release.keystore" >> "$GITHUB_ENV"
 
       - name: Gerar APK
