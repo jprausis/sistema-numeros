@@ -20,7 +20,12 @@ const InstallerMap = dynamic(() => import('@/components/InstallerMap'), {
     loading: () => <div className={styles.loader}>Preparando Mapa...</div>
 });
 
-export default function GestaoImoveis() {
+interface Props {
+    /** Mostra no mapa a posição dos instaladores (só no painel administrativo). */
+    mostrarInstaladores?: boolean;
+}
+
+export default function GestaoImoveis({ mostrarInstaladores = false }: Props) {
     const [imoveis, setImoveis] = useState<any[]>([]);
     const [user, setUser] = useState<any>(null);
     const [role, setRole] = useState<string | null>(null);
@@ -95,10 +100,12 @@ export default function GestaoImoveis() {
         }
     }, []);
 
+    const verInstaladores = mostrarInstaladores && (role === 'ADMIN' || role === 'OPERATOR');
+
     // Posição dos instaladores (registrada pelo app) enquanto o mapa estiver aberto
     useEffect(() => {
         // Posição da equipe é visível só para a gestão interna
-        if (view !== 'map' || (role !== 'ADMIN' && role !== 'OPERATOR')) return;
+        if (view !== 'map' || !verInstaladores) return;
         let ativo = true;
         const carregar = () => fetch('/api/admin/localizacoes')
             .then(res => res.ok ? res.json() : null)
@@ -107,7 +114,7 @@ export default function GestaoImoveis() {
         carregar();
         const timer = setInterval(carregar, 60000);
         return () => { ativo = false; clearInterval(timer); };
-    }, [view, role]);
+    }, [view, verInstaladores]);
 
     const isAdmin = role === 'ADMIN';
 
@@ -471,7 +478,7 @@ export default function GestaoImoveis() {
                     <InstallerMap
                         properties={filtered}
                         focusOn={mapFocus}
-                        instaladores={instaladores}
+                        instaladores={verInstaladores ? instaladores : undefined}
                         onEdit={isAdmin ? (i) => {
                             setSelectedImovel(i);
                             setEditMode(true);

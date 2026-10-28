@@ -1,5 +1,5 @@
 import GestaoImoveis from '@/components/GestaoImoveis';
 
 export default function AdminImoveisPage() {
-    return <GestaoImoveis />;
+    return <GestaoImoveis mostrarInstaladores />;
 }
