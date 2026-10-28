@@ -4,6 +4,7 @@ import { Eye, EyeOff, Loader2, Lock, Mail, MapPin } from 'lucide-react';
 import styles from './Login.module.css';
 import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
+import { registrarLocalizacao } from '@/lib/localizacao';
 
 // Perfis que podem usar o painel do instalador (mesmas permissões da API)
 const PERFIS_PERMITIDOS = ['INSTALLER', 'ADMIN', 'OPERATOR'];
@@ -62,6 +63,7 @@ export default function LoginPage() {
                 setLoading(false);
                 return;
             }
+            registrarLocalizacao('LOGIN');
             navigate('/', { replace: true });
         } catch (err: any) {
             setError(traduzirErro(err?.message || 'Erro inesperado ao entrar.'));

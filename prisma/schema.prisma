@@ -120,3 +120,19 @@ model EstoqueMovimento {
   @@index([createdAt])
   @@index([tipo, createdAt])
 }
+
+// Localização do instalador enviada pelo app Android (no login e ao abrir o app)
+model LocalizacaoInstalador {
+  id        String   @id @default(cuid())
+  userId    String
+  userNome  String?
+  userEmail String?
+  lat       Float
+  lon       Float
+  precisao  Float?   // metros
+  evento    String   // LOGIN, ABERTURA
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}

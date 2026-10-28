@@ -211,3 +211,41 @@
 .controlBtn:active {
     transform: scale(0.95);
 }
+
+/* Instaladores (posição registrada pelo app) */
+.instaladorPin {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.3));
+}
+
+.instaladorAvatar {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: #0f172a;
+    color: #fff;
+    border: 3px solid #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.instaladorNome {
+    background: #0f172a;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 5px 8px;
+    border-radius: 999px;
+    border: 2px solid #fff;
+}
+
+.instaladorPinAntigo .instaladorAvatar,
+.instaladorPinAntigo .instaladorNome {
+    background: #94a3b8;
+}

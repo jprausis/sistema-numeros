@@ -4,11 +4,12 @@ import { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, GeoJSON } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Crosshair, Filter, Layers, List } from 'lucide-react';
+import { Crosshair, Filter, Layers, List, Users } from 'lucide-react';
 import styles from './map.module.css';
 import { utmToLatLng } from '@/utils/geo';
 import { parseFotos, fotoDestaque } from '@/utils/fotos';
 import { STATUS_COLORS, statusLabel } from '@/utils/status';
+import { formatBrazil } from '@/lib/timezone';
 
 // Ícones dos pinos (cor = status do imóvel principal)
 const getIcon = (status: string, isSelected: boolean = false) => {
@@ -30,6 +31,45 @@ const userLocationIcon = L.divIcon({
     html: `<div class="${styles.userDot}"><span></span></div>`,
     iconSize: [22, 22],
     iconAnchor: [11, 11]
+});
+
+// Localização registrada pelo app do instalador (última de cada um)
+export interface InstaladorLocalizacao {
+    userId: string;
+    nome: string;
+    lat: number;
+    lon: number;
+    precisao?: number | null;
+    evento: string;
+    createdAt: string;
+}
+
+// Registro com mais de 12h aparece em cinza (posição provavelmente desatualizada)
+const HORAS_RECENTE = 12;
+
+const escapeHtml = (texto: string) => texto.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+
+const isRecente = (data: string) => Date.now() - new Date(data).getTime() < HORAS_RECENTE * 60 * 60 * 1000;
+
+function tempoDecorrido(data: string) {
+    const min = Math.max(0, Math.round((Date.now() - new Date(data).getTime()) / 60000));
+    if (min < 1) return 'agora';
+    if (min < 60) return `há ${min} min`;
+    const h = Math.round(min / 60);
+    if (h < 24) return `há ${h}h`;
+    const d = Math.round(h / 24);
+    return `há ${d} dia${d > 1 ? 's' : ''}`;
+}
+
+const getInstaladorIcon = (nome: string, recente: boolean) => L.divIcon({
+    className: '',
+    html: `<div class="${styles.instaladorPin} ${recente ? '' : styles.instaladorPinAntigo}">
+        <span class="${styles.instaladorAvatar}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+        <span class="${styles.instaladorNome}">${escapeHtml(nome)}</span>
+    </div>`,
+    iconSize: [0, 0],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -14],
 });
 
 const LEGEND = ['NAO_INICIADO', 'LIBERADO', 'AGENDADO', 'AUSENTE', 'PENDENTE', 'CONCLUIDO'];
@@ -94,20 +134,24 @@ export default function InstallerMap({
     userLocation,
     onEdit,
     onFilterClick,
-    filterActive
+    filterActive,
+    instaladores
 }: {
     properties: Property[],
     focusOn?: [number, number] | null,
     userLocation?: { lat: number, lon: number } | null,
     onEdit?: (p: any) => void,
     onFilterClick?: () => void,
-    filterActive?: boolean
+    filterActive?: boolean,
+    /** Posição dos instaladores (painel admin) */
+    instaladores?: InstaladorLocalizacao[]
 }) {
     const [isMounted, setIsMounted] = useState(false);
     const [layerType, setLayerType] = useState<'street' | 'satellite'>('street');
     const [mapRef, setMapRef] = useState<L.Map | null>(null);
     const [selectedInsc, setSelectedInsc] = useState<string | null>(null);
     const [showLegend, setShowLegend] = useState(false);
+    const [showInstaladores, setShowInstaladores] = useState(true);
     const markerRefs = useRef<Map<string, L.Marker>>(new Map());
 
     useEffect(() => {
@@ -188,6 +232,19 @@ export default function InstallerMap({
                     </button>
                 )}
 
+                {instaladores && (
+                    <button
+                        type="button"
+                        className={`${styles.controlBtn} ${showInstaladores ? styles.controlActive : ''}`}
+                        onClick={() => setShowInstaladores(v => !v)}
+                        title={showInstaladores ? 'Ocultar instaladores' : 'Mostrar instaladores'}
+                        aria-label={showInstaladores ? 'Ocultar instaladores' : 'Mostrar instaladores'}
+                        aria-pressed={showInstaladores}
+                    >
+                        <Users size={20} />
+                    </button>
+                )}
+
                 <button
                     type="button"
                     className={`${styles.controlBtn} ${showLegend ? styles.controlActive : ''}`}
@@ -241,6 +298,37 @@ export default function InstallerMap({
                         <Popup>Você está aqui</Popup>
                     </Marker>
                 )}
+
+                {showInstaladores && instaladores?.map(inst => {
+                    const recente = isRecente(inst.createdAt);
+                    return (
+                        <Marker
+                            key={`instalador-${inst.userId}`}
+                            position={[inst.lat, inst.lon]}
+                            icon={getInstaladorIcon(inst.nome, recente)}
+                            zIndexOffset={2000}
+                        >
+                            <Popup>
+                                <div className={styles.popup}>
+                                    <h3>{inst.nome}</h3>
+                                    <p><strong>Atualizado:</strong> {formatBrazil(inst.createdAt, true)} ({tempoDecorrido(inst.createdAt)})</p>
+                                    <p><strong>Registro:</strong> {inst.evento === 'LOGIN' ? 'Login no app' : 'Abertura do app'}</p>
+                                    {inst.precisao != null && <p><strong>Precisão:</strong> ~{Math.round(inst.precisao)} m</p>}
+                                    <div className={styles.actions}>
+                                        <a
+                                            href={`https://www.google.com/maps/search/?api=1&query=${inst.lat},${inst.lon}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={styles.button}
+                                        >
+                                            Abrir no Maps
+                                        </a>
+                                    </div>
+                                </div>
+                            </Popup>
+                        </Marker>
+                    );
+                })}
 
                 {/* Renderizar Vetor (Polygon) se o imóvel estiver selecionado e tiver malha */}
                 {selectedProperty?.malha && (

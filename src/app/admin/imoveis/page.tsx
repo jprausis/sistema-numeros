@@ -9,6 +9,7 @@ import { toast } from '@/utils/toast';
 import { parseFotos, limparLinksImagens, temFotosReais, fotoDestaque } from '@/utils/fotos';
 import { statusLabel } from '@/utils/status';
 import { formatBrazil, todayBrazil } from '@/lib/timezone';
+import type { InstaladorLocalizacao } from '@/components/InstallerMap';
 
 const PAGE_SIZE = 100;
 
@@ -29,6 +30,7 @@ export default function AdminImoveisPage() {
     const [selectedImovel, setSelectedImovel] = useState<any | null>(null);
     const [editMode, setEditMode] = useState(false);
     const [mapFocus, setMapFocus] = useState<[number, number] | null>(null);
+    const [instaladores, setInstaladores] = useState<InstaladorLocalizacao[]>([]);
     
     // Novo estado para cadastro de imóvel
     const [isCreating, setIsCreating] = useState(false);
@@ -87,6 +89,19 @@ export default function AdminImoveisPage() {
             setIsCreating(true);
         }
     }, []);
+
+    // Posição dos instaladores (registrada pelo app) enquanto o mapa estiver aberto
+    useEffect(() => {
+        if (view !== 'map') return;
+        let ativo = true;
+        const carregar = () => fetch('/api/admin/localizacoes')
+            .then(res => res.ok ? res.json() : null)
+            .then(data => { if (ativo && data) setInstaladores(data.localizacoes || []); })
+            .catch(() => {});
+        carregar();
+        const timer = setInterval(carregar, 60000);
+        return () => { ativo = false; clearInterval(timer); };
+    }, [view]);
 
     const isAdmin = role === 'ADMIN';
 
@@ -434,6 +449,7 @@ export default function AdminImoveisPage() {
                     <InstallerMap
                         properties={filtered}
                         focusOn={mapFocus}
+                        instaladores={instaladores}
                         onEdit={(i) => {
                             if (isAdmin) {
                                 setSelectedImovel(i);
