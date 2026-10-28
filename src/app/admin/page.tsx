@@ -9,6 +9,7 @@ import {
 import styles from './page.module.css';
 import { toast } from '@/utils/toast';
 import { todayBrazil } from '@/lib/timezone';
+import TimelineInstalacoes from '@/components/TimelineInstalacoes';
 
 interface Stats {
     totalImoveis: number;
@@ -313,6 +314,8 @@ export default function AdminDashboard() {
                             <RankingList items={rankingGeralData} loading={loadingRankingGeral} empty="Nenhuma instalação registrada ainda." />
                         </section>
                     </div>
+
+                    <TimelineInstalacoes bairroId={selectedBairro || undefined} />
                 </>
             )}
         </div>
