@@ -45,6 +45,7 @@ jobs:
       - name: Preparar chave de assinatura
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
             echo "::error::Cadastre os secrets ANDROID_KEYSTORE_BASE64 e ANDROID_KEYSTORE_PASSWORD"
@@ -58,6 +59,11 @@ jobs:
             exit 1
           fi
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/instalador-release.keystore" >> "$GITHUB_ENV"
+          # Confere chave e senha antes do Gradle, com erro legível nas anotações da execução
+          if ! SAIDA=$(keytool -list -keystore "$RUNNER_TEMP/instalador-release.keystore" -storetype pkcs12 -storepass "$KEYSTORE_PASSWORD" -alias instalador 2>&1); then
+            echo "::error::Chave ou senha não conferem (confira ANDROID_KEYSTORE_PASSWORD, ${#KEYSTORE_PASSWORD} caracteres, esperado 24): $(echo "$SAIDA" | head -3 | tr '\n' ' ')"
+            exit 1
+          fi
 
       - name: Gerar APK
         working-directory: app-instalador/android
@@ -65,7 +71,16 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           VERSION_CODE: ${{ github.run_number }}
         run: |
-          chmod +x gradlew && ./gradlew assembleRelease --no-daemon
+          chmod +x gradlew
+          set +e
+          ./gradlew assembleRelease --no-daemon > "$RUNNER_TEMP/gradle.log" 2>&1
+          STATUS=$?
+          set -e
+          cat "$RUNNER_TEMP/gradle.log"
+          if [ "$STATUS" != "0" ]; then
+            echo "::error::$(grep -A8 'What went wrong' "$RUNNER_TEMP/gradle.log" | tr '\n' ' ' | cut -c1-1500)"
+            exit 1
+          fi
           mv app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/instalador-1.0.${VERSION_CODE}.apk"
 
       - uses: actions/upload-artifact@v4
