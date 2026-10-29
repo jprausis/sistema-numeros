@@ -47,6 +47,7 @@ Coordenadas em UTM (zona 22S) são convertidas automaticamente para latitude/lon
 
 - Controla os caracteres físicos `0`–`9`, `C` e `S`. Entradas e ajustes de contagem são lançados manualmente (somente ADMIN).
 - **Baixa automática:** quando um imóvel ou complemento passa para *Concluído*, cada caractere do número é descontado. Se o status sair de *Concluído*, os caracteres voltam (estorno). Toda movimentação fica em `EstoqueMovimento`.
+- **Correção de número:** se o instalador altera o número de um complemento já concluído (ex: `CS1` → `88CS1`), ou se o número de um imóvel já concluído é editado no painel, só a diferença de peças é descontada ou devolvida, com o tipo *Correção*. A Auditoria mostra o número antes e depois.
 - **Pendentes (previsão de produção):** imóveis com status *Liberado* ou *Ausente* + complementos liberados pela prefeitura ainda não instalados (exceto os marcados como pendentes). Visão geral e por bairro, com exportação em CSV.
 - Instalações anteriores à criação do estoque não foram descontadas: registre a contagem física atual em "Ajustar contagem".
 - Tabelas criadas pelo SQL em `prisma/manual/20261023_estoque.sql`.

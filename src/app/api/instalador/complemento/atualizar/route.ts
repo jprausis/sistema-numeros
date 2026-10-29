@@ -31,7 +31,11 @@ export async function PATCH(req: NextRequest) {
             dataUpdate.dataExecucao = (status === "CONCLUIDO" || status === "PENDENTE") ? new Date() : null;
         }
         if (numeroPredial !== undefined) {
-            dataUpdate.numeroPredial = String(numeroPredial).trim();
+            const numero = String(numeroPredial ?? "").trim();
+            if (!numero) {
+                return NextResponse.json({ error: "O número da unidade não pode ficar vazio." }, { status: 400 });
+            }
+            dataUpdate.numeroPredial = numero;
         }
         if (fotos !== undefined) {
             dataUpdate.fotos = (fotos === null || (Array.isArray(fotos) && fotos.length === 0)) ? null : (Array.isArray(fotos) ? JSON.stringify(fotos) : fotos);
@@ -44,6 +48,7 @@ export async function PATCH(req: NextRequest) {
 
         await movimentarEstoqueSeguro(prisma, {
             numero: complemento.numeroPredial,
+            numeroAnterior: complementoAtual.numeroPredial,
             statusAnterior: complementoAtual.status,
             statusNovo: complemento.status,
             referencia: id,
@@ -89,7 +94,10 @@ export async function PATCH(req: NextRequest) {
                 status,
                 statusAnterior: complementoAtual.status,
                 fotos,
-                inscimob: complemento.inscimob
+                inscimob: complemento.inscimob,
+                ...(complemento.numeroPredial !== complementoAtual.numeroPredial ? {
+                    alteracoes: [{ campo: "complemento.numeroPredial", antes: complementoAtual.numeroPredial, depois: complemento.numeroPredial }]
+                } : {})
             },
             ...getRequestMeta(req)
         });

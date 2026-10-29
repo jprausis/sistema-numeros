@@ -22,7 +22,7 @@ export async function GET() {
             prisma.bairro.findMany({ select: { id: true, nome: true }, orderBy: { nome: "asc" } }),
             prisma.estoqueMovimento.groupBy({
                 by: ["caractere"],
-                where: { tipo: { in: ["INSTALACAO", "ESTORNO"] }, createdAt: { gte: desde } },
+                where: { tipo: { in: ["INSTALACAO", "ESTORNO", "CORRECAO"] }, createdAt: { gte: desde } },
                 _sum: { quantidade: true }
             }),
             prisma.estoqueMovimento.findMany({ orderBy: { createdAt: "desc" }, take: 60 })

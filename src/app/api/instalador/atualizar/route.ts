@@ -132,11 +132,18 @@ export async function PATCH(req: NextRequest) {
             userEmail: user.email,
         });
         const compsAnteriores = new Map(atual.complementos.map(c => [c.id, c]));
+        // Número da unidade corrigido pelo instalador (ex: CS1 → 88CS1): a Auditoria mostra "antes → depois"
+        const numerosCorrigidos = compsValidos.flatMap(comp => {
+            const antes = compsAnteriores.get(comp.id)?.numeroPredial ?? null;
+            const depois = typeof comp.numeroPredial === "string" ? comp.numeroPredial.trim() : "";
+            return depois && depois !== antes ? [{ campo: "complemento.numeroPredial", antes, depois }] : [];
+        });
         for (const comp of compsValidos) {
             const anterior = compsAnteriores.get(comp.id);
             const numeroPredial = (typeof comp.numeroPredial === "string" && comp.numeroPredial.trim()) || anterior?.numeroPredial;
             await movimentarEstoqueSeguro(prisma, {
                 numero: numeroPredial,
+                numeroAnterior: anterior?.numeroPredial,
                 statusAnterior: anterior?.status,
                 statusNovo: comp.status,
                 referencia: comp.id,
@@ -167,7 +174,8 @@ export async function PATCH(req: NextRequest) {
                 registradoEm: registradoEm.toISOString(),
                 fotos,
                 complementosData: compsValidos,
-                protocolo
+                protocolo,
+                ...(numerosCorrigidos.length > 0 ? { alteracoes: numerosCorrigidos } : {})
             },
             ...getRequestMeta(req)
         });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireUser, getRequestMeta } from "@/lib/auth";
-import { createAuditLog } from "@/lib/audit";
+import { createAuditLog, diffCampos } from "@/lib/audit";
 import { concluirAgendamentosDoImovel } from "@/lib/agendamentos";
 import { movimentarEstoqueSeguro } from "@/lib/estoque";
 
@@ -60,6 +60,7 @@ export async function PATCH(
 
         await movimentarEstoqueSeguro(prisma, {
             numero: imovel.numeroAInstalar,
+            numeroAnterior: oldImovel.numeroAInstalar,
             statusAnterior: oldImovel.status,
             statusNovo: imovel.status,
             referencia: id,
@@ -80,7 +81,8 @@ export async function PATCH(
             details: {
                 before: oldImovel,
                 after: imovel,
-                source: body
+                source: body,
+                alteracoes: diffCampos(oldImovel, imovel, ["numeroAInstalar"])
             },
             ...getRequestMeta(req)
         });

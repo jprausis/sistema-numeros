@@ -44,7 +44,7 @@ export async function gerarResumoPrefeitura() {
         buscarPendentesProducao(),
         prisma.estoqueMovimento.groupBy({
             by: ["caractere"],
-            where: { tipo: { in: ["INSTALACAO", "ESTORNO"] }, createdAt: { gte: inicioEvolucao } },
+            where: { tipo: { in: ["INSTALACAO", "ESTORNO", "CORRECAO"] }, createdAt: { gte: inicioEvolucao } },
             _sum: { quantidade: true }
         })
     ]);

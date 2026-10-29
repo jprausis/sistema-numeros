@@ -1,13 +1,10 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "./prisma";
-import { CARACTERES, contarCaracteres } from "@/utils/estoque";
+import { CARACTERES, type MudancaNumero, movimentoDoEstoque } from "@/utils/estoque";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
-interface MudancaStatus {
-    numero: string | null | undefined;
-    statusAnterior: string | null | undefined;
-    statusNovo: string | null | undefined;
+interface MudancaStatus extends MudancaNumero {
     referencia: string;
     descricao: string;
     userEmail?: string | null;
@@ -15,21 +12,17 @@ interface MudancaStatus {
 
 /**
  * Baixa automática do estoque quando um imóvel/complemento passa a CONCLUIDO,
- * e estorno quando sai de CONCLUIDO (ex: admin corrigiu o status).
- * Assim cada placa instalada é descontada uma única vez.
+ * estorno quando sai de CONCLUIDO (ex: admin corrigiu o status) e correção quando
+ * o número de algo já concluído é alterado (ex: instalador trocou CS1 por 88CS1).
+ * Assim cada placa instalada é descontada uma única vez, com as peças certas.
  */
 export async function movimentarEstoquePorStatus(db: Db, mudanca: MudancaStatus) {
-    const entrou = mudanca.statusNovo === "CONCLUIDO" && mudanca.statusAnterior !== "CONCLUIDO";
-    const saiu = mudanca.statusAnterior === "CONCLUIDO" && mudanca.statusNovo !== "CONCLUIDO";
-    if (!entrou && !saiu) return;
+    const movimento = movimentoDoEstoque(mudanca);
+    if (!movimento) return;
 
-    const sinal = entrou ? -1 : 1;
-    const contagem = contarCaracteres(mudanca.numero);
-    const itens = CARACTERES.filter(c => contagem[c] > 0);
-    if (itens.length === 0) return;
-
+    const itens = CARACTERES.filter(c => movimento.quantidades[c]);
     for (const caractere of itens) {
-        const delta = sinal * contagem[caractere];
+        const delta = movimento.quantidades[caractere]!;
         await db.estoqueItem.upsert({
             where: { caractere },
             update: { quantidade: { increment: delta } },
@@ -37,13 +30,16 @@ export async function movimentarEstoquePorStatus(db: Db, mudanca: MudancaStatus)
         });
     }
 
+    const titulo = movimento.tipo === "INSTALACAO" ? "Instalação"
+        : movimento.tipo === "ESTORNO" ? "Estorno"
+        : `Correção do número ${mudanca.numeroAnterior} → ${mudanca.numero}`;
     await db.estoqueMovimento.createMany({
         data: itens.map(caractere => ({
             caractere,
-            quantidade: sinal * contagem[caractere],
-            tipo: entrou ? "INSTALACAO" : "ESTORNO",
+            quantidade: movimento.quantidades[caractere]!,
+            tipo: movimento.tipo,
             referencia: mudanca.referencia,
-            descricao: `${entrou ? "Instalação" : "Estorno"}: ${mudanca.descricao}`,
+            descricao: `${titulo}: ${mudanca.descricao}`,
             userEmail: mudanca.userEmail || null,
         })),
     });

@@ -45,6 +45,7 @@ const TIPO_LABEL: Record<string, string> = {
     AJUSTE: 'Ajuste',
     INSTALACAO: 'Instalação',
     ESTORNO: 'Estorno',
+    CORRECAO: 'Correção',
 };
 
 const fmt = (n: number) => n.toLocaleString('pt-BR');

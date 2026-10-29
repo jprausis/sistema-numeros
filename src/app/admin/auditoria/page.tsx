@@ -37,6 +37,8 @@ const CAMPO_LABELS: Record<string, string> = {
     inscimobVinculo: 'Imóvel vinculado',
     'imovel.status': 'Status do imóvel',
     'imovel.obsPendente': 'Observação',
+    'complemento.numeroPredial': 'Número da unidade',
+    numeroAInstalar: 'Número do imóvel',
 };
 const valorCampo = (campo: string, v: any) =>
     v === null || v === undefined ? '—' : campo === 'dataHora' ? formatBrazil(v, true) : String(v);
@@ -145,8 +147,8 @@ export default function AuditoriaPage() {
                                     <td className={styles.detailsCol}>
                                         {Array.isArray(log.details?.alteracoes) && log.details.alteracoes.length > 0 && (
                                             <ul className={styles.changes}>
-                                                {log.details.alteracoes.map((a: any) => (
-                                                    <li key={a.campo}>
+                                                {log.details.alteracoes.map((a: any, i: number) => (
+                                                    <li key={`${a.campo}-${i}`}>
                                                         <strong>{CAMPO_LABELS[a.campo] || a.campo}:</strong>{' '}
                                                         <span className={styles.changeOld}>{valorCampo(a.campo, a.antes)}</span> → {valorCampo(a.campo, a.depois)}
                                                     </li>

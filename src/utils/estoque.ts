@@ -38,3 +38,36 @@ export function contarCaracteres(numero: string | null | undefined, acumulado: C
 export function totalContagem(contagem: Partial<Contagem>): number {
     return Object.values(contagem).reduce((sum, n) => sum + (n || 0), 0);
 }
+
+export type TipoMovimento = 'INSTALACAO' | 'ESTORNO' | 'CORRECAO';
+
+export interface MudancaNumero {
+    numero: string | null | undefined;          // número depois da alteração
+    numeroAnterior?: string | null | undefined; // número antes da alteração (padrão: o mesmo)
+    statusAnterior: string | null | undefined;
+    statusNovo: string | null | undefined;
+}
+
+/**
+ * Peças que uma alteração de imóvel/complemento tira ou devolve ao estoque
+ * (quantidade negativa = sai do estoque, positiva = volta para o estoque).
+ * - Passou a CONCLUIDO: desconta as peças do número instalado.
+ * - Saiu de CONCLUIDO: devolve as peças do número que tinha sido descontado.
+ * - Continuou CONCLUIDO com o número corrigido (ex: CS1 → 88CS1): só a diferença de peças.
+ */
+export function movimentoDoEstoque(m: MudancaNumero): { tipo: TipoMovimento; quantidades: Partial<Contagem> } | null {
+    const estavaConcluido = m.statusAnterior === 'CONCLUIDO';
+    const ficaConcluido = m.statusNovo === 'CONCLUIDO';
+    const descontado = estavaConcluido ? contarCaracteres(m.numeroAnterior ?? m.numero) : contagemVazia();
+    const instalado = ficaConcluido ? contarCaracteres(m.numero) : contagemVazia();
+
+    const quantidades: Partial<Contagem> = {};
+    for (const c of CARACTERES) {
+        const delta = descontado[c] - instalado[c];
+        if (delta !== 0) quantidades[c] = delta;
+    }
+    if (Object.keys(quantidades).length === 0) return null;
+
+    const tipo: TipoMovimento = !estavaConcluido ? 'INSTALACAO' : !ficaConcluido ? 'ESTORNO' : 'CORRECAO';
+    return { tipo, quantidades };
+}
