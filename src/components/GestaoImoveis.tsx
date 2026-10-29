@@ -336,7 +336,7 @@ export default function GestaoImoveis({ mostrarInstaladores = false }: Props) {
                 'Foto Orientação': limparLinksImagens(i.fotoLocalInstalacao) || 'Nenhuma',
                 'Foto Instalação': limparLinksImagens(i.fotos) || 'Nenhuma',
                 'Motivo Pendência': i.status === 'PENDENTE' ? (i.motivoPendencia || '') : '',
-                'Observações': i.obsPendente || '',
+                'Observações': (i.status === 'CONCLUIDO' ? i.obsInstalacao : i.obsPendente) || '',
                 'Data Execução': i.dataExecucao ? formatBrazil(i.dataExecucao) : 'N/A',
                 'Tipo': 'Principal'
             });

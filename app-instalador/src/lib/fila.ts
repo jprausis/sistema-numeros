@@ -23,6 +23,7 @@ export type ItemFila = {
     status: string;
     obsPendente: string | null;
     motivoPendencia: string | null;
+    obsInstalacao?: string | null; // itens guardados antes desta versão não têm (o servidor mantém o que já existe)
     protocolo: string | null;
     gps: { lat: number; lon: number; precisao: number | null } | null;
     fotoPrincipal?: Blob | null;
@@ -119,6 +120,7 @@ async function enviarItem(item: ItemFila, aoProgredir?: (etapa: string) => void)
             status: item.status,
             obsPendente: item.status === 'PENDENTE' ? item.obsPendente : null,
             motivoPendencia: item.status === 'PENDENTE' ? item.motivoPendencia : null,
+            ...(item.status === 'CONCLUIDO' && item.obsInstalacao !== undefined ? { obsInstalacao: item.obsInstalacao } : {}),
             fotos: item.fotoPrincipalUrl ? [item.fotoPrincipalUrl] : [],
             complementosData: item.complementos.map(c => ({
                 id: c.id,

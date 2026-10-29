@@ -64,6 +64,10 @@ export async function PATCH(req: NextRequest) {
         if (status === "CONCLUIDO") {
             imovelData.obsPendente = null;
             imovelData.motivoPendencia = null;
+            // Só altera quando o app envia o campo (versões antigas do app não apagam a observação)
+            if (body.obsInstalacao !== undefined) {
+                imovelData.obsInstalacao = body.obsInstalacao ? String(body.obsInstalacao).trim() || null : null;
+            }
         }
         if (principalExecutado) {
             imovelData.dataExecucao = registradoEm;
@@ -158,6 +162,7 @@ export async function PATCH(req: NextRequest) {
                 statusAnterior: atual.status,
                 obsPendente,
                 motivoPendencia,
+                obsInstalacao: body.obsInstalacao,
                 gps,
                 registradoEm: registradoEm.toISOString(),
                 fotos,

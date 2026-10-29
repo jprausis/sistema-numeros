@@ -371,7 +371,8 @@
 .compWarn { background: #fef9c3; color: #a16207; }
 
 .agendamento,
-.pendencia {
+.pendencia,
+.observacao {
     display: flex;
     align-items: flex-start;
     gap: 0.4rem;
@@ -381,7 +382,8 @@
 }
 
 .agendamento svg,
-.pendencia svg {
+.pendencia svg,
+.observacao svg {
     flex-shrink: 0;
     margin-top: 0.15rem;
 }
@@ -394,6 +396,12 @@
 .pendencia {
     background: #fef9c3;
     color: #854d0e;
+}
+
+.observacao {
+    background: #f1f5f9;
+    color: #334155;
+    white-space: pre-line;
 }
 
 .foto {

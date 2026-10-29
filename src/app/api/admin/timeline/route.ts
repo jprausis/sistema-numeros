@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
                 fotos: true,
                 motivoPendencia: true,
                 obsPendente: true,
+                obsInstalacao: true,
                 bairro: { select: { nome: true } },
                 complementos: {
                     where: { status: { in: ["CONCLUIDO", "PENDENTE"] }, dataExecucao: dia },
@@ -79,6 +80,7 @@ export async function GET(req: NextRequest) {
                 fotos: listFotos(im.fotos),
                 motivoPendencia: im.motivoPendencia,
                 obsPendente: im.obsPendente,
+                obsInstalacao: im.obsInstalacao,
                 complementos: im.complementos,
                 agendamento: ag ? { protocolo: ag.protocolo, nome: ag.nome, dataHora: ag.dataHora, status: ag.status } : null,
             };

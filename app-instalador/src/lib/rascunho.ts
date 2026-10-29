@@ -9,6 +9,7 @@ export type Rascunho = {
     statusMain: 'CONCLUIDO' | 'PENDENTE';
     motivo: string;
     obs: string;
+    obsInstalacao?: string; // rascunhos antigos não têm
     photoMain: Blob | null;
     photoMainInfo: InfoFoto | null;
     compPhotos: Record<string, Blob | null>;

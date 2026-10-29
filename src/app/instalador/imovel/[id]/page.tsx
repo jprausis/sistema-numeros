@@ -23,6 +23,7 @@ export default function ImovelDetalhesPage() {
     // Status e Foto do Número Principal
     const [statusMain, setStatusMain] = useState<'CONCLUIDO' | 'PENDENTE'>('CONCLUIDO');
     const [obs, setObs] = useState('');
+    const [obsInstalacao, setObsInstalacao] = useState('');
     const [photoMain, setPhotoMain] = useState<File | null>(null);
     const [photoMainPreview, setPhotoMainPreview] = useState<string | null>(null);
 
@@ -92,6 +93,7 @@ export default function ImovelDetalhesPage() {
                 if (!res.ok) throw new Error(data.error || 'Erro ao carregar imóvel');
 
                 setImovel(data.imovel);
+                setObsInstalacao(data.imovel?.obsInstalacao || '');
 
                 if (data.imovel?.status === 'CONCLUIDO') {
                     setStatusMain('CONCLUIDO');
@@ -208,7 +210,8 @@ export default function ImovelDetalhesPage() {
         }
 
         // Se o número principal já estava concluído e nenhuma alteração foi feita:
-        if (isMainAlreadyCompleted && !photoMain && compsToUpdate.length === 0) {
+        const obsInstalacaoMudou = obsInstalacao.trim() !== (imovel.obsInstalacao || '');
+        if (isMainAlreadyCompleted && !photoMain && compsToUpdate.length === 0 && !obsInstalacaoMudou) {
             toast.info("Nenhuma alteração ou nova foto foi selecionada.");
             return;
         }
@@ -261,6 +264,7 @@ export default function ImovelDetalhesPage() {
                     inscimob: id,
                     status: statusToSave,
                     obsPendente: statusToSave === 'PENDENTE' ? obs : null,
+                    obsInstalacao: statusToSave === 'CONCLUIDO' ? (obsInstalacao.trim() || null) : null,
                     fotos,
                     complementosData,
                     protocolo: agendamento
@@ -504,6 +508,20 @@ export default function ImovelDetalhesPage() {
                                 onChange={e => setObs(e.target.value)}
                                 placeholder="Ex: Portão trancado, morador ausente, muro sem condição de fixação..."
                                 required
+                            />
+                        </div>
+                    )}
+
+                    {/* Observação opcional da instalação (aparece na linha do tempo do admin) */}
+                    {statusMain === 'CONCLUIDO' && (
+                        <div className={styles.formGroup}>
+                            <label className={styles.label} htmlFor="obs-instalacao">Observação (opcional)</label>
+                            <textarea
+                                id="obs-instalacao"
+                                className={styles.textarea}
+                                value={obsInstalacao}
+                                onChange={e => setObsInstalacao(e.target.value)}
+                                placeholder="Ex: Placa instalada no muro, morador pediu outra posição..."
                             />
                         </div>
                     )}

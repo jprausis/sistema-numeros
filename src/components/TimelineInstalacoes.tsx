@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     AlertTriangle, CalendarCheck, Camera, CheckCircle2, ChevronLeft, ChevronRight, Clock, HardHat,
-    ImageOff, Loader2, MapPin, RefreshCw, X
+    ImageOff, Loader2, MapPin, MessageSquare, RefreshCw, X
 } from 'lucide-react';
 import styles from './timelineInstalacoes.module.css';
 import ImovelInfoModal from './ImovelInfoModal';
@@ -21,6 +21,7 @@ interface ItemTimeline {
     fotos: string[];
     motivoPendencia: string | null;
     obsPendente: string | null;
+    obsInstalacao: string | null;
     complementos: { numeroPredial: string; status: string }[];
     agendamento: { protocolo: string; nome: string; dataHora: string | null; status: string } | null;
 }
@@ -263,6 +264,13 @@ export default function TimelineInstalacoes({ bairroId }: { bairroId?: string })
                                                     {item.agendamento.protocolo} · {item.agendamento.nome}
                                                     {item.agendamento.dataHora && <> · marcado para {formatBrazil(item.agendamento.dataHora, true)}</>}
                                                 </span>
+                                            </p>
+                                        )}
+
+                                        {concluido && item.obsInstalacao && (
+                                            <p className={styles.observacao}>
+                                                <MessageSquare size={14} aria-hidden />
+                                                <span>{item.obsInstalacao}</span>
                                             </p>
                                         )}
 

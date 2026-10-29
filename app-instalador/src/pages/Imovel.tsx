@@ -37,6 +37,9 @@ export default function ImovelDetalhesPage() {
     const [statusMain, setStatusMain] = useState<'CONCLUIDO' | 'PENDENTE'>('CONCLUIDO');
     const [motivo, setMotivo] = useState('');
     const [obs, setObs] = useState('');
+    const [obsInstalacao, setObsInstalacao] = useState('');
+    // Observação já salva no servidor (rascunho só é gravado se o instalador mudar)
+    const obsInstalacaoSalva = useRef('');
     const [photoMain, setPhotoMain] = useState<Blob | null>(null);
     const [photoMainPreview, setPhotoMainPreview] = useState<string | null>(null);
     const [photoMainInfo, setPhotoMainInfo] = useState<InfoFoto | null>(null);
@@ -157,6 +160,8 @@ export default function ImovelDetalhesPage() {
                 } else {
                     setStatusMain('CONCLUIDO');
                 }
+                obsInstalacaoSalva.current = dados?.obsInstalacao || '';
+                setObsInstalacao(obsInstalacaoSalva.current);
 
                 // Inicializar estados de TODOS os complementos (tanto a instalar quanto já concluídos)
                 const initialCompPhotos: Record<string, Blob | null> = {};
@@ -181,6 +186,7 @@ export default function ImovelDetalhesPage() {
                     setStatusMain(r.statusMain);
                     setMotivo(r.motivo);
                     setObs(r.obs);
+                    if (r.obsInstalacao != null) setObsInstalacao(r.obsInstalacao);
                     if (r.photoMain) {
                         setPhotoMain(r.photoMain);
                         setPhotoMainPreview(URL.createObjectURL(r.photoMain));
@@ -222,18 +228,18 @@ export default function ImovelDetalhesPage() {
     // Grava o rascunho a cada alteração (com pequena espera para não gravar a cada letra)
     useEffect(() => {
         if (!rascunhoPronto.current || !id) return;
-        const temAlgo = photoMain || motivo || obs.trim() || statusMain === 'PENDENTE'
+        const temAlgo = photoMain || motivo || obs.trim() || statusMain === 'PENDENTE' || obsInstalacao.trim() !== obsInstalacaoSalva.current
             || Object.values(compPhotos).some(Boolean) || Object.values(compIncluded).some(Boolean);
         const timer = window.setTimeout(() => {
             if (!temAlgo) { apagarRascunho(id); return; }
             salvarRascunho(id, {
-                statusMain, motivo, obs, photoMain, photoMainInfo,
+                statusMain, motivo, obs, obsInstalacao, photoMain, photoMainInfo,
                 compPhotos, compInfo, compStatuses, compIncluded, compNumeroPredial,
                 salvoEm: Date.now(),
             });
         }, 600);
         return () => window.clearTimeout(timer);
-    }, [id, statusMain, motivo, obs, photoMain, photoMainInfo, compPhotos, compInfo, compStatuses, compIncluded, compNumeroPredial]);
+    }, [id, statusMain, motivo, obs, obsInstalacao, photoMain, photoMainInfo, compPhotos, compInfo, compStatuses, compIncluded, compNumeroPredial]);
 
     const descartarRascunho = () => {
         if (!confirm('Descartar as fotos e informações recuperadas deste imóvel?')) return;
@@ -303,7 +309,8 @@ export default function ImovelDetalhesPage() {
         }
 
         // Se o número principal já estava concluído e nenhuma alteração foi feita:
-        if (isMainAlreadyCompleted && !photoMain && compsToUpdate.length === 0) {
+        const obsInstalacaoMudou = obsInstalacao.trim() !== obsInstalacaoSalva.current;
+        if (isMainAlreadyCompleted && !photoMain && compsToUpdate.length === 0 && !obsInstalacaoMudou) {
             toast.info("Nenhuma alteração ou nova foto foi selecionada.");
             return;
         }
@@ -338,6 +345,7 @@ export default function ImovelDetalhesPage() {
                 status: statusToSave,
                 obsPendente: statusToSave === 'PENDENTE' ? montarObsPendente(motivo, obs) : null,
                 motivoPendencia: statusToSave === 'PENDENTE' ? (motivo || null) : null,
+                obsInstalacao: statusToSave === 'CONCLUIDO' ? (obsInstalacao.trim() || null) : null,
                 protocolo: agendamento,
                 gps: gps ? { lat: gps.lat, lon: gps.lon, precisao: gps.precisao } : null,
                 fotoPrincipal: photoMain,
@@ -653,6 +661,20 @@ export default function ImovelDetalhesPage() {
                                 value={obs}
                                 onChange={e => setObs(e.target.value)}
                                 placeholder={motivo === 'Outro' ? 'Ex: Portão trancado, cachorro solto...' : 'Ex: Voltar à tarde, falar com o vizinho...'}
+                            />
+                        </div>
+                    )}
+
+                    {/* Observação opcional da instalação (aparece na linha do tempo do admin) */}
+                    {statusMain === 'CONCLUIDO' && (
+                        <div className={styles.formGroup}>
+                            <label className={styles.label} htmlFor="obs-instalacao">Observação (opcional)</label>
+                            <textarea
+                                id="obs-instalacao"
+                                className={styles.textarea}
+                                value={obsInstalacao}
+                                onChange={e => setObsInstalacao(e.target.value)}
+                                placeholder="Ex: Placa instalada no muro, morador pediu outra posição..."
                             />
                         </div>
                     )}

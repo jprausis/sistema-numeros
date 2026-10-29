@@ -139,6 +139,13 @@ export default function ImovelInfoModal({ inscimob, onClose, actions, initial }:
                                 </div>
                             )}
 
+                            {imovel.obsInstalacao && (
+                                <div className={styles.obs}>
+                                    <strong>Observação da instalação</strong>
+                                    <p>{imovel.obsInstalacao}</p>
+                                </div>
+                            )}
+
                             {(fotoOrientacao || fotosInstalacao.length > 0) && (
                                 <div className={styles.section}>
                                     <span className={styles.sectionTitle}>Fotos</span>

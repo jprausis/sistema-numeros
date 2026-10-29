@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
                 fotos: true,
                 motivoPendencia: true,
                 obsPendente: true,
+                obsInstalacao: true,
                 bairro: { select: { nome: true } },
                 complementos: {
                     select: { inscimob: true, numeroPredial: true, status: true, dataExecucao: true, fotos: true },
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
                 limparLinksImagens(i.fotos),
                 "Principal",
                 i.status === "PENDENTE" || i.status === "AUSENTE" ? (i.motivoPendencia || "") : "",
-                i.obsPendente || ""
+                (i.status === "CONCLUIDO" ? i.obsInstalacao : i.obsPendente) || ""
             ].map(csvCell).join(";"));
 
             for (const c of i.complementos) {
