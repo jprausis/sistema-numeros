@@ -4,7 +4,8 @@ import { requireUser, getRequestMeta, ROLE_LABEL } from "@/lib/auth";
 import { createAuditLog } from "@/lib/audit";
 
 export async function DELETE(req: NextRequest) {
-    const { user, response } = await requireUser(["ADMIN", "PAINEL_PREFEITURA"]);
+    // Excluir apaga de vez: só o admin. O Painel Prefeitura cancela (status CANCELADO).
+    const { user, response } = await requireUser(["ADMIN"]);
     if (response) return response;
 
     const { searchParams } = new URL(req.url);

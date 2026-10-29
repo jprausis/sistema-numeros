@@ -112,7 +112,7 @@
 .searchIcon {
     position: absolute;
     left: 1rem;
-    color: #94a3b8;
+    color: #64748b;
     pointer-events: none;
 }
 
@@ -256,7 +256,7 @@
 
 .noPhoto {
     font-size: 0.75rem;
-    color: #94a3b8;
+    color: #64748b;
     font-style: italic;
 }
 

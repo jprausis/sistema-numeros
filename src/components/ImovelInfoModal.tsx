@@ -7,6 +7,7 @@ import { statusLabel, STATUS_COLORS } from '@/utils/status';
 import { listFotos, parseFotos } from '@/utils/fotos';
 import { utmToLatLng } from '@/utils/geo';
 import { formatBrazil } from '@/lib/timezone';
+import { useDialog } from '@/utils/useDialog';
 
 type Props = {
     inscimob: string;
@@ -39,16 +40,11 @@ export default function ImovelInfoModal({ inscimob, onClose, actions, initial }:
         return () => { ativo = false; };
     }, [inscimob, initial]);
 
-    // Esc fecha (primeiro a foto ampliada, depois o modal)
-    useEffect(() => {
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key !== 'Escape') return;
-            if (fotoAberta) setFotoAberta(null);
-            else onClose();
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [fotoAberta, onClose]);
+    // Esc fecha (primeiro a foto ampliada, depois o modal); Tab fica dentro da ficha e o foco volta ao fechar
+    const sheetRef = useDialog(true, () => {
+        if (fotoAberta) setFotoAberta(null);
+        else onClose();
+    });
 
     const copiar = async () => {
         try {
@@ -71,6 +67,8 @@ export default function ImovelInfoModal({ inscimob, onClose, actions, initial }:
     return (
         <div className={styles.overlay} onClick={onClose}>
             <div
+                ref={sheetRef}
+                tabIndex={-1}
                 className={styles.sheet}
                 role="dialog"
                 aria-modal="true"

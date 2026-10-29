@@ -12,6 +12,7 @@ import { formatBrazil, todayBrazil } from '@/lib/timezone';
 import { MOTIVOS_PENDENCIA } from '@/lib/motivosPendencia';
 import type { InstaladorLocalizacao } from '@/components/InstallerMap';
 import ImovelInfoModal from '@/components/ImovelInfoModal';
+import { useDialog } from '@/utils/useDialog';
 
 const PAGE_SIZE = 100;
 
@@ -23,9 +24,14 @@ const InstallerMap = dynamic(() => import('@/components/InstallerMap'), {
 interface Props {
     /** Mostra no mapa a posição dos instaladores (só no painel administrativo). */
     mostrarInstaladores?: boolean;
+    /** "prefeitura": tela de consulta do Painel Prefeitura (título e textos próprios). */
+    modo?: 'admin' | 'prefeitura';
 }
 
-export default function GestaoImoveis({ mostrarInstaladores = false }: Props) {
+// Perfis que podem cadastrar imóvel (mesma regra do botão "Novo imóvel")
+const PODE_CADASTRAR = ['ADMIN', 'OPERATOR', 'PREFEITURA'];
+
+export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'admin' }: Props) {
     const [imoveis, setImoveis] = useState<any[]>([]);
     const [user, setUser] = useState<any>(null);
     const [role, setRole] = useState<string | null>(null);
@@ -85,6 +91,11 @@ export default function GestaoImoveis({ mostrarInstaladores = false }: Props) {
                     const profileData = await resProfile.json();
                     setRole(profileData.user?.role || null);
                     setUser(profileData.user);
+                    // Atalho ?cadastrar=true (dashboard do admin) só abre o cadastro para quem pode cadastrar
+                    const query = new URLSearchParams(window.location.search);
+                    if (query.get('cadastrar') === 'true' && PODE_CADASTRAR.includes(profileData.user?.role)) {
+                        setIsCreating(true);
+                    }
                 }
             } catch (error) {
                 console.error("Erro ao verificar usuário:", error);
@@ -92,13 +103,10 @@ export default function GestaoImoveis({ mostrarInstaladores = false }: Props) {
         };
         checkUser();
         fetchImoveis();
-
-        // Verificar parâmetro cadastrar=true na URL
-        const query = new URLSearchParams(window.location.search);
-        if (query.get('cadastrar') === 'true') {
-            setIsCreating(true);
-        }
     }, []);
+
+    const editDialogRef = useDialog(editMode && !!selectedImovel, () => { if (!saving) setEditMode(false); });
+    const createDialogRef = useDialog(isCreating, () => setIsCreating(false));
 
     const verInstaladores = mostrarInstaladores && (role === 'ADMIN' || role === 'OPERATOR');
 
@@ -390,19 +398,19 @@ export default function GestaoImoveis({ mostrarInstaladores = false }: Props) {
         <div className={styles.container}>
             <header className={styles.header}>
                 <div>
-                    <h1>{role === 'PAINEL_PREFEITURA' ? 'Imóveis' : 'Gestão de Imóveis'}</h1>
-                    <p>{role === 'PAINEL_PREFEITURA'
+                    <h1>{modo === 'prefeitura' ? 'Imóveis' : 'Gestão de imóveis'}</h1>
+                    <p>{modo === 'prefeitura'
                         ? 'Consulte a situação, as fotos e a localização de cada imóvel.'
                         : 'Controle total sobre os números instalados e pendências.'}</p>
                 </div>
                 <div className={styles.headerActions}>
-                    {(role === 'ADMIN' || role === 'OPERATOR' || role === 'PREFEITURA') && (
+                    {role && PODE_CADASTRAR.includes(role) && (
                         <button onClick={() => setIsCreating(true)} className={styles.primaryBtn}>
-                            <Plus size={18} /> Novo Imóvel
+                            <Plus size={18} /> Novo imóvel
                         </button>
                     )}
                     <button onClick={handleExport} className={styles.exportBtn} disabled={filtered.length === 0}>
-                        <Download size={16} /> Exportar Excel
+                        <Download size={16} /> Baixar planilha
                     </button>
 
                     <select
@@ -411,7 +419,7 @@ export default function GestaoImoveis({ mostrarInstaladores = false }: Props) {
                         value={bairroFilter}
                         onChange={e => setBairroFilter(e.target.value)}
                     >
-                        <option value="">Todos os Bairros</option>
+                        <option value="">Todos os bairros</option>
                         {bairros.map(b => (
                             <option key={b.id} value={b.id}>{b.nome}</option>
                         ))}
@@ -419,12 +427,12 @@ export default function GestaoImoveis({ mostrarInstaladores = false }: Props) {
 
                     <select
                         className={styles.filterSelect}
-                        aria-label="Filtrar por status"
+                        aria-label="Filtrar por situação"
                         value={statusFilter}
                         onChange={e => setStatusFilter(e.target.value)}
                     >
-                        <option value="">Todos os Status</option>
-                        <option value="NAO_INICIADO">Não Iniciado</option>
+                        <option value="">Todas as situações</option>
+                        <option value="NAO_INICIADO">Não iniciado</option>
                         <option value="LIBERADO">Liberado</option>
                         <option value="AUSENTE">Ausente</option>
                         <option value="PENDENTE">Pendente</option>
@@ -438,19 +446,23 @@ export default function GestaoImoveis({ mostrarInstaladores = false }: Props) {
                         value={motivoFilter}
                         onChange={e => setMotivoFilter(e.target.value)}
                     >
-                        <option value="">Todos os Motivos</option>
+                        <option value="">Todos os motivos</option>
                         {MOTIVOS_PENDENCIA.map(m => <option key={m} value={m}>{m}</option>)}
                         <option value="SEM_MOTIVO">Pendente sem motivo</option>
                     </select>
 
-                    <div className={styles.viewToggle}>
+                    <div className={styles.viewToggle} role="group" aria-label="Forma de exibição">
                         <button
+                            type="button"
+                            aria-pressed={view === 'table'}
                             className={view === 'table' ? styles.activeToggle : ''}
                             onClick={() => setView('table')}
                         >
                             Lista
                         </button>
                         <button
+                            type="button"
+                            aria-pressed={view === 'map'}
                             className={view === 'map' ? styles.activeToggle : ''}
                             onClick={() => { setView('map'); setMapFocus(null); }}
                         >
@@ -579,10 +591,10 @@ export default function GestaoImoveis({ mostrarInstaladores = false }: Props) {
 
             {editMode && selectedImovel && (
                 <div className={styles.modalOverlay} onClick={() => !saving && setEditMode(false)}>
-                    <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="edit-imovel-title" onClick={e => e.stopPropagation()}>
+                    <div ref={editDialogRef} tabIndex={-1} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="edit-imovel-title" onClick={e => e.stopPropagation()}>
                         <div className={styles.modalHead}>
                             <div>
-                                <h3 id="edit-imovel-title">Editar Imóvel Nº {selectedImovel.numeroAInstalar}</h3>
+                                <h3 id="edit-imovel-title">Editar imóvel Nº {selectedImovel.numeroAInstalar}</h3>
                                 <p>Inscrição {selectedImovel.inscimob} • {selectedImovel.bairro?.nome}</p>
                             </div>
                             <button type="button" className={styles.modalClose} onClick={() => setEditMode(false)} aria-label="Fechar"><X size={18} /></button>
@@ -689,7 +701,7 @@ export default function GestaoImoveis({ mostrarInstaladores = false }: Props) {
                                                         </div>
                                                     ) : (
                                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                                            <span style={{ fontSize: '9px', color: '#94a3b8', fontStyle: 'italic' }}>Sem foto</span>
+                                                            <span style={{ fontSize: '0.7rem', color: '#64748b', fontStyle: 'italic' }}>Sem foto</span>
                                                             <label
                                                                 style={{ padding: '2px 8px', fontSize: '9px', backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', display: 'inline-block' }}
                                                                 title="Enviar Foto"
@@ -729,10 +741,10 @@ export default function GestaoImoveis({ mostrarInstaladores = false }: Props) {
 
             {isCreating && (
                 <div className={styles.modalOverlay} onClick={() => setIsCreating(false)}>
-                    <div className={styles.modal} style={{ maxWidth: '600px' }} role="dialog" aria-modal="true" aria-labelledby="create-imovel-title" onClick={e => e.stopPropagation()}>
+                    <div ref={createDialogRef} tabIndex={-1} className={styles.modal} style={{ maxWidth: '600px' }} role="dialog" aria-modal="true" aria-labelledby="create-imovel-title" onClick={e => e.stopPropagation()}>
                         <div className={styles.modalHead}>
                             <div>
-                                <h3 id="create-imovel-title">Cadastrar Novo Imóvel</h3>
+                                <h3 id="create-imovel-title">Cadastrar novo imóvel</h3>
                                 <p>Use o GPS no local ou informe as coordenadas manualmente.</p>
                             </div>
                             <button type="button" className={styles.modalClose} onClick={() => setIsCreating(false)} aria-label="Fechar"><X size={18} /></button>

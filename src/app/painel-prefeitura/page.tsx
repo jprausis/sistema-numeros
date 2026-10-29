@@ -83,6 +83,15 @@ const SEGMENTOS: { key: StatusImovel; label: string; color: string }[] = [
     { key: 'NAO_INICIADO', label: 'Não iniciados', color: '#e2e8f0' },
 ];
 
+const SIGNIFICADO: Record<StatusImovel, string> = {
+    CONCLUIDO: 'Número instalado e fotografado pela equipe.',
+    AGENDADO: 'Visita marcada com o morador.',
+    LIBERADO: 'Liberado pela prefeitura; a equipe já pode instalar.',
+    PENDENTE: 'A equipe foi ao local e não conseguiu instalar. O motivo aparece abaixo, em "Por que alguns imóveis não foram instalados".',
+    AUSENTE: 'O morador não estava no momento da visita.',
+    NAO_INICIADO: 'Ainda não liberado para instalação.',
+};
+
 const ORDENACOES = {
     progresso: 'Maior progresso',
     restante: 'Mais imóveis restantes',
@@ -103,16 +112,19 @@ export default function PainelPrefeituraPage() {
     const [baixando, setBaixando] = useState<string | null>(null);
     const [busca, setBusca] = useState('');
     const [ordem, setOrdem] = useState<keyof typeof ORDENACOES>('progresso');
+    const [erro, setErro] = useState<string | null>(null);
 
     const carregar = useCallback(async () => {
         setCarregando(true);
         try {
             const res = await fetch('/api/painel-prefeitura/resumo');
-            const json = await res.json();
+            const json = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(json.error);
             setResumo(json);
-        } catch (e: any) {
-            toast.error(e.message || 'Não foi possível carregar os indicadores.');
+            setErro(null);
+        } catch {
+            // Mantém os últimos números na tela (se houver) e mostra o aviso com "Tentar novamente"
+            setErro('Não foi possível carregar os indicadores. Verifique a internet e tente de novo.');
         } finally {
             setCarregando(false);
         }
@@ -149,11 +161,23 @@ export default function PainelPrefeituraPage() {
             a.remove();
             window.URL.revokeObjectURL(url);
         } catch {
-            toast.error('Erro ao baixar o relatório.');
+            toast.error('Não foi possível baixar a planilha. Tente de novo em instantes.');
         } finally {
             setBaixando(null);
         }
     };
+
+    if (!resumo && erro) {
+        return (
+            <div className={styles.errorPanel} role="alert">
+                <AlertTriangle size={28} aria-hidden />
+                <p>{erro}</p>
+                <button type="button" onClick={carregar} className={styles.btnDark} disabled={carregando}>
+                    <RefreshCw size={16} className={carregando ? 'spin' : undefined} aria-hidden /> Tentar novamente
+                </button>
+            </div>
+        );
+    }
 
     if (!resumo) {
         return (
@@ -194,10 +218,18 @@ export default function PainelPrefeituraPage() {
                         </button>
                         <button type="button" onClick={() => baixarRelatorio()} className={styles.btnDark} disabled={baixando !== null}>
                             {baixando === 'todos' ? <Loader2 size={16} className="spin" /> : <FileSpreadsheet size={16} aria-hidden />}
-                            Relatório geral (CSV)
+                            Planilha geral
                         </button>
                     </div>
                 </div>
+
+                {erro && (
+                    <div className={styles.staleBanner} role="alert">
+                        <AlertTriangle size={16} aria-hidden />
+                        <span>{erro} Os números abaixo são da última atualização.</span>
+                        <button type="button" onClick={carregar} disabled={carregando}>Tentar novamente</button>
+                    </div>
+                )}
 
                 <section aria-labelledby="kpi-title" className={carregando ? styles.loadingSection : undefined}>
                     <h2 id="kpi-title" className="sr-only">Indicadores principais</h2>
@@ -234,6 +266,17 @@ export default function PainelPrefeituraPage() {
                             </li>
                         ))}
                     </ul>
+                    <details className={styles.help}>
+                        <summary>O que significa cada situação?</summary>
+                        <dl>
+                            {SEGMENTOS.map(seg => (
+                                <div key={seg.key}>
+                                    <dt><span className={styles.legendDot} style={{ background: seg.color }} />{seg.label}</dt>
+                                    <dd>{SIGNIFICADO[seg.key]}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </details>
                 </section>
 
                 <div className={styles.twoCols}>
@@ -364,7 +407,7 @@ export default function PainelPrefeituraPage() {
                                                     aria-label={`Baixar relatório de ${b.nome}`}
                                                 >
                                                     {baixando === b.id ? <Loader2 size={15} className="spin" /> : <Download size={15} aria-hidden />}
-                                                    CSV
+                                                    Planilha
                                                 </button>
                                             </td>
                                         </tr>
@@ -445,7 +488,7 @@ export default function PainelPrefeituraPage() {
                         <MiniStat label="Algarismos em estoque" value={estoque.total} />
                         <MiniStat label="Necessários (liberados)" value={estoque.necessario} />
                         <MiniStat label="A produzir" value={estoque.falta} alerta={estoque.falta > 0} />
-                        <MiniStat label="Usadas em 30 dias" value={estoque.consumo30d} />
+                        <MiniStat label="Usados em 30 dias" value={estoque.consumo30d} />
                         <MiniStat label="Duração estimada" texto={estoque.coberturaDias === null ? '—' : `${fmt(estoque.coberturaDias)} dias`} />
                     </div>
                     <div className={styles.stockGrid}>
@@ -468,7 +511,7 @@ export default function PainelPrefeituraPage() {
                 </section>
 
                 <footer className={styles.footer}>
-                    <Home size={14} aria-hidden /> Painel somente leitura · dados do sistema de instalação
+                    <Home size={14} aria-hidden /> Indicadores somente leitura · dados do sistema de instalação
                 </footer>
         </div>
     );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Ban, CalendarDays, CheckCircle2, Clock, FileText, Flag, Link2, Pencil, Phone, Plus, Search, Trash2, User, Users, X } from 'lucide-react';
 import styles from './gestaoAgendamentos.module.css';
 import { toast } from '@/utils/toast';
 import { splitBrazilDate, BR_TIMEZONE } from '@/lib/timezone';
@@ -8,16 +9,21 @@ import { statusLabel, whatsappLink } from '@/utils/status';
 import ImovelInfoModal from '@/components/ImovelInfoModal';
 import { useHorariosOcupados } from '@/utils/useHorariosOcupados';
 import { NOME_PADRAO_AGENDAMENTO, validarContato } from '@/utils/contato';
+import { useDialog } from '@/utils/useDialog';
 
 const fmtData = (d: string | Date) => new Date(d).toLocaleDateString('pt-BR', { timeZone: BR_TIMEZONE });
 const fmtHora = (d: string | Date) => new Date(d).toLocaleTimeString('pt-BR', { timeZone: BR_TIMEZONE, hour: '2-digit', minute: '2-digit' });
 
 interface Props {
-    /** Mostra o botão "Novo agendamento" (busca o imóvel e agenda direto pela tela). */
-    permitirCriar?: boolean;
+    /**
+     * "prefeitura": agenda pela própria tela (Novo agendamento), cancela em vez de excluir
+     * e não marca a instalação como concluída. "admin": gestão completa.
+     */
+    modo?: 'admin' | 'prefeitura';
 }
 
-export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
+export default function GestaoAgendamentos({ modo = 'admin' }: Props) {
+    const prefeitura = modo === 'prefeitura';
     const [activeTab, setActiveTab] = useState<'agendamentos' | 'concluidos' | 'contatos'>('agendamentos');
     const [items, setItems] = useState<any[]>([]);
     const [totalAgendamentos, setTotalAgendamentos] = useState(0);
@@ -73,6 +79,8 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
     const [novoTelefone, setNovoTelefone] = useState('');
     const [novoObservacao, setNovoObservacao] = useState('');
     const [salvandoNovo, setSalvandoNovo] = useState(false);
+    const editDialogRef = useDialog(!!editingItem, () => { if (!savingEdit) setEditingItem(null); });
+    const novoDialogRef = useDialog(criando, () => { if (!salvandoNovo) setCriando(false); });
     const ocupadosNovo = useHorariosOcupados(novoData, undefined, criando && !!imovelNovo);
     const conflitoNovo = ocupadosNovo.find(o => o.horario === novoHorario && o.inscimob !== imovelNovo?.inscimob);
 
@@ -200,6 +208,25 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
         }
     };
 
+    // Prefeitura: cancelar mantém o registro e o histórico (excluir de vez é só do admin)
+    const handleCancelar = async (protocolo: string) => {
+        if (!confirm(`Cancelar o agendamento ${protocolo}?\n\nO imóvel volta para "Não iniciado" e o cancelamento fica registrado no histórico.`)) return;
+
+        try {
+            const res = await fetch('/api/admin/agendamentos/editar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ protocolo, status: 'CANCELADO' })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error);
+            toast.success(`Agendamento ${protocolo} cancelado.`);
+            fetchData();
+        } catch (e: any) {
+            toast.error(e.message || 'Não foi possível cancelar. Verifique a conexão e tente de novo.');
+        }
+    };
+
     const handleExcluir = async (protocolo: string) => {
         if (!confirm(`Excluir o registro ${protocolo}? Esta ação não pode ser desfeita.`)) return;
 
@@ -216,7 +243,7 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                 toast.error(data.error || "Erro ao excluir");
             }
         } catch (e) {
-            toast.error("Erro na conexão");
+            toast.error("Não foi possível excluir. Verifique a conexão e tente de novo.");
         }
     };
 
@@ -307,63 +334,56 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
         <div className={styles.container}>
             <header className={styles.headerRow}>
                 <div>
-                    <h1>Gestão de Agendamentos</h1>
+                    <h1>{prefeitura ? 'Agendamentos com moradores' : 'Gestão de agendamentos'}</h1>
                     <p>
                         {activeTab === 'agendamentos'
-                            ? 'Agendamentos oficiais enviados para a fila de instalação dos operadores.'
+                            ? 'Visitas marcadas para instalar o número, em ordem de data.'
                             : activeTab === 'concluidos'
-                                ? 'Agendamentos cujas instalações já foram concluídas pelos instaladores, para conferência.'
-                                : 'Cadastros e solicitações prévias enviadas através do formulário de contato dos moradores.'}
+                                ? 'Visitas em que o número já foi instalado, para conferência.'
+                                : 'Pedidos enviados pelos moradores no site. Vincule ao imóvel para agendar a visita.'}
                     </p>
                 </div>
 
-                {permitirCriar && (
+                {prefeitura && (
                     <button type="button" className={styles.modalSaveBtn} onClick={abrirNovo}>
-                        + Novo agendamento
+                        <Plus size={18} aria-hidden /> Novo agendamento
                     </button>
                 )}
 
-                <div className={styles.tabGroup}>
+                <div className={styles.tabGroup} role="tablist" aria-label="Tipo de registro">
                     <button
                         type="button"
+                        role="tab"
+                        aria-selected={activeTab === 'agendamentos'}
                         className={activeTab === 'agendamentos' ? styles.tabBtnActive : styles.tabBtn}
                         onClick={() => trocarAba('agendamentos')}
                     >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                            <line x1="16" y1="2" x2="16" y2="6" />
-                            <line x1="8" y1="2" x2="8" y2="6" />
-                            <line x1="3" y1="10" x2="21" y2="10" />
-                        </svg>
+                        <CalendarDays size={16} aria-hidden />
                         <span>Agendamentos</span>
                         {totalAgendamentos > 0 && <span className={styles.badgeCount}>{totalAgendamentos}</span>}
                     </button>
 
                     <button
                         type="button"
+                        role="tab"
+                        aria-selected={activeTab === 'concluidos'}
                         className={activeTab === 'concluidos' ? styles.tabBtnActive : styles.tabBtn}
                         onClick={() => trocarAba('concluidos')}
                     >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                            <polyline points="22 4 12 14.01 9 11.01" />
-                        </svg>
+                        <CheckCircle2 size={16} aria-hidden />
                         <span>Concluídos</span>
                         {totalConcluidos > 0 && <span className={styles.badgeCount}>{totalConcluidos}</span>}
                     </button>
 
                     <button
                         type="button"
+                        role="tab"
+                        aria-selected={activeTab === 'contatos'}
                         className={activeTab === 'contatos' ? styles.tabBtnActive : styles.tabBtn}
                         onClick={() => trocarAba('contatos')}
                     >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                            <circle cx="9" cy="7" r="4" />
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                        </svg>
-                        <span>Lista de Contatos</span>
+                        <Users size={16} aria-hidden />
+                        <span>Pedidos do site</span>
                         {totalContatos > 0 && <span className={styles.badgeCount}>{totalContatos}</span>}
                     </button>
                 </div>
@@ -371,14 +391,11 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
 
             <div className={styles.controlsBar}>
                 <form onSubmit={handleSearchSubmit} className={styles.searchBox}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="11" cy="11" r="8" />
-                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
+                    <Search size={16} aria-hidden />
                     <input
                         type="search"
                         aria-label="Buscar agendamentos"
-                        placeholder={activeTab !== 'contatos' ? 'Buscar por protocolo, morador, inscimob... (Enter)' : 'Buscar por nome, telefone, endereço... (Enter)'}
+                        placeholder={activeTab !== 'contatos' ? 'Buscar por protocolo, morador ou inscrição (Enter)' : 'Buscar por nome, telefone ou endereço (Enter)'}
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         className={styles.searchInput}
@@ -443,13 +460,13 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
 
             <section className={styles.listCard}>
                 {activeTab !== 'contatos' ? (
-                    <table className={styles.table}>
+                    <table className={`${styles.table} ${styles.tableCards}`}>
                         <thead>
                             <tr>
                                 <th>Protocolo</th>
                                 <th>Imóvel</th>
-                                <th>Data & Horário</th>
-                                <th>Contato / Morador</th>
+                                <th>Data e horário</th>
+                                <th>Morador</th>
                                 <th>Observações</th>
                                 <th>Status</th>
                                 <th>Ações</th>
@@ -466,12 +483,7 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                 <tr>
                                     <td colSpan={7}>
                                         <div className={styles.emptyState}>
-                                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                                <line x1="16" y1="2" x2="16" y2="6" />
-                                                <line x1="8" y1="2" x2="8" y2="6" />
-                                                <line x1="3" y1="10" x2="21" y2="10" />
-                                            </svg>
+                                            <CalendarDays size={40} aria-hidden />
                                             <p style={{ margin: 0, fontWeight: 600 }}>
                                                 {emptyMessage}
                                             </p>
@@ -480,10 +492,10 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                 </tr>
                             ) : items.map(ag => (
                                 <tr key={ag.protocolo} className={ag.atrasado ? styles.rowAtrasado : undefined}>
-                                    <td>
+                                    <td data-label="Protocolo">
                                         <span className={styles.protoBadge}>{ag.protocolo}</span>
                                     </td>
-                                    <td>
+                                    <td data-label="Imóvel">
                                         <div className={styles.imovelCell}>
                                             <span className={styles.imovelNumber}>
                                                 Nº {ag.imovel?.numeroAInstalar || 'S/N'}
@@ -506,7 +518,7 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                             </span>
                                         </div>
                                     </td>
-                                    <td>
+                                    <td data-label="Data e horário">
                                         <div className={styles.dateTimeCell}>
                                             <span className={styles.dateBold}>
                                                 {ag.dataHora ? fmtData(ag.dataHora) : '—'}
@@ -517,7 +529,7 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                             {ag.atrasado && <span className={styles.atrasadoTag}>Atrasado</span>}
                                         </div>
                                     </td>
-                                    <td>
+                                    <td data-label="Morador">
                                         <strong>{ag.nome || '—'}</strong><br />
                                         {whatsappLink(ag.telefone) ? (
                                             <a
@@ -533,12 +545,12 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                             <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{ag.telefone || '—'}</span>
                                         )}
                                     </td>
-                                    <td style={{ maxWidth: '200px' }}>
+                                    <td data-label="Observações" style={{ maxWidth: '200px' }}>
                                         <span style={{ fontSize: '0.82rem', color: '#475569', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                             {ag.observacao || ag.imovel?.obsPendente || '—'}
                                         </span>
                                     </td>
-                                    <td>
+                                    <td data-label="Status">
                                         <span className={`${styles.statusPill} ${styles['status' + (ag.status || 'AGENDADO')] || styles.statusAGENDADO}`}>
                                             {statusLabel(ag.status)}
                                         </span>
@@ -549,32 +561,40 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                             </div>
                                         )}
                                     </td>
-                                    <td>
+                                    <td data-label="Ações">
                                         <div className={styles.actionRow}>
                                             <button
                                                 type="button"
                                                 className={styles.editBtn}
                                                 onClick={() => handleOpenEdit(ag)}
-                                                title="Editar Agendamento"
+                                                title="Editar agendamento"
                                             >
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                                </svg>
+                                                <Pencil size={14} aria-hidden />
                                                 <span>Editar</span>
                                             </button>
-                                            <button
-                                                type="button"
-                                                className={styles.deleteBtn}
-                                                onClick={() => handleExcluir(ag.protocolo)}
-                                                title="Excluir Agendamento"
-                                            >
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                    <polyline points="3 6 5 6 21 6" />
-                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                                </svg>
-                                                <span>Excluir</span>
-                                            </button>
+                                            {prefeitura ? (
+                                                !['CONCLUIDO', 'CANCELADO'].includes(ag.status) && (
+                                                    <button
+                                                        type="button"
+                                                        className={styles.cancelBtn}
+                                                        onClick={() => handleCancelar(ag.protocolo)}
+                                                        title="Cancelar agendamento"
+                                                    >
+                                                        <Ban size={14} aria-hidden />
+                                                        <span>Cancelar</span>
+                                                    </button>
+                                                )
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    className={styles.deleteBtn}
+                                                    onClick={() => handleExcluir(ag.protocolo)}
+                                                    title="Excluir agendamento"
+                                                >
+                                                    <Trash2 size={14} aria-hidden />
+                                                    <span>Excluir</span>
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -582,14 +602,14 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                         </tbody>
                     </table>
                 ) : (
-                    <table className={styles.table}>
+                    <table className={`${styles.table} ${styles.tableCards}`}>
                         <thead>
                             <tr>
                                 <th>Protocolo</th>
-                                <th>Morador / Solicitante</th>
-                                <th>Endereço Informado</th>
-                                <th>Data do Pedido</th>
-                                <th>Vínculo (Inscimob)</th>
+                                <th>Morador</th>
+                                <th>Endereço informado</th>
+                                <th>Data do pedido</th>
+                                <th>Imóvel vinculado</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
@@ -604,32 +624,29 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                 <tr>
                                     <td colSpan={6}>
                                         <div className={styles.emptyState}>
-                                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                                                <circle cx="9" cy="7" r="4" />
-                                            </svg>
+                                            <Users size={40} aria-hidden />
                                             <p style={{ margin: 0, fontWeight: 600 }}>Nenhum contato encontrado.</p>
                                         </div>
                                     </td>
                                 </tr>
                             ) : items.map(ct => (
                                 <tr key={ct.protocolo}>
-                                    <td>
+                                    <td data-label="Protocolo">
                                         <span className={styles.contactBadge}>{ct.protocolo}</span>
                                     </td>
-                                    <td>
+                                    <td data-label="Morador">
                                         <strong>{ct.nome}</strong><br />
                                         <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{ct.telefone || '—'}</span>
                                     </td>
-                                    <td style={{ maxWidth: '280px' }}>
+                                    <td data-label="Endereço informado" style={{ maxWidth: '280px' }}>
                                         <span style={{ fontSize: '0.85rem', color: '#334155' }}>{ct.enderecoCompleto}</span>
                                     </td>
-                                    <td>
+                                    <td data-label="Data do pedido">
                                         <span style={{ fontSize: '0.85rem', color: '#475569' }}>
                                             {fmtData(ct.createdAt)} às {fmtHora(ct.createdAt)}
                                         </span>
                                     </td>
-                                    <td>
+                                    <td data-label="Imóvel vinculado">
                                         {ct.inscimobVinculo ? (
                                             <button
                                                 type="button"
@@ -640,10 +657,10 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                                 {ct.inscimobVinculo}
                                             </button>
                                         ) : (
-                                            <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>Não vinculado</span>
+                                            <span style={{ color: '#64748b', fontSize: '0.8rem' }}>Não vinculado</span>
                                         )}
                                     </td>
-                                    <td>
+                                    <td data-label="Ações">
                                         <div className={styles.actionRow}>
                                             {vinculando === ct.protocolo ? (
                                                 <div className={styles.vincularForm}>
@@ -651,14 +668,14 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                                         type="text"
                                                         aria-label="Inscrição imobiliária para vincular"
                                                         onKeyDown={e => { if (e.key === 'Enter') handleVincular(ct.protocolo); if (e.key === 'Escape') setVinculando(null); }}
-                                                        placeholder="Inscimob"
+                                                        placeholder="Inscrição imobiliária"
                                                         value={inscimobInput}
                                                         onChange={e => setInscimobInput(e.target.value)}
                                                         className={styles.miniInput}
                                                         autoFocus
                                                     />
                                                     <button onClick={() => handleVincular(ct.protocolo)} className={styles.vincBtn}>Vincular</button>
-                                                    <button onClick={() => setVinculando(null)} className={styles.cancelMiniBtn} aria-label="Cancelar vínculo">✕</button>
+                                                    <button onClick={() => setVinculando(null)} className={styles.cancelMiniBtn} aria-label="Cancelar vínculo"><X size={14} aria-hidden /></button>
                                                 </div>
                                             ) : (
                                                 <>
@@ -669,38 +686,31 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                                             setVinculando(ct.protocolo);
                                                             setInscimobInput(ct.inscimobVinculo || '');
                                                         }}
-                                                        title="Vincular a um Imóvel Oficial"
+                                                        title="Vincular a um imóvel"
                                                     >
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                                                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                                                        </svg>
+                                                        <Link2 size={14} aria-hidden />
                                                         <span>{ct.inscimobVinculo ? 'Alterar' : 'Vincular'}</span>
                                                     </button>
                                                     <button
                                                         type="button"
                                                         className={styles.editBtn}
                                                         onClick={() => handleOpenEdit(ct)}
-                                                        title="Editar Dados"
+                                                        title="Editar dados"
                                                     >
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                                        </svg>
+                                                        <Pencil size={14} aria-hidden />
                                                         <span>Editar</span>
                                                     </button>
-                                                    <button
-                                                        type="button"
-                                                        className={styles.deleteBtn}
-                                                        onClick={() => handleExcluir(ct.protocolo)}
-                                                        title="Excluir Registro"
-                                                    >
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                            <polyline points="3 6 5 6 21 6" />
-                                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                                        </svg>
-                                                        <span>Excluir</span>
-                                                    </button>
+                                                    {!prefeitura && (
+                                                        <button
+                                                            type="button"
+                                                            className={styles.deleteBtn}
+                                                            onClick={() => handleExcluir(ct.protocolo)}
+                                                            title="Excluir registro"
+                                                        >
+                                                            <Trash2 size={14} aria-hidden />
+                                                            <span>Excluir</span>
+                                                        </button>
+                                                    )}
                                                 </>
                                             )}
                                         </div>
@@ -715,20 +725,17 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
             {/* Modal de Edição de Agendamento / Contato */}
             {editingItem && (
                 <div className={styles.modalOverlay} onClick={() => !savingEdit && setEditingItem(null)}>
-                    <div className={styles.modal} role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
+                    <div ref={editDialogRef} tabIndex={-1} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="edit-ag-title" onClick={e => e.stopPropagation()}>
                         <div className={styles.modalHeader}>
                             <div>
-                                <h3>
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9333ea" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                    </svg>
-                                    Editar Agendamento ({editingItem.protocolo})
+                                <h3 id="edit-ag-title">
+                                    <Pencil size={20} aria-hidden />
+                                    Editar agendamento {editingItem.protocolo}
                                 </h3>
                                 <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
                                     {editingItem.inscimobVinculo
                                         ? `Imóvel vinculado: Insc. ${editingItem.inscimobVinculo}`
-                                        : 'Registro da lista de contatos'}
+                                        : 'Pedido enviado pelo site'}
                                 </p>
                             </div>
                             <button
@@ -737,23 +744,19 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                 aria-label="Fechar"
                                 onClick={() => setEditingItem(null)}
                             >
-                                ✕
+                                <X size={20} aria-hidden />
                             </button>
                         </div>
 
                         <form onSubmit={handleSaveEdit} className={styles.formGrid}>
                             <div className={styles.formRow}>
                                 <div className={styles.formGroup}>
-                                    <label>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                            <line x1="16" y1="2" x2="16" y2="6" />
-                                            <line x1="8" y1="2" x2="8" y2="6" />
-                                            <line x1="3" y1="10" x2="21" y2="10" />
-                                        </svg>
+                                    <label htmlFor="edit-data">
+                                        <CalendarDays size={14} aria-hidden />
                                         Data *
                                     </label>
                                     <input
+                                        id="edit-data"
                                         type="date"
                                         required
                                         value={editData}
@@ -763,14 +766,12 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                 </div>
 
                                 <div className={styles.formGroup}>
-                                    <label>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                            <circle cx="12" cy="12" r="10" />
-                                            <polyline points="12 6 12 12 16 14" />
-                                        </svg>
+                                    <label htmlFor="edit-horario">
+                                        <Clock size={14} aria-hidden />
                                         Horário *
                                     </label>
                                     <input
+                                        id="edit-horario"
                                         type="time"
                                         required
                                         value={editHorario}
@@ -794,14 +795,12 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
 
                             <div className={styles.formRow}>
                                 <div className={styles.formGroup}>
-                                    <label>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                                            <circle cx="12" cy="7" r="4" />
-                                        </svg>
-                                        Nome do Morador *
+                                    <label htmlFor="edit-nome">
+                                        <User size={14} aria-hidden />
+                                        Nome do morador *
                                     </label>
                                     <input
+                                        id="edit-nome"
                                         type="text"
                                         required
                                         value={editNome}
@@ -812,20 +811,19 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                 </div>
 
                                 <div className={styles.formGroup}>
-                                    <label>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                            <circle cx="12" cy="12" r="10" />
-                                            <path d="M12 6v6l4 2" />
-                                        </svg>
+                                    <label htmlFor="edit-status">
+                                        <Flag size={14} aria-hidden />
                                         Status
                                     </label>
                                     <select
+                                        id="edit-status"
                                         value={editStatus}
                                         onChange={e => setEditStatus(e.target.value)}
                                         className={styles.formSelect}
                                     >
                                         <option value="AGENDADO">Agendado</option>
-                                        <option value="CONCLUIDO">Concluído</option>
+                                        {/* A instalação é concluída pela equipe em campo, não pela prefeitura */}
+                                        {(!prefeitura || editingItem.status === 'CONCLUIDO') && <option value="CONCLUIDO">Concluído</option>}
                                         <option value="REAGENDAR">Reagendar</option>
                                         <option value="CANCELADO">Cancelado</option>
                                     </select>
@@ -833,13 +831,12 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                             </div>
 
                             <div className={styles.formGroup}>
-                                <label>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                                    </svg>
+                                <label htmlFor="edit-telefone">
+                                    <Phone size={14} aria-hidden />
                                     Telefone / WhatsApp *
                                 </label>
                                 <input
+                                    id="edit-telefone"
                                     type="tel"
                                     required
                                     inputMode="tel"
@@ -851,18 +848,12 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                             </div>
 
                             <div className={styles.formGroup}>
-                                <label>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="8" y1="6" x2="21" y2="6" />
-                                        <line x1="8" y1="12" x2="21" y2="12" />
-                                        <line x1="8" y1="18" x2="21" y2="18" />
-                                        <line x1="3" y1="6" x2="3.01" y2="6" />
-                                        <line x1="3" y1="12" x2="3.01" y2="12" />
-                                        <line x1="3" y1="18" x2="3.01" y2="18" />
-                                    </svg>
-                                    Observações / Instruções para o Instalador
+                                <label htmlFor="edit-obs">
+                                    <FileText size={14} aria-hidden />
+                                    Observações para o instalador
                                 </label>
                                 <textarea
+                                    id="edit-obs"
                                     value={editObservacao}
                                     onChange={e => setEditObservacao(e.target.value)}
                                     placeholder="Ex: Instruções de acesso, detalhes sobre o morador..."
@@ -884,7 +875,7 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                     className={styles.modalSaveBtn}
                                     disabled={savingEdit || (editOcupaHorario && !!conflitoEdit)}
                                 >
-                                    {savingEdit ? 'Salvando...' : 'Salvar Alterações'}
+                                    {savingEdit ? 'Salvando...' : 'Salvar alterações'}
                                 </button>
                             </div>
                         </form>
@@ -893,7 +884,7 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
             )}
             {criando && (
                 <div className={styles.modalOverlay} onClick={() => !salvandoNovo && setCriando(false)}>
-                    <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="novo-ag-title" onClick={e => e.stopPropagation()}>
+                    <div ref={novoDialogRef} tabIndex={-1} className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="novo-ag-title" onClick={e => e.stopPropagation()}>
                         <div className={styles.modalHeader}>
                             <div>
                                 <h3 id="novo-ag-title">Novo agendamento</h3>
@@ -903,7 +894,7 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                         : 'Busque o imóvel pela inscrição, número ou endereço'}
                                 </p>
                             </div>
-                            <button type="button" className={styles.closeBtn} aria-label="Fechar" onClick={() => setCriando(false)}>✕</button>
+                            <button type="button" className={styles.closeBtn} aria-label="Fechar" onClick={() => setCriando(false)}><X size={20} aria-hidden /></button>
                         </div>
 
                         {!imovelNovo ? (
@@ -980,7 +971,7 @@ export default function GestaoAgendamentos({ permitirCriar = false }: Props) {
                                     </div>
                                 </div>
                                 <div className={styles.formGroup}>
-                                    <label htmlFor="novo-obs">Observações / Instruções para o Instalador</label>
+                                    <label htmlFor="novo-obs">Observações para o instalador</label>
                                     <textarea id="novo-obs" value={novoObservacao} onChange={e => setNovoObservacao(e.target.value)} className={styles.formTextarea} />
                                 </div>
                                 <div className={styles.modalActions}>
