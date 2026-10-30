@@ -6,14 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, MapPin } from 'lucide-react';
 import styles from './page.module.css';
 import { createClient } from '@/utils/supabase/client';
-
-const ROLE_HOME: Record<string, string> = {
-    ADMIN: '/admin',
-    OPERATOR: '/admin',
-    PREFEITURA: '/prefeitura',
-    PAINEL_PREFEITURA: '/painel-prefeitura',
-    INSTALLER: '/instalador',
-};
+import { homeForRole } from '@/lib/roleHome';
 
 function traduzirErro(message: string) {
     if (/invalid login credentials/i.test(message)) return 'E-mail ou senha incorretos.';
@@ -57,7 +50,7 @@ export default function LoginPage() {
                 return;
             }
             const { user } = await response.json();
-            router.replace(ROLE_HOME[user?.role] || '/instalador');
+            router.replace(homeForRole(user?.role));
         } catch (err: any) {
             setError(traduzirErro(err?.message || 'Erro inesperado ao entrar.'));
             setLoading(false);
