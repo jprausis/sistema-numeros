@@ -325,8 +325,19 @@
 
 .vincularForm {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
     align-items: center;
+}
+
+.vincularAviso {
+    flex-basis: 100%;
+    max-width: 220px;
+    margin: 2px 0 0;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    color: #b91c1c;
+    font-weight: 600;
 }
 
 .miniInput {

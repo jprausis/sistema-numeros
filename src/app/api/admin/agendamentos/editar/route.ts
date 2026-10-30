@@ -6,6 +6,7 @@ import { buildBrazilDate, splitBrazilDate } from "@/lib/timezone";
 import { movimentarEstoqueSeguro } from "@/lib/estoque";
 import { buscarConflitoHorario, mensagemConflitoHorario } from "@/lib/agendamentos";
 import { validarContato } from "@/utils/contato";
+import { CODIGO_IMOVEL_CONCLUIDO, mensagemImovelConcluido } from "@/utils/avisosAgendamento";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
 
         const autor = `${ROLE_LABEL[user.role] || user.role}: ${user.name || user.email}`;
         const body = await req.json();
-        const { protocolo, data, horario, nome, telefone, observacao, status } = body;
+        const { protocolo, data, horario, nome, telefone, observacao, status, confirmarConcluido } = body;
 
         if (!protocolo) {
             return NextResponse.json({ error: "Protocolo é obrigatório" }, { status: 400 });
@@ -52,6 +53,23 @@ export async function POST(req: NextRequest) {
             const conflito = await buscarConflitoHorario(dataHora, protocolo);
             if (conflito) {
                 return NextResponse.json({ error: mensagemConflitoHorario(conflito, splitBrazilDate(dataHora).horario) }, { status: 409 });
+            }
+        }
+
+        // Voltar para AGENDADO um imóvel já instalado é remarcar uma nova visita: pede confirmação
+        let remarcandoConcluido = false;
+        if (status === "AGENDADO" && agendamento.inscimobVinculo) {
+            const imovel = await prisma.imovel.findUnique({
+                where: { inscimob: agendamento.inscimobVinculo },
+                select: { inscimob: true, numeroAInstalar: true, dataExecucao: true, status: true }
+            });
+            remarcandoConcluido = imovel?.status === "CONCLUIDO";
+            if (imovel && remarcandoConcluido && confirmarConcluido !== true) {
+                return NextResponse.json({
+                    error: `${mensagemImovelConcluido(imovel)} Confirme para remarcar uma nova visita.`,
+                    code: CODIGO_IMOVEL_CONCLUIDO,
+                    imovel: { inscimob: imovel.inscimob, numeroAInstalar: imovel.numeroAInstalar, dataExecucao: imovel.dataExecucao }
+                }, { status: 409 });
             }
         }
 
@@ -125,6 +143,7 @@ export async function POST(req: NextRequest) {
                 perfil: user.role,
                 inscimob: agendamento.inscimobVinculo,
                 alteracoes,
+                ...(remarcandoConcluido ? { remarcadoAposConclusao: true } : {}),
                 antes: agendamento,
                 depois: updated,
                 observacao

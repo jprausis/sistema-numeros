@@ -9,6 +9,7 @@ import { compressImage } from '@/utils/imageCompressor';
 import { statusLabel } from '@/utils/status';
 import { toast } from '@/utils/toast';
 import { NOME_PADRAO_AGENDAMENTO, validarContato } from '@/utils/contato';
+import { confirmarRemarcacao, mensagemAgendamentoExistente, mensagemImovelConcluido, postAgendamento, type AgendamentoResumo } from '@/utils/avisosAgendamento';
 import { useHorariosOcupados } from '@/utils/useHorariosOcupados';
 import { Camera, Check, Filter, Loader2, LogOut, Navigation, Pencil, Plus, X } from 'lucide-react';
 
@@ -49,6 +50,8 @@ export default function PrefeituraPage() {
     // Estados para Agendamento de Instalação pela Prefeitura
     const [agendandoImovel, setAgendandoImovel] = useState<any | null>(null);
     const [agendamentoProtocolo, setAgendamentoProtocolo] = useState<string | null>(null);
+    // Agendamento em aberto encontrado ao abrir o modal (avisado na tela: salvar remarca ele)
+    const [agendamentoAberto, setAgendamentoAberto] = useState<AgendamentoResumo | null>(null);
     const [carregandoDadosAgendamento, setCarregandoDadosAgendamento] = useState(false);
     const [agendamentoData, setAgendamentoData] = useState('');
     const [agendamentoHorario, setAgendamentoHorario] = useState('09:00');
@@ -423,6 +426,7 @@ export default function PrefeituraPage() {
         setAgendandoImovel(imovel);
         setAgendamentoSuccessProtocolo(null);
         setAgendamentoProtocolo(null);
+        setAgendamentoAberto(null);
         setHorarioOriginal('');
 
         const tomorrow = new Date();
@@ -445,6 +449,7 @@ export default function PrefeituraPage() {
                 if (data.agendamento) {
                     const ag = data.agendamento;
                     setAgendamentoProtocolo(ag.protocolo || null);
+                    if (ag.protocolo) setAgendamentoAberto({ protocolo: ag.protocolo, dataHora: ag.dataHora, inscimobVinculo: ag.inscimobVinculo });
                     if (ag.data) setAgendamentoData(ag.data);
                     if (ag.horario) setAgendamentoHorario(ag.horario);
                     if (ag.data && ag.horario) setHorarioOriginal(`${ag.data} ${ag.horario}`);
@@ -476,24 +481,24 @@ export default function PrefeituraPage() {
             toast.error(`O horário ${agendamentoHorario} já está ocupado pelo agendamento ${conflitoHorario.protocolo}. Escolha outro horário.`);
             return;
         }
+        const concluido = agendandoImovel.status === 'CONCLUIDO';
+        if (concluido && !confirmarRemarcacao(agendandoImovel)) return;
 
         setAgendandoLoading(true);
         try {
-            const res = await fetch('/api/prefeitura/agendamentos/criar', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    inscimob: agendandoImovel.inscimob,
-                    protocolo: agendamentoProtocolo,
-                    data: agendamentoData,
-                    horario: agendamentoHorario,
-                    nome: agendamentoNome,
-                    telefone: agendamentoTelefone,
-                    observacao: agendamentoObservacao
-                })
+            const resposta = await postAgendamento('/api/prefeitura/agendamentos/criar', {
+                inscimob: agendandoImovel.inscimob,
+                protocolo: agendamentoProtocolo,
+                data: agendamentoData,
+                horario: agendamentoHorario,
+                nome: agendamentoNome,
+                telefone: agendamentoTelefone,
+                observacao: agendamentoObservacao,
+                ...(concluido ? { confirmarConcluido: true } : {})
             });
+            if (!resposta) return;
 
-            const data = await res.json();
+            const { res, data } = resposta;
             if (res.ok && data.success) {
                 setAgendamentoSuccessProtocolo(data.protocolo);
                 // Atualizar status para AGENDADO na memória imediatamente
@@ -1223,6 +1228,16 @@ export default function PrefeituraPage() {
                                         {agendandoImovel.bairro?.nome || 'Bairro'}{agendandoImovel.endereco ? ` • ${agendandoImovel.endereco}` : ''}
                                     </span>
                                 </div>
+                                {agendandoImovel.status === 'CONCLUIDO' && (
+                                    <p role="alert" style={{ margin: 0, fontSize: '0.82rem', color: '#b91c1c', fontWeight: 600 }}>
+                                        {mensagemImovelConcluido(agendandoImovel)} Ao salvar, confirme se é preciso remarcar uma nova visita.
+                                    </p>
+                                )}
+                                {agendamentoAberto && !agendamentoSuccessProtocolo && (
+                                    <p role="alert" style={{ margin: 0, fontSize: '0.82rem', color: '#b91c1c', fontWeight: 600 }}>
+                                        {mensagemAgendamentoExistente(agendamentoAberto)} Ao salvar, esse agendamento será remarcado com os dados abaixo.
+                                    </p>
+                                )}
 
                                 <div className={styles.formRow}>
                                     <div className={styles.formGroup}>

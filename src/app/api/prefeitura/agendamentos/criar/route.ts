@@ -3,9 +3,11 @@ export const dynamic = "force-dynamic";
 import prisma from "@/lib/prisma";
 import { requireUser, getRequestMeta, AGENDA_ROLES, ROLE_LABEL } from "@/lib/auth";
 import { createAuditLog, diffCampos } from "@/lib/audit";
+import { movimentarEstoqueSeguro } from "@/lib/estoque";
 import { generateUniqueProtocol, buscarConflitoHorario, mensagemConflitoHorario } from "@/lib/agendamentos";
 import { buildBrazilDate } from "@/lib/timezone";
 import { validarContato } from "@/utils/contato";
+import { CODIGO_IMOVEL_CONCLUIDO, mensagemImovelConcluido } from "@/utils/avisosAgendamento";
 
 export async function POST(req: NextRequest) {
     const { user, response } = await requireUser(AGENDA_ROLES);
@@ -17,7 +19,7 @@ export async function POST(req: NextRequest) {
     try {
 
         const body = await req.json();
-        const { inscimob, data, horario, nome, telefone, observacao, protocolo: existingProtocolo } = body;
+        const { inscimob, data, horario, nome, telefone, observacao, protocolo: existingProtocolo, confirmarConcluido } = body;
 
         if (!inscimob) {
             return NextResponse.json({ error: "Inscrição imobiliária (inscimob) é obrigatória" }, { status: 400 });
@@ -43,6 +45,16 @@ export async function POST(req: NextRequest) {
 
         if (!imovel) {
             return NextResponse.json({ error: `Imóvel com inscrição ${inscimob} não encontrado.` }, { status: 404 });
+        }
+
+        // Imóvel já instalado: só remarca uma nova visita se o usuário confirmar
+        const remarcandoConcluido = imovel.status === "CONCLUIDO";
+        if (remarcandoConcluido && confirmarConcluido !== true) {
+            return NextResponse.json({
+                error: `${mensagemImovelConcluido(imovel)} Confirme para remarcar uma nova visita.`,
+                code: CODIGO_IMOVEL_CONCLUIDO,
+                imovel: { inscimob: imovel.inscimob, numeroAInstalar: imovel.numeroAInstalar, dataExecucao: imovel.dataExecucao }
+            }, { status: 409 });
         }
 
         // Montar a data e hora do agendamento (sempre no horário de Brasília)
@@ -138,6 +150,16 @@ export async function POST(req: NextRequest) {
             }
         });
 
+        // Saiu de CONCLUIDO: as peças voltam ao estoque, senão a nova conclusão desconta em dobro
+        await movimentarEstoqueSeguro(prisma, {
+            numero: imovel.numeroAInstalar,
+            statusAnterior: imovel.status,
+            statusNovo: updatedImovel.status,
+            referencia: imovel.inscimob,
+            descricao: `imóvel Nº ${imovel.numeroAInstalar} (${imovel.inscimob}) - nova visita pelo agendamento ${targetProtocolo}`,
+            userEmail: userEmail,
+        });
+
         // 3. Log de Auditoria
         await createAuditLog({
             userId: userId || "prefeitura",
@@ -153,6 +175,7 @@ export async function POST(req: NextRequest) {
                 observacao: obsNote,
                 isEdit,
                 perfil: user.role,
+                ...(remarcandoConcluido ? { remarcadoAposConclusao: true } : {}),
                 alteracoes: [
                     ...diffCampos(atual, agendamento, ["nome", "telefone", "dataHora", "status", "inscimobVinculo"]),
                     ...diffCampos(imovel, updatedImovel, ["status", "obsPendente"]).map(a => ({ ...a, campo: `imovel.${a.campo}` })),

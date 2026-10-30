@@ -9,6 +9,7 @@ import { statusLabel, whatsappLink } from '@/utils/status';
 import ImovelInfoModal from '@/components/ImovelInfoModal';
 import { useHorariosOcupados } from '@/utils/useHorariosOcupados';
 import { NOME_PADRAO_AGENDAMENTO, validarContato } from '@/utils/contato';
+import { buscarAgendamentoAberto, confirmarAgendamentoExistente, confirmarRemarcacao, mensagemAgendamentoExistente, mensagemImovelConcluido, postAgendamento, type AgendamentoResumo, type ImovelResumo } from '@/utils/avisosAgendamento';
 import { useDialog } from '@/utils/useDialog';
 
 const fmtData = (d: string | Date) => new Date(d).toLocaleDateString('pt-BR', { timeZone: BR_TIMEZONE });
@@ -43,6 +44,10 @@ export default function GestaoAgendamentos({ modo = 'admin' }: Props) {
     // Estado para Vincular em Contatos
     const [vinculando, setVinculando] = useState<string | null>(null);
     const [inscimobInput, setInscimobInput] = useState('');
+    // Avisos da inscrição digitada no vínculo (checados ao sair do campo): imóvel já instalado
+    // e outro agendamento em aberto para o mesmo imóvel
+    const [vinculoConcluido, setVinculoConcluido] = useState<ImovelResumo | null>(null);
+    const [vinculoAgendamento, setVinculoAgendamento] = useState<AgendamentoResumo | null>(null);
 
     // Estado para Edição de Agendamento/Contato
     const [editingItem, setEditingItem] = useState<any | null>(null);
@@ -73,6 +78,8 @@ export default function GestaoAgendamentos({ modo = 'admin' }: Props) {
     const [resultadosImovel, setResultadosImovel] = useState<any[]>([]);
     const [buscandoImovel, setBuscandoImovel] = useState(false);
     const [imovelNovo, setImovelNovo] = useState<any | null>(null);
+    // Agendamento em aberto do imóvel escolhido: salvar remarca esse mesmo agendamento
+    const [agendamentoAbertoNovo, setAgendamentoAbertoNovo] = useState<AgendamentoResumo | null>(null);
     const [novoData, setNovoData] = useState('');
     const [novoHorario, setNovoHorario] = useState('09:00');
     const [novoNome, setNovoNome] = useState('');
@@ -155,21 +162,18 @@ export default function GestaoAgendamentos({ modo = 'admin' }: Props) {
 
         setSavingEdit(true);
         try {
-            const res = await fetch('/api/admin/agendamentos/editar', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    protocolo: editingItem.protocolo,
-                    data: editData,
-                    horario: editHorario,
-                    nome: editNome,
-                    telefone: editTelefone,
-                    observacao: editObservacao,
-                    status: editStatus
-                })
+            const resposta = await postAgendamento('/api/admin/agendamentos/editar', {
+                protocolo: editingItem.protocolo,
+                data: editData,
+                horario: editHorario,
+                nome: editNome,
+                telefone: editTelefone,
+                observacao: editObservacao,
+                status: editStatus
             });
+            if (!resposta) return;
 
-            const data = await res.json();
+            const { res, data } = resposta;
             if (res.ok && data.success) {
                 toast.success("Agendamento atualizado.");
                 setEditingItem(null);
@@ -184,24 +188,56 @@ export default function GestaoAgendamentos({ modo = 'admin' }: Props) {
         }
     };
 
+    const limparAvisosVinculo = () => {
+        setVinculoConcluido(null);
+        setVinculoAgendamento(null);
+    };
+
+    /** Ao sair do campo, avisa se o imóvel já foi instalado ou já tem outro agendamento em aberto. */
+    const verificarInscricaoVinculo = async (inscimob: string, protocolo: string) => {
+        const insc = inscimob.trim();
+        if (!insc) return limparAvisosVinculo();
+        try {
+            const [resBusca, agendamento] = await Promise.all([
+                fetch(`/api/prefeitura/buscar?q=${encodeURIComponent(insc)}`).then(r => r.json()),
+                buscarAgendamentoAberto(insc)
+            ]);
+            const imoveis: (ImovelResumo & { status: string })[] = resBusca.imoveis || [];
+            const imovel = imoveis.find(im => im.inscimob.toLowerCase() === insc.toLowerCase());
+            setVinculoConcluido(imovel?.status === 'CONCLUIDO' ? imovel : null);
+            setVinculoAgendamento(agendamento && agendamento.protocolo !== protocolo ? agendamento : null);
+        } catch {
+            // Sem a checagem prévia, o servidor ainda pede as confirmações ao vincular
+            limparAvisosVinculo();
+        }
+    };
+
     const handleVincular = async (protocolo: string) => {
-        if (!inscimobInput.trim()) return toast.error("Informe a inscrição imobiliária (inscimob).");
+        const inscimob = inscimobInput.trim();
+        if (!inscimob) return toast.error("Informe a inscrição imobiliária (inscimob).");
+
+        const concluido = vinculoConcluido?.inscimob.toLowerCase() === inscimob.toLowerCase() ? vinculoConcluido : null;
+        const outroAberto = vinculoAgendamento?.inscimobVinculo?.toLowerCase() === inscimob.toLowerCase() ? vinculoAgendamento : null;
+        if (concluido && !confirmarRemarcacao(concluido)) return;
+        if (outroAberto && !confirmarAgendamentoExistente(outroAberto)) return;
 
         try {
-            const res = await fetch('/api/admin/agendamentos/vincular', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ protocolo, inscimob: inscimobInput.trim() })
+            const resposta = await postAgendamento('/api/admin/agendamentos/vincular', {
+                protocolo,
+                inscimob,
+                ...(concluido ? { confirmarConcluido: true } : {}),
+                ...(outroAberto ? { confirmarAgendamentoExistente: true } : {})
             });
+            if (!resposta) return;
 
-            if (res.ok) {
+            if (resposta.res.ok) {
                 toast.success("Vínculo realizado. O agendamento foi para a fila de instalação.");
                 setVinculando(null);
                 setInscimobInput('');
+                limparAvisosVinculo();
                 fetchData();
             } else {
-                const data = await res.json();
-                toast.error(data.error || "Erro ao vincular");
+                toast.error(resposta.data.error || "Erro ao vincular");
             }
         } catch (e) {
             toast.error("Erro na conexão");
@@ -282,22 +318,22 @@ export default function GestaoAgendamentos({ modo = 'admin' }: Props) {
         const erroContato = validarContato(novoNome, novoTelefone);
         if (erroContato) return toast.error(erroContato);
         if (conflitoNovo) return toast.error(`O horário ${novoHorario} já está ocupado pelo agendamento ${conflitoNovo.protocolo}.`);
+        const concluido = imovelNovo.status === 'CONCLUIDO';
+        if (concluido && !confirmarRemarcacao(imovelNovo)) return;
 
         setSalvandoNovo(true);
         try {
-            const res = await fetch('/api/prefeitura/agendamentos/criar', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    inscimob: imovelNovo.inscimob,
-                    data: novoData,
-                    horario: novoHorario,
-                    nome: novoNome,
-                    telefone: novoTelefone,
-                    observacao: novoObservacao
-                })
+            const resposta = await postAgendamento('/api/prefeitura/agendamentos/criar', {
+                inscimob: imovelNovo.inscimob,
+                data: novoData,
+                horario: novoHorario,
+                nome: novoNome,
+                telefone: novoTelefone,
+                observacao: novoObservacao,
+                ...(concluido ? { confirmarConcluido: true } : {})
             });
-            const data = await res.json();
+            if (!resposta) return;
+            const { res, data } = resposta;
             if (!res.ok) throw new Error(data.error);
             toast.success(data.isEdit ? `Agendamento ${data.protocolo} atualizado.` : `Agendamento ${data.protocolo} criado.`);
             setCriando(false);
@@ -670,12 +706,21 @@ export default function GestaoAgendamentos({ modo = 'admin' }: Props) {
                                                         onKeyDown={e => { if (e.key === 'Enter') handleVincular(ct.protocolo); if (e.key === 'Escape') setVinculando(null); }}
                                                         placeholder="Inscrição imobiliária"
                                                         value={inscimobInput}
-                                                        onChange={e => setInscimobInput(e.target.value)}
+                                                        onChange={e => { setInscimobInput(e.target.value); limparAvisosVinculo(); }}
+                                                        onBlur={e => verificarInscricaoVinculo(e.target.value, ct.protocolo)}
                                                         className={styles.miniInput}
+                                                        aria-describedby={vinculoConcluido || vinculoAgendamento ? `vinculo-aviso-${ct.protocolo}` : undefined}
                                                         autoFocus
                                                     />
                                                     <button onClick={() => handleVincular(ct.protocolo)} className={styles.vincBtn}>Vincular</button>
                                                     <button onClick={() => setVinculando(null)} className={styles.cancelMiniBtn} aria-label="Cancelar vínculo"><X size={14} aria-hidden /></button>
+                                                    {(vinculoConcluido || vinculoAgendamento) && (
+                                                        <p id={`vinculo-aviso-${ct.protocolo}`} className={styles.vincularAviso} role="alert">
+                                                            {vinculoConcluido && mensagemImovelConcluido(vinculoConcluido)}
+                                                            {vinculoConcluido && vinculoAgendamento && ' '}
+                                                            {vinculoAgendamento && mensagemAgendamentoExistente(vinculoAgendamento)}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <>
@@ -685,6 +730,7 @@ export default function GestaoAgendamentos({ modo = 'admin' }: Props) {
                                                         onClick={() => {
                                                             setVinculando(ct.protocolo);
                                                             setInscimobInput(ct.inscimobVinculo || '');
+                                                            limparAvisosVinculo();
                                                         }}
                                                         title="Vincular a um imóvel"
                                                     >
@@ -922,6 +968,10 @@ export default function GestaoAgendamentos({ modo = 'admin' }: Props) {
                                                 <button type="button" onClick={() => {
                                                     setImovelNovo(im);
                                                     setNovoObservacao(im.obsPendente || '');
+                                                    setAgendamentoAbertoNovo(null);
+                                                    buscarAgendamentoAberto(im.inscimob)
+                                                        .then(setAgendamentoAbertoNovo)
+                                                        .catch(() => setAgendamentoAbertoNovo(null));
                                                 }}>
                                                     <strong>Nº {im.numeroAInstalar}</strong>
                                                     <span>Insc. {im.inscimob} • {im.bairro?.nome || '—'}{im.endereco ? ` • ${im.endereco}` : ''}</span>
@@ -935,10 +985,12 @@ export default function GestaoAgendamentos({ modo = 'admin' }: Props) {
                         ) : (
                             <form onSubmit={handleCriar} className={styles.formGrid}>
                                 {imovelNovo.status === 'CONCLUIDO' && (
-                                    <p className={styles.slotHintError} role="alert">Este imóvel já está com a instalação concluída.</p>
+                                    <p className={styles.slotHintError} role="alert">{mensagemImovelConcluido(imovelNovo)} Ao salvar, confirme se é preciso remarcar uma nova visita.</p>
                                 )}
-                                {imovelNovo.status === 'AGENDADO' && (
-                                    <p className={styles.slotHint}>Este imóvel já tem agendamento em aberto: ele será remarcado com os dados abaixo.</p>
+                                {agendamentoAbertoNovo && (
+                                    <p className={styles.slotHintError} role="alert">
+                                        {mensagemAgendamentoExistente(agendamentoAbertoNovo)} Ao salvar, esse agendamento será remarcado com os dados abaixo.
+                                    </p>
                                 )}
                                 <div className={styles.formRow}>
                                     <div className={styles.formGroup}>
