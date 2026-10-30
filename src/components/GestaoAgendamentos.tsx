@@ -411,17 +411,20 @@ export default function GestaoAgendamentos({ modo = 'admin' }: Props) {
                         {totalConcluidos > 0 && <span className={styles.badgeCount}>{totalConcluidos}</span>}
                     </button>
 
-                    <button
-                        type="button"
-                        role="tab"
-                        aria-selected={activeTab === 'contatos'}
-                        className={activeTab === 'contatos' ? styles.tabBtnActive : styles.tabBtn}
-                        onClick={() => trocarAba('contatos')}
-                    >
-                        <Users size={16} aria-hidden />
-                        <span>Pedidos do site</span>
-                        {totalContatos > 0 && <span className={styles.badgeCount}>{totalContatos}</span>}
-                    </button>
+                    {/* Pedidos do site ficam só na gestão interna; a prefeitura agenda pela própria tela */}
+                    {!prefeitura && (
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={activeTab === 'contatos'}
+                            className={activeTab === 'contatos' ? styles.tabBtnActive : styles.tabBtn}
+                            onClick={() => trocarAba('contatos')}
+                        >
+                            <Users size={16} aria-hidden />
+                            <span>Pedidos do site</span>
+                            {totalContatos > 0 && <span className={styles.badgeCount}>{totalContatos}</span>}
+                        </button>
+                    )}
                 </div>
             </header>
 
