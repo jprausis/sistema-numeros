@@ -24,7 +24,10 @@ export default function ResumoDia() {
 
     useEffect(() => {
         carregarResumo();
-        const timer = window.setInterval(carregarResumo, 2 * 60 * 1000);
+        // Com a tela apagada ou o app em segundo plano não há quem veja os números
+        const timer = window.setInterval(() => {
+            if (document.visibilityState === 'visible') carregarResumo();
+        }, 2 * 60 * 1000);
         const parar = observarFila(itens => {
             // Algo saiu da fila (foi enviado): atualiza os números do dia
             if (itens.length < tamanhoAnterior.current) carregarResumo();

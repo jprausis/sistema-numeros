@@ -22,6 +22,23 @@ export async function apiGetComCache<T = any>(path: string): Promise<RespostaCac
     }
 }
 
+// Lista do mapa em memória: voltar da ficha para o painel não baixa milhares de imóveis de novo.
+// É descartada quando a fila envia algo, para o mapa não mostrar status antigo do que foi salvo.
+const IDADE_MAXIMA_LISTA_MS = 5 * 60 * 1000;
+let listaImoveis: { imoveis: any[]; em: number } | null = null;
+
+export function listaImoveisRecente(): any[] | null {
+    return listaImoveis && Date.now() - listaImoveis.em < IDADE_MAXIMA_LISTA_MS ? listaImoveis.imoveis : null;
+}
+
+export function guardarListaImoveis(imoveis: any[]) {
+    listaImoveis = { imoveis, em: Date.now() };
+}
+
+export function descartarListaImoveis() {
+    listaImoveis = null;
+}
+
 /** Baixa e guarda fichas de imóveis (ex.: os da agenda de hoje) para abrir depois sem internet. */
 export async function guardarImoveisOffline(inscimobs: string[]) {
     for (const id of [...new Set(inscimobs)].slice(0, 40)) {

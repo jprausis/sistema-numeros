@@ -9,7 +9,8 @@ import { toast } from '@/utils/toast';
 import { CloudOff, Sun, X } from 'lucide-react';
 import ImovelInfoModal from '@/components/ImovelInfoModal';
 import { BR_TIMEZONE } from '@/lib/timezone';
-import { apiGetComCache } from '@/lib/cache';
+import { apiGetComCache, guardarListaImoveis, listaImoveisRecente } from '@/lib/cache';
+import { imoveisProximos } from '@/lib/gps';
 import { alternarContraste, contrasteAlto } from '@/lib/contraste';
 import ResumoDia from '@/components/ResumoDia';
 
@@ -22,6 +23,9 @@ export default function InstallerDashboard() {
     const [loadingGps, setLoadingGps] = useState(false);
     const [view, setView] = useState<'map' | 'list' | 'gps' | 'search'>('map');
     const [properties, setProperties] = useState<any[]>([]);
+    // Última lista carregada, para a busca por GPS (que roda fora do ciclo de render) e a busca por texto
+    const propertiesRef = useRef<any[]>([]);
+    propertiesRef.current = properties;
     const [agendamentosList, setAgendamentosList] = useState<any[]>([]);
     const [agendaFilter, setAgendaFilter] = useState<'proximos' | 'hoje' | 'atrasados' | 'todos' | 'concluidos'>('proximos');
     const [agendaData, setAgendaData] = useState(''); // filtro por dia (YYYY-MM-DD)
@@ -55,12 +59,17 @@ export default function InstallerDashboard() {
 
         // Filtro local instantâneo (resposta imediata se os imóveis já estiverem em memória)
         const qLower = query.toLowerCase();
-        const localMatches = properties.filter((p: any) =>
+        const localMatches = propertiesRef.current.filter((p: any) =>
             p.inscimob?.toLowerCase().includes(qLower) ||
             p.numeroAInstalar?.toLowerCase().includes(qLower) ||
             p.endereco?.toLowerCase().includes(qLower)
         );
         setSearchResults(localMatches);
+        // Com 1 ou 2 letras o filtro local basta: não consulta o servidor
+        if (query.length < 3) {
+            setSearching(false);
+            return;
+        }
         setSearching(true);
 
         const timer = setTimeout(async () => {
@@ -90,7 +99,7 @@ export default function InstallerDashboard() {
         }, 300);
 
         return () => clearTimeout(timer);
-    }, [searchQuery, properties]);
+    }, [searchQuery]);
 
     useEffect(() => {
         if (view === 'list') {
@@ -143,8 +152,8 @@ export default function InstallerDashboard() {
     // Buscar todos os imóveis para o mapa
     useEffect(() => {
         const fetchInitialData = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
+            const { data: { session } } = await supabase.auth.getSession();
+            setUser(session?.user ?? null);
             await fetchImoveis();
             handleGpsSearch(true); // Ativar GPS automaticamente no início em background
         };
@@ -152,10 +161,19 @@ export default function InstallerDashboard() {
     }, []);
 
     async function fetchImoveis() {
+        const recente = listaImoveisRecente();
+        if (recente) {
+            propertiesRef.current = recente;
+            setProperties(recente);
+            return;
+        }
         try {
             const { dados, offline: semInternet } = await apiGetComCache('/api/instalador/imoveis');
             setOffline(semInternet);
-            setProperties(dados.imoveis || []);
+            const lista = dados.imoveis || [];
+            if (!semInternet) guardarListaImoveis(lista);
+            propertiesRef.current = lista;
+            setProperties(lista);
         } catch (e: any) {
             toast.error(e.message || 'Erro ao carregar os imóveis.');
         }
@@ -176,9 +194,13 @@ export default function InstallerDashboard() {
             setLocation({ lat: latitude, lon: longitude });
 
             try {
-                const res = await apiFetch(`/api/instalador/proximos?lat=${latitude}&lon=${longitude}&radius=${radius}`);
-                const data = await res.json();
-                setCandidates(data.candidates || []);
+                if (propertiesRef.current.length > 0) {
+                    setCandidates(imoveisProximos(propertiesRef.current, latitude, longitude, radius));
+                } else {
+                    const res = await apiFetch(`/api/instalador/proximos?lat=${latitude}&lon=${longitude}&radius=${radius}`);
+                    const data = await res.json();
+                    setCandidates(data.candidates || []);
+                }
             } catch (e) {
                 if (!silent) toast.error("Erro ao buscar imóveis próximos.");
             } finally {
@@ -715,7 +737,7 @@ export default function InstallerDashboard() {
                                                             onClick={() => setFullScreenImage(targetImovel.fotoLocalInstalacao)}
                                                             title="Ver foto de orientação em tela cheia"
                                                         >
-                                                            <img src={targetImovel.fotoLocalInstalacao} alt="Orientação" />
+                                                            <img src={targetImovel.fotoLocalInstalacao} alt="Orientação" loading="lazy" decoding="async" />
                                                             <span>Ver Foto de Orientação da Prefeitura</span>
                                                         </div>
                                                     )}

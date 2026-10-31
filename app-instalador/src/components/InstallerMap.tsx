@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, GeoJSON } from 'react-leaflet';
 import L from 'leaflet';
+import type { GeoJsonObject } from 'geojson';
 import 'leaflet/dist/leaflet.css';
 import { Crosshair, Filter, Layers, List } from 'lucide-react';
 import styles from './map.module.css';
 import { utmToLatLng } from '@/utils/geo';
+import { apiGetComCache } from '@/lib/cache';
 import { parseFotos, fotoDestaque } from '@/utils/fotos';
 import { STATUS_COLORS, statusLabel } from '@/utils/status';
 
@@ -137,6 +139,22 @@ export default function InstallerMap({
         }
     }, [selectedInsc]);
 
+    // As listagens não trazem a malha (polígono do lote): busca só a do imóvel selecionado
+    const [malhas, setMalhas] = useState<Record<string, GeoJsonObject>>({});
+    const malhasPedidas = useRef<Set<string>>(new Set());
+    useEffect(() => {
+        if (!selectedInsc || malhasPedidas.current.has(selectedInsc)) return;
+        const insc = selectedInsc;
+        malhasPedidas.current.add(insc);
+        apiGetComCache(`/api/instalador/imovel/${encodeURIComponent(insc)}?malha=1`)
+            .then(r => r.dados)
+            .then(data => {
+                const malha = data?.imovel?.malha;
+                if (malha) setMalhas(prev => ({ ...prev, [insc]: malha }));
+            })
+            .catch(() => { malhasPedidas.current.delete(insc); });
+    }, [selectedInsc]);
+
     if (!isMounted) return <div className={styles.loader}>Iniciando GPS...</div>;
 
     const mapCenter: [number, number] = focusOn
@@ -146,6 +164,7 @@ export default function InstallerMap({
             : [-25.187883706053842, -49.314766448822134];
 
     const selectedProperty = properties.find(p => p.inscimob === selectedInsc);
+    const malhaSelecionada = selectedProperty ? (selectedProperty.malha || malhas[selectedProperty.inscimob]) : null;
 
     return (
         <div className={styles.mapWrapper} style={{ flex: 1, minHeight: '500px', height: '100%', position: 'relative' }}>
@@ -241,10 +260,10 @@ export default function InstallerMap({
                 )}
 
                 {/* Renderizar Vetor (Polygon) se o imóvel estiver selecionado e tiver malha */}
-                {selectedProperty?.malha && (
+                {malhaSelecionada && (
                     <GeoJSON
-                        key={`vector-${selectedProperty.inscimob}`}
-                        data={selectedProperty.malha}
+                        key={`vector-${selectedProperty!.inscimob}`}
+                        data={malhaSelecionada}
                         style={{
                             color: '#2563eb',
                             weight: 3,

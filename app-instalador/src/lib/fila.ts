@@ -1,5 +1,6 @@
 import { apiFetch } from './api';
 import { apagar, gravar, listar } from './armazenamento';
+import { descartarListaImoveis } from './cache';
 
 /**
  * Fila de envio: toda instalação é gravada primeiro no celular e depois enviada ao servidor.
@@ -170,6 +171,7 @@ export function processarFila(opcoes: { apenas?: string; aoProgredir?: (etapa: s
                 await gravar('dados', item.chave, item).catch(() => {});
             }
         }
+        if (enviados > 0) descartarListaImoveis();
         const pendentes = (await itensFila()).length;
         return { enviados, pendentes, semInternet };
     })().finally(() => {
@@ -191,7 +193,9 @@ export async function tentarNovamente(chave: string) {
 
 /** Envio automático: ao abrir o app, quando a internet volta e a cada minuto. */
 export function iniciarEnvioAutomatico(): () => void {
-    const tentar = () => { if (navigator.onLine) processarFila().catch(() => {}); };
+    const tentar = () => {
+        if (navigator.onLine && document.visibilityState === 'visible') processarFila().catch(() => {});
+    };
     tentar();
     window.addEventListener('online', tentar);
     const timer = window.setInterval(tentar, 60 * 1000);
