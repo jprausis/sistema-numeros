@@ -20,6 +20,22 @@
     font-weight: 700;
 }
 
+.headerFechado {
+    margin-bottom: 0;
+    align-items: center;
+}
+
+.maisItens {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+    margin-top: 1.25rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
 .sub {
     font-size: 0.85rem;
     color: var(--muted);
@@ -84,6 +100,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 0.4rem;
 }
 
 .btnIcon {

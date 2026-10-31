@@ -104,6 +104,11 @@ export default function PrefeituraPage() {
             p.endereco?.toLowerCase().includes(qLower)
         );
         setSearchResults(localMatches);
+        // Com 1 ou 2 letras o filtro local basta: não consulta o servidor
+        if (query.length < 3) {
+            setSearching(false);
+            return;
+        }
         setSearching(true);
 
         const timer = setTimeout(async () => {
@@ -181,6 +186,18 @@ export default function PrefeituraPage() {
             setProperties(data.imoveis || []);
         } catch (e) {
             console.error("Erro ao buscar imóveis");
+        }
+    };
+
+    // Depois de uma ação recarrega só o imóvel alterado: a lista completa tem milhares de linhas
+    const recarregarImovel = async (inscimob: string) => {
+        try {
+            const res = await fetch(`/api/instalador/imovel/${encodeURIComponent(inscimob)}`);
+            if (!res.ok) throw new Error();
+            const { imovel } = await res.json();
+            setProperties(prev => prev.map(p => p.inscimob === inscimob ? imovel : p));
+        } catch {
+            fetchImoveis();
         }
     };
 
@@ -275,7 +292,9 @@ export default function PrefeituraPage() {
                 const { data, error } = await supabase.storage
                     .from('fotos-imoveis')
                     .upload(fileName, compressedBlob, {
-                        contentType: 'image/jpeg'
+                        contentType: 'image/jpeg',
+                        // Nome único, nunca sobrescrito: pode ficar 1 ano em cache
+                        cacheControl: '31536000'
                     });
 
                 if (error) throw new Error("Falha no upload da foto: " + error.message);
@@ -305,7 +324,7 @@ export default function PrefeituraPage() {
                 setSelectedForProcess(null);
                 setPhoto(null);
                 setPhotoPreview(null);
-                fetchImoveis();
+                recarregarImovel(selectedForProcess.inscimob);
                 handleGpsSearch();
             } else {
                 const data = await res.json().catch(() => ({}));
@@ -331,7 +350,9 @@ export default function PrefeituraPage() {
                 const { data, error } = await supabase.storage
                     .from('fotos-imoveis')
                     .upload(fileName, compressedBlob, {
-                        contentType: 'image/jpeg'
+                        contentType: 'image/jpeg',
+                        // Nome único, nunca sobrescrito: pode ficar 1 ano em cache
+                        cacheControl: '31536000'
                     });
 
                 if (error) throw new Error("Falha no upload da foto do complemento: " + error.message);
@@ -366,7 +387,7 @@ export default function PrefeituraPage() {
                     )
                 }));
                 // Recarregar listas globais para manter sincronismo
-                fetchImoveis();
+                recarregarImovel(selectedForProcess.inscimob);
                 handleGpsSearch();
                 setPhoto(null);
                 setPhotoPreview(null);
@@ -396,7 +417,7 @@ export default function PrefeituraPage() {
                 toast.success("Número do imóvel atualizado.");
                 setSelectedForProcess((prev: any) => prev ? { ...prev, numeroAInstalar: editingNumero.trim() } : null);
                 setIsEditingNumero(false);
-                fetchImoveis();
+                recarregarImovel(selectedForProcess.inscimob);
                 handleGpsSearch();
             } else {
                 const data = await res.json();
@@ -508,7 +529,7 @@ export default function PrefeituraPage() {
                 if (selectedForProcess && selectedForProcess.inscimob === agendandoImovel.inscimob) {
                     setSelectedForProcess((prev: any) => prev ? { ...prev, status: 'AGENDADO' } : null);
                 }
-                fetchImoveis();
+                recarregarImovel(agendandoImovel.inscimob);
             } else {
                 toast.error(data.error || "Erro ao salvar agendamento.");
             }

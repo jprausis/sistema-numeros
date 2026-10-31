@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import styles from './gestaoImoveis.module.css';
-import * as XLSX from 'xlsx';
 import { Download, Loader2, MapPin, Navigation, Plus, Search, Trash2, X } from 'lucide-react';
 import { toast } from '@/utils/toast';
 import { parseFotos, limparLinksImagens, temFotosReais, fotoDestaque } from '@/utils/fotos';
@@ -11,10 +10,12 @@ import { statusLabel } from '@/utils/status';
 import { formatBrazil, todayBrazil } from '@/lib/timezone';
 import { MOTIVOS_PENDENCIA } from '@/lib/motivosPendencia';
 import type { InstaladorLocalizacao } from '@/components/InstallerMap';
+import { compressImage } from '@/utils/imageCompressor';
 import ImovelInfoModal from '@/components/ImovelInfoModal';
 import { useDialog } from '@/utils/useDialog';
 
-const PAGE_SIZE = 100;
+// A lista mostra a foto de cada imóvel: poucos por vez, mais ao clicar em "Carregar mais"
+const PAGE_SIZE = 25;
 
 const InstallerMap = dynamic(() => import('@/components/InstallerMap'), {
     ssr: false,
@@ -83,6 +84,18 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
         }
     }
 
+    // Depois de uma edição recarrega só o imóvel alterado: a lista completa tem milhares de linhas
+    async function recarregarImovel(inscimob: string) {
+        try {
+            const res = await fetch(`/api/instalador/imovel/${encodeURIComponent(inscimob)}`);
+            if (!res.ok) throw new Error();
+            const { imovel } = await res.json();
+            setImoveis(prev => prev.map(i => i.inscimob === inscimob ? imovel : i));
+        } catch {
+            fetchImoveis();
+        }
+    }
+
     useEffect(() => {
         const checkUser = async () => {
             try {
@@ -120,7 +133,9 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
             .then(data => { if (ativo && data) setInstaladores(data.localizacoes || []); })
             .catch(() => {});
         carregar();
-        const timer = setInterval(carregar, 60000);
+        const timer = setInterval(() => {
+            if (document.visibilityState === 'visible') carregar();
+        }, 60000);
         return () => { ativo = false; clearInterval(timer); };
     }, [view, verInstaladores]);
 
@@ -139,7 +154,7 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
             if (!res.ok) throw new Error();
             setSelectedImovel({ ...selectedImovel, fotos: null });
             toast.success("Foto excluída.");
-            fetchImoveis();
+            recarregarImovel(selectedImovel.inscimob);
         } catch (e) {
             toast.error("Erro ao excluir foto.");
         }
@@ -163,7 +178,7 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
                     return c;
                 });
                 setSelectedImovel({ ...selectedImovel, complementos: updatedComps });
-                fetchImoveis();
+                recarregarImovel(selectedImovel.inscimob);
             } else {
                 toast.error("Erro ao excluir foto do complemento.");
             }
@@ -176,8 +191,10 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
         const file = e.target.files?.[0];
         if (!file || !selectedImovel) return;
 
+        // Mesma compressão das outras telas (a foto da câmera pode ter vários MB)
+        const foto = await compressImage(file).catch(() => file);
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', foto, 'foto.jpg');
         formData.append('folder', selectedImovel.bairro?.nome || 'geral');
 
         try {
@@ -206,7 +223,7 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
                     return c;
                 });
                 setSelectedImovel({ ...selectedImovel, complementos: updatedComps });
-                fetchImoveis();
+                recarregarImovel(selectedImovel.inscimob);
             } else {
                 toast.error("Erro ao enviar foto do complemento.");
             }
@@ -233,7 +250,7 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
                     return c;
                 });
                 setSelectedImovel({ ...selectedImovel, complementos: updatedComps });
-                fetchImoveis();
+                recarregarImovel(selectedImovel.inscimob);
             } else {
                 toast.error("Erro ao atualizar status do complemento.");
             }
@@ -263,7 +280,7 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
             if (!res.ok) throw new Error(data.error || "Erro ao atualizar.");
             toast.success("Imóvel atualizado.");
             setEditMode(false);
-            fetchImoveis();
+            recarregarImovel(selectedImovel.inscimob);
         } catch (e: any) {
             toast.error(e.message || "Erro ao atualizar.");
         } finally {
@@ -330,7 +347,7 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
         }
     };
 
-    const handleExport = () => {
+    const handleExport = async () => {
         const dataToExport: any[] = [];
 
         filtered.forEach((i: any) => {
@@ -372,6 +389,8 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
             }
         });
 
+        // A biblioteca de planilhas é pesada: só é baixada quando alguém exporta
+        const XLSX = await import('xlsx');
         const ws = XLSX.utils.json_to_sheet(dataToExport);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Imoveis");
@@ -581,7 +600,7 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
                     {!loading && filtered.length > visibleCount && (
                         <div className={styles.loadMore}>
                             <span>Exibindo {visibleCount.toLocaleString('pt-BR')} de {filtered.length.toLocaleString('pt-BR')}</span>
-                            <button type="button" className={styles.exportBtn} onClick={() => setVisibleCount(c => c + PAGE_SIZE * 2)}>
+                            <button type="button" className={styles.exportBtn} onClick={() => setVisibleCount(c => c + PAGE_SIZE)}>
                                 Carregar mais
                             </button>
                         </div>

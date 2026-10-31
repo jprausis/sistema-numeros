@@ -10,8 +10,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         }
 
         const { id } = await params;
+        // A malha (polígono do lote) só vai quando o mapa pede, com ?malha=1
+        const comMalha = req.nextUrl.searchParams.get("malha") === "1";
         const imovel = await prisma.imovel.findUnique({
             where: { inscimob: id },
+            omit: { malha: !comMalha },
             include: {
                 bairro: { select: { nome: true } },
                 complementos: {

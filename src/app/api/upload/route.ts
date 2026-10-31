@@ -44,6 +44,8 @@ export async function POST(req: NextRequest) {
             .from(BUCKET)
             .upload(filePath, fileData, {
                 contentType: file.type || "image/jpeg",
+                // O nome do arquivo é único e nunca é sobrescrito: celular e CDN podem guardar a foto por 1 ano
+                cacheControl: "31536000",
                 upsert: false
             });
 

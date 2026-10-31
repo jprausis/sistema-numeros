@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    AlertTriangle, CalendarCheck, Camera, CheckCircle2, ChevronLeft, ChevronRight, Clock, HardHat,
+    AlertTriangle, CalendarCheck, Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, HardHat,
     ImageOff, Loader2, MapPin, MessageSquare, RefreshCw, X
 } from 'lucide-react';
 import styles from './timelineInstalacoes.module.css';
@@ -30,6 +30,8 @@ type FiltroStatus = 'TODOS' | 'CONCLUIDO' | 'PENDENTE';
 
 // Atualiza sozinho enquanto o dia exibido é hoje
 const INTERVALO_ATUALIZACAO_MS = 60 * 1000;
+// Cada item pode ter foto: mostra poucos por vez
+const ITENS_POR_VEZ = 25;
 
 function somarDias(data: string, dias: number) {
     const [y, m, d] = data.split('-').map(Number);
@@ -50,6 +52,9 @@ export default function TimelineInstalacoes({ bairroId }: { bairroId?: string })
     const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('TODOS');
     const [fotoAberta, setFotoAberta] = useState<string | null>(null);
     const [imovelAberto, setImovelAberto] = useState<string | null>(null);
+    // Começa fechada: o painel abre sem baixar a linha do tempo, só quando alguém pede
+    const [aberta, setAberta] = useState(false);
+    const [limite, setLimite] = useState({ filtro: '', total: ITENS_POR_VEZ });
 
     const hoje = todayBrazil();
     const ehHoje = data === hoje;
@@ -76,16 +81,16 @@ export default function TimelineInstalacoes({ bairroId }: { bairroId?: string })
     }, [data, bairroId]);
 
     useEffect(() => {
-        carregar();
-    }, [carregar]);
+        if (aberta) carregar();
+    }, [aberta, carregar]);
 
     useEffect(() => {
-        if (!ehHoje) return;
+        if (!aberta || !ehHoje) return;
         const id = setInterval(() => {
             if (document.visibilityState === 'visible') carregar();
         }, INTERVALO_ATUALIZACAO_MS);
         return () => clearInterval(id);
-    }, [ehHoje, carregar]);
+    }, [aberta, ehHoje, carregar]);
 
     useEffect(() => {
         if (!fotoAberta) return;
@@ -118,6 +123,27 @@ export default function TimelineInstalacoes({ bairroId }: { bairroId?: string })
     ];
 
     const dataBr = data.split('-').reverse().join('/');
+
+    // Volta a mostrar só os primeiros itens quando o dia ou um filtro muda
+    const filtroAtual = `${chave}|${instaladorAtivo}|${filtroStatus}`;
+    const totalVisivel = limite.filtro === filtroAtual ? limite.total : ITENS_POR_VEZ;
+    const mostrar = visiveis.slice(0, totalVisivel);
+
+    if (!aberta) {
+        return (
+            <section className={styles.panel} aria-labelledby="timeline-title">
+                <div className={`${styles.header} ${styles.headerFechado}`}>
+                    <div>
+                        <h3 id="timeline-title">Linha do tempo das instalações</h3>
+                        <p className={styles.sub}>Imóveis concluídos ou marcados como pendentes pelos instaladores</p>
+                    </div>
+                    <button type="button" className={styles.btnHoje} onClick={() => setAberta(true)} aria-expanded={false}>
+                        <ChevronDown size={16} aria-hidden /> Abrir linha do tempo
+                    </button>
+                </div>
+            </section>
+        );
+    }
 
     return (
         <section className={styles.panel} aria-labelledby="timeline-title">
@@ -152,6 +178,9 @@ export default function TimelineInstalacoes({ bairroId }: { bairroId?: string })
                     )}
                     <button type="button" className={styles.btnIcon} onClick={() => { setAtualizando(true); carregar(); }} disabled={loading} aria-label="Atualizar">
                         <RefreshCw size={16} className={loading ? 'spin' : undefined} />
+                    </button>
+                    <button type="button" className={styles.btnHoje} onClick={() => setAberta(false)} aria-expanded={true}>
+                        <ChevronUp size={16} aria-hidden /> Recolher
                     </button>
                 </div>
             </div>
@@ -197,7 +226,7 @@ export default function TimelineInstalacoes({ bairroId }: { bairroId?: string })
                 </div>
             ) : (
                 <ol className={`${styles.timeline} ${loading ? styles.loading : ''}`}>
-                    {visiveis.map(item => {
+                    {mostrar.map(item => {
                         const concluido = item.status === 'CONCLUIDO';
                         const foto = item.fotos[0];
                         return (
@@ -310,6 +339,15 @@ export default function TimelineInstalacoes({ bairroId }: { bairroId?: string })
                         );
                     })}
                 </ol>
+            )}
+
+            {!loading && !erro && visiveis.length > totalVisivel && (
+                <div className={styles.maisItens}>
+                    <span>Exibindo {totalVisivel} de {visiveis.length}</span>
+                    <button type="button" className={styles.btnHoje} onClick={() => setLimite({ filtro: filtroAtual, total: totalVisivel + ITENS_POR_VEZ })}>
+                        Mostrar mais
+                    </button>
+                </div>
             )}
 
             {fotoAberta && (

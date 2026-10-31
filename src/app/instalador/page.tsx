@@ -63,6 +63,11 @@ export default function InstallerDashboard() {
             p.endereco?.toLowerCase().includes(qLower)
         );
         setSearchResults(localMatches);
+        // Com 1 ou 2 letras o filtro local basta: não consulta o servidor
+        if (query.length < 3) {
+            setSearching(false);
+            return;
+        }
         setSearching(true);
 
         const timer = setTimeout(async () => {
