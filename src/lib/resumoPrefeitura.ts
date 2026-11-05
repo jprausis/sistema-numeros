@@ -17,8 +17,9 @@ const porStatusVazio = (): PorStatus => Object.fromEntries(STATUS_IMOVEL.map(s =
  * andamento geral e por bairro, evolução diária, agendamentos e estoque de números.
  * Não expõe dados pessoais de moradores nem nomes da equipe.
  */
-export async function gerarResumoPrefeitura() {
-    await sincronizarAgendamentosConcluidos();
+export async function gerarResumoPrefeitura({ sincronizar = true }: { sincronizar?: boolean } = {}) {
+    // A sincronização grava no banco; quem só lê os números pode pular
+    if (sincronizar) await sincronizarAgendamentosConcluidos();
 
     const hoje = todayBrazil();
     const inicioHoje = buildBrazilDate(hoje, "00:00")!;
