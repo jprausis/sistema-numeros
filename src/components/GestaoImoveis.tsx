@@ -30,7 +30,7 @@ interface Props {
 }
 
 // Perfis que podem cadastrar imóvel (mesma regra do botão "Novo imóvel")
-const PODE_CADASTRAR = ['ADMIN', 'OPERATOR', 'PREFEITURA'];
+const PODE_CADASTRAR = ['ADMIN', 'OPERATOR', 'PREFEITURA', 'PAINEL_PREFEITURA'];
 
 export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'admin' }: Props) {
     const [imoveis, setImoveis] = useState<any[]>([]);
@@ -63,6 +63,9 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
     const [bairroFilter, setBairroFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [motivoFilter, setMotivoFilter] = useState('');
+    // Imóveis cadastrados pelo usuário logado (o Painel Prefeitura administra os seus)
+    const [meusCadastros, setMeusCadastros] = useState<Set<string>>(new Set());
+    const [somenteMeus, setSomenteMeus] = useState(false);
 
     async function fetchImoveis() {
         try {
@@ -76,6 +79,7 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
             if (!resImoveis.ok) throw new Error(dataImoveis.error);
 
             setImoveis(dataImoveis.imoveis || []);
+            setMeusCadastros(new Set(dataImoveis.meusCadastros || []));
             setBairros(dataBairros.bairros || []);
         } catch (e: any) {
             toast.error(e?.message || "Erro ao carregar os imóveis.");
@@ -140,6 +144,11 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
     }, [view, verInstaladores]);
 
     const isAdmin = role === 'ADMIN';
+    const isPainel = role === 'PAINEL_PREFEITURA';
+    const podeEditar = isAdmin || isPainel;
+    // Endereço, bairro, coordenadas e exclusão: admin em todos, Painel Prefeitura nos que cadastrou
+    const podeEditarCadastro = (i: any) => isAdmin || (isPainel && meusCadastros.has(i?.inscimob));
+    const podeExcluir = (i: any) => podeEditarCadastro(i) && i?.status === 'NAO_INICIADO' && !(i?.complementos?.length > 0);
 
     const handleDeletePhoto = async () => {
         if (!selectedImovel || !window.confirm("Tem certeza que deseja excluir esta foto?")) return;
@@ -265,15 +274,26 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
 
         setSaving(true);
         try {
-            const res = await fetch(`/api/admin/imoveis/${selectedImovel.inscimob}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            const dados: Record<string, any> = { numeroAInstalar: selectedImovel.numeroAInstalar };
+            if (isAdmin) {
+                Object.assign(dados, {
                     status: selectedImovel.status,
                     obsPendente: selectedImovel.obsPendente,
-                    numeroAInstalar: selectedImovel.numeroAInstalar,
                     instaladorResp: user?.name || user?.email
-                })
+                });
+            }
+            if (podeEditarCadastro(selectedImovel)) {
+                Object.assign(dados, {
+                    endereco: selectedImovel.endereco || '',
+                    bairroId: selectedImovel.bairroId,
+                    x: selectedImovel.x,
+                    y: selectedImovel.y
+                });
+            }
+            const res = await fetch(`/api/admin/imoveis/${encodeURIComponent(selectedImovel.inscimob)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dados)
             });
 
             const data = await res.json().catch(() => ({}));
@@ -286,6 +306,39 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleDeleteImovel = async () => {
+        if (!selectedImovel) return;
+        if (!window.confirm(`Excluir o imóvel ${selectedImovel.inscimob} (Nº ${selectedImovel.numeroAInstalar})? A exclusão fica registrada na auditoria e não pode ser desfeita.`)) return;
+
+        setSaving(true);
+        try {
+            const res = await fetch(`/api/admin/imoveis/${encodeURIComponent(selectedImovel.inscimob)}`, { method: 'DELETE' });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Erro ao excluir imóvel.");
+            toast.success("Imóvel excluído.");
+            setImoveis(prev => prev.filter(i => i.inscimob !== selectedImovel.inscimob));
+            setEditMode(false);
+            setSelectedImovel(null);
+        } catch (e: any) {
+            toast.error(e.message || "Erro ao excluir imóvel.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // GPS no formulário de edição (imóvel cadastrado pelo usuário)
+    const handleGetLocationEdit = () => {
+        if (!navigator.geolocation) {
+            toast.error("Geolocalização não é suportada por este navegador.");
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (position) => setSelectedImovel((prev: any) => prev && ({ ...prev, x: position.coords.latitude, y: position.coords.longitude })),
+            () => toast.error("Não foi possível obter a localização. Verifique a permissão de GPS."),
+            { enableHighAccuracy: true }
+        );
     };
 
     const handleGetLocation = () => {
@@ -404,14 +457,15 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
             const matchesBairro = bairroFilter === '' || i.bairroId === bairroFilter;
             const matchesStatus = statusFilter === '' || i.status === statusFilter;
             const matchesMotivo = motivoFilter === '' || (i.status === 'PENDENTE' && (motivoFilter === 'SEM_MOTIVO' ? !i.motivoPendencia : i.motivoPendencia === motivoFilter));
-            return matchesSearch && matchesBairro && matchesStatus && matchesMotivo;
+            const matchesMeus = !somenteMeus || meusCadastros.has(i.inscimob);
+            return matchesSearch && matchesBairro && matchesStatus && matchesMotivo && matchesMeus;
         });
-    }, [imoveis, search, bairroFilter, statusFilter, motivoFilter]);
+    }, [imoveis, search, bairroFilter, statusFilter, motivoFilter, somenteMeus, meusCadastros]);
 
     // Volta para a primeira "página" quando os filtros mudam
     useEffect(() => {
         setVisibleCount(PAGE_SIZE);
-    }, [search, bairroFilter, statusFilter, motivoFilter]);
+    }, [search, bairroFilter, statusFilter, motivoFilter, somenteMeus]);
 
     return (
         <div className={styles.container}>
@@ -419,7 +473,7 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
                 <div>
                     <h1>{modo === 'prefeitura' ? 'Imóveis' : 'Gestão de imóveis'}</h1>
                     <p>{modo === 'prefeitura'
-                        ? 'Consulte a situação, as fotos e a localização de cada imóvel.'
+                        ? 'Consulte a situação, as fotos e a localização de cada imóvel. Os imóveis que você cadastrar podem ser corrigidos ou excluídos por aqui.'
                         : 'Controle total sobre os números instalados e pendências.'}</p>
                 </div>
                 <div className={styles.headerActions}>
@@ -470,6 +524,18 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
                         <option value="SEM_MOTIVO">Pendente sem motivo</option>
                     </select>
 
+                    {meusCadastros.size > 0 && (
+                        <select
+                            className={styles.filterSelect}
+                            aria-label="Filtrar por quem cadastrou"
+                            value={somenteMeus ? 'meus' : ''}
+                            onChange={e => setSomenteMeus(e.target.value === 'meus')}
+                        >
+                            <option value="">Todos os imóveis</option>
+                            <option value="meus">Cadastrados por mim ({meusCadastros.size})</option>
+                        </select>
+                    )}
+
                     <div className={styles.viewToggle} role="group" aria-label="Forma de exibição">
                         <button
                             type="button"
@@ -510,7 +576,7 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
                         properties={filtered}
                         focusOn={mapFocus}
                         instaladores={verInstaladores ? instaladores : undefined}
-                        onEdit={isAdmin ? (i) => {
+                        onEdit={podeEditar ? (i) => {
                             setSelectedImovel(i);
                             setEditMode(true);
                         } : undefined}
@@ -549,7 +615,12 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
                                             <span className={styles.noPhoto}>Sem foto</span>
                                         )}
                                     </td>
-                                    <td><strong>{i.inscimob}</strong></td>
+                                    <td>
+                                        <strong>{i.inscimob}</strong>
+                                        {isPainel && meusCadastros.has(i.inscimob) && (
+                                            <span className={styles.compBadge} style={{ marginLeft: 6 }}>Cadastrado por você</span>
+                                        )}
+                                    </td>
                                     <td>{i.bairro?.nome}</td>
                                     <td>{i.numeroAInstalar}</td>
                                     <td>
@@ -575,7 +646,12 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
                                             >
                                                 <MapPin size={18} />
                                             </button>
-                                            {isAdmin ? (
+                                            {!isAdmin && (
+                                                <button className={styles.editBtn} onClick={() => setFichaImovel(i)}>
+                                                    Ver ficha
+                                                </button>
+                                            )}
+                                            {podeEditar && (
                                                 <button
                                                     className={styles.editBtn}
                                                     onClick={() => {
@@ -584,10 +660,6 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
                                                     }}
                                                 >
                                                     Editar
-                                                </button>
-                                            ) : (
-                                                <button className={styles.editBtn} onClick={() => setFichaImovel(i)}>
-                                                    Ver ficha
                                                 </button>
                                             )}
                                         </div>
@@ -653,6 +725,74 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
                                 />
                             </div>
 
+                            {podeEditarCadastro(selectedImovel) ? (
+                                <>
+                                    <div className={styles.formGroup}>
+                                        <label htmlFor="edit-endereco">Endereço</label>
+                                        <input
+                                            id="edit-endereco"
+                                            type="text"
+                                            className={styles.formInput}
+                                            value={selectedImovel.endereco || ''}
+                                            onChange={e => setSelectedImovel({ ...selectedImovel, endereco: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div className={styles.formGroup}>
+                                        <label htmlFor="edit-bairro">Bairro</label>
+                                        <select
+                                            id="edit-bairro"
+                                            className={styles.formSelect}
+                                            value={selectedImovel.bairroId}
+                                            onChange={e => setSelectedImovel({
+                                                ...selectedImovel,
+                                                bairroId: e.target.value,
+                                                bairro: { nome: bairros.find(b => b.id === e.target.value)?.nome }
+                                            })}
+                                            required
+                                        >
+                                            {bairros.map(b => (
+                                                <option key={b.id} value={b.id}>{b.nome}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className={styles.formGroup}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '8px' }}>
+                                            <label style={{ margin: 0 }}>Coordenadas (Eixos X e Y)</label>
+                                            <button type="button" onClick={handleGetLocationEdit} className={styles.geoButton}>
+                                                <Navigation size={14} /> Usar minha localização (GPS)
+                                            </button>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '1rem' }}>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                className={styles.formInput}
+                                                value={selectedImovel.x ?? ''}
+                                                onChange={e => setSelectedImovel({ ...selectedImovel, x: e.target.value })}
+                                                aria-label="Latitude ou coordenada X"
+                                                required
+                                            />
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                className={styles.formInput}
+                                                value={selectedImovel.y ?? ''}
+                                                onChange={e => setSelectedImovel({ ...selectedImovel, y: e.target.value })}
+                                                aria-label="Longitude ou coordenada Y"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                </>
+                            ) : isPainel && (
+                                <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>
+                                    Neste imóvel você pode alterar só o número. Endereço, bairro e coordenadas podem ser corrigidos nos imóveis que você cadastrou.
+                                </p>
+                            )}
+
+                            {isAdmin && (
                             <div className={styles.formGroup}>
                                 <label htmlFor="edit-status">Status</label>
                                 <select
@@ -668,8 +808,9 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
                                     <option value="CONCLUIDO">Concluído</option>
                                 </select>
                             </div>
+                            )}
 
-                            {selectedImovel.complementos?.length > 0 && (
+                            {isAdmin && selectedImovel.complementos?.length > 0 && (
                                 <div className={styles.modalComplementSection}>
                                     <label>Complementos ({selectedImovel.complementos.length})</label>
                                     <div className={styles.compactCompList}>
@@ -737,6 +878,7 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
                                 </div>
                             )}
 
+                            {isAdmin && (
                             <div className={styles.formGroup}>
                                 <label htmlFor="edit-obs">Observações</label>
                                 <textarea
@@ -746,8 +888,18 @@ export default function GestaoImoveis({ mostrarInstaladores = false, modo = 'adm
                                     onChange={e => setSelectedImovel({ ...selectedImovel, obsPendente: e.target.value })}
                                 />
                             </div>
+                            )}
+
+                            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>
+                                Toda alteração fica registrada na auditoria com seu usuário, data e hora.
+                            </p>
 
                             <div className={styles.modalActions}>
+                                {podeExcluir(selectedImovel) && (
+                                    <button type="button" onClick={handleDeleteImovel} className={styles.deletePhotoBtn} disabled={saving} style={{ marginRight: 'auto' }}>
+                                        <Trash2 size={16} style={{ marginRight: '6px' }} /> Excluir imóvel
+                                    </button>
+                                )}
                                 <button type="button" onClick={() => setEditMode(false)} className={styles.cancelBtn} disabled={saving}>Cancelar</button>
                                 <button type="submit" className={styles.saveBtn} disabled={saving}>
                                     {saving && <Loader2 size={16} className="spin" />} Salvar

@@ -6,7 +6,8 @@ import { createAuditLog } from "@/lib/audit";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-    const { user, response } = await requireUser(STAFF_ROLES);
+    // Cadastro também liberado para o Painel Prefeitura
+    const { user, response } = await requireUser([...STAFF_ROLES, "PAINEL_PREFEITURA"]);
     if (response) return response;
 
     try {
@@ -69,17 +70,25 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
     // Leitura também liberada para o Painel Prefeitura
-    const { response } = await requireUser([...STAFF_ROLES, "PAINEL_PREFEITURA"]);
+    const { user, response } = await requireUser([...STAFF_ROLES, "PAINEL_PREFEITURA"]);
     if (response) return response;
 
     try {
-        const imoveis = await prisma.imovel.findMany({
-            include: {
-                bairro: { select: { nome: true } },
-                complementos: { orderBy: { unidade: 'asc' } }
-            }
-        });
-        return NextResponse.json({ imoveis });
+        const [imoveis, cadastros] = await Promise.all([
+            prisma.imovel.findMany({
+                include: {
+                    bairro: { select: { nome: true } },
+                    complementos: { orderBy: { unidade: 'asc' } }
+                }
+            }),
+            // Imóveis cadastrados por este usuário: o Painel Prefeitura pode administrá-los
+            prisma.auditLog.findMany({
+                where: { action: "CREATE_IMOVEL", resource: "imovel", userId: user.id },
+                select: { resourceId: true }
+            })
+        ]);
+        const meusCadastros = cadastros.map(c => c.resourceId).filter(Boolean);
+        return NextResponse.json({ imoveis, meusCadastros });
     } catch (error) {
         console.error("Erro ao listar imóveis para administração:", error);
         return NextResponse.json({ error: "Erro interno" }, { status: 500 });

@@ -11,6 +11,7 @@ import { toast } from '@/utils/toast';
 const ACTION_LABELS: Record<string, string> = {
     UPDATE_IMOVEL: 'Imóvel editado',
     CREATE_IMOVEL: 'Imóvel cadastrado',
+    DELETE_IMOVEL: 'Imóvel excluído',
     UPDATE_IMOVEL_LOTE: 'Instalação registrada',
     UPDATE_COMPLEMENTO: 'Complemento atualizado',
     RELEASE_COMPLEMENTO: 'Complemento liberado',
@@ -39,6 +40,12 @@ const CAMPO_LABELS: Record<string, string> = {
     'imovel.obsPendente': 'Observação',
     'complemento.numeroPredial': 'Número da unidade',
     numeroAInstalar: 'Número do imóvel',
+    endereco: 'Endereço',
+    bairro: 'Bairro',
+    x: 'Coordenada X',
+    y: 'Coordenada Y',
+    obsPendente: 'Observação',
+    fotos: 'Foto da instalação',
 };
 const valorCampo = (campo: string, v: any) =>
     v === null || v === undefined ? '—' : campo === 'dataHora' ? formatBrazil(v, true) : String(v);
